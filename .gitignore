@@ -1,0 +1,44 @@
+# IDE / 集成开发环境
+.codeartsdoer
+.arts
+.vs/
+
+# Reference / 参考文档
+uploads
+
+# Build / 构建输出
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Bb]uild/
+
+# NuGet / 包管理
+.nuget/
+packages/
+
+# MSIX / 打包
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+
+# Build stubs / 构建桩
+build-stubs/bin/
+build-stubs/obj/
+
+# Temp / 临时文件
+temp/
+*.tmp
+temp_*.txt
+
+# Build logs / 构建日志
+build_log*.txt
+*_err.log
+err.log
+
+# Stdout/Stderr redirects / 标准输出重定向
+stdout*.txt
+stderr*.txt
+
+# Misc temp / 其他临时文件
+pass*.json

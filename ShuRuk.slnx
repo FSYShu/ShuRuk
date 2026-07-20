@@ -1,0 +1,13 @@
+<Solution>
+  <Properties>
+    <Property Name="StartupProject" Value="src/ShuRuk.Host/ShuRuk.Host.csproj" />
+  </Properties>
+  <Folder Name="/src/">
+    <Project Path="src/ShuRuk.Contracts/ShuRuk.Contracts.csproj" />
+    <Project Path="src/ShuRuk.Host/ShuRuk.Host.csproj">
+      <Platform Solution="Debug|*" Project="x64" />
+    </Project>
+    <Project Path="src/ShuRuk.Infrastructure/ShuRuk.Infrastructure.csproj" />
+    <Project Path="src/ShuRuk.Runtime/ShuRuk.Runtime.csproj" />
+  </Folder>
+</Solution>

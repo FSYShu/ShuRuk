@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectFile Include="modules\**\*.csproj" />
+  </ItemGroup>
+
+  <Target Name="IncludeModuleProjects" BeforeTargets="CollectProjectReferences">
+    <ItemGroup>
+      <ProjectReference Include="@(ProjectFile)" />
+    </ItemGroup>
+  </Target>
+</Project>
