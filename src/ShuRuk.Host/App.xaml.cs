@@ -42,9 +42,8 @@ public partial class App : Application
         services.AddSingleton<IModuleManager>(sp =>
         {
             var dbInit = sp.GetRequiredService<DatabaseInitializer>();
-            var manager = new ModuleManager(dbInit, modulesPath, appDataPath);
-            manager.InitializeAsync().GetAwaiter().GetResult();
-            return manager;
+            var config = sp.GetRequiredService<IConfigurationService>();
+            return new ModuleManager(dbInit, config, modulesPath, appDataPath);
         });
         services.AddSingleton<IModuleDiscoveryService>(sp =>
         {
@@ -60,5 +59,24 @@ public partial class App : Application
         });
 
         Services = services.BuildServiceProvider();
+
+        // Initialize modules asynchronously after launch to avoid blocking the UI thread
+        _ = InitializeModulesAsync();
+    }
+
+    private async Task InitializeModulesAsync()
+    {
+        try
+        {
+            var manager = Services.GetRequiredService<IModuleManager>();
+            if (manager is ModuleManager concreteManager)
+            {
+                await concreteManager.InitializeAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[App] Module initialization failed: {ex}");
+        }
     }
 }
