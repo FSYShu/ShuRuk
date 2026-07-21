@@ -2,18 +2,18 @@ namespace ShuRuk.Runtime;
 
 public class IsolationBoundary
 {
-    private readonly Dictionary<string, SandboxExecutor> _executors = new();
+    private readonly Dictionary<string, ModuleExecutionBoundary> _executors = new();
     private readonly Dictionary<string, Exception?> _crashRecords = new();
 
-    public SandboxExecutor CreateExecutor(string moduleName, PermissionGuard permissionGuard, string moduleDataPath)
+    public ModuleExecutionBoundary CreateExecutor(string moduleName, PermissionGuard permissionGuard, string moduleDataPath)
     {
-        var executor = new SandboxExecutor(permissionGuard, moduleDataPath);
+        var executor = new ModuleExecutionBoundary(permissionGuard, moduleDataPath);
         _executors[moduleName] = executor;
         _crashRecords.Remove(moduleName);
         return executor;
     }
 
-    public SandboxExecutor? GetExecutor(string moduleName)
+    public ModuleExecutionBoundary? GetExecutor(string moduleName)
     {
         return _executors.TryGetValue(moduleName, out var executor) ? executor : null;
     }
