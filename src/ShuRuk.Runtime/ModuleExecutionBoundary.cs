@@ -42,13 +42,13 @@ public class ModuleExecutionBoundary
     /// is advisory and relies on module code voluntarily using the PermissionGuard API. In-process
     /// module code can potentially bypass these checks.
     /// </summary>
-    public async Task<TResult?> ExecuteAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken = default)
+    public async Task<TResult?> ExecuteAsync<TResult>(Func<CancellationToken, Task<TResult>> action, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
-            return await action();
+            return await action(cancellationToken);
         }
         catch (UnauthorizedAccessException)
         {
@@ -64,11 +64,11 @@ public class ModuleExecutionBoundary
     /// <summary>
     /// Executes a void-returning module action within the managed execution boundary.
     /// </summary>
-    public async Task ExecuteAsync(Func<Task> action, CancellationToken cancellationToken = default)
+    public async Task ExecuteAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default)
     {
-        await ExecuteAsync(async () =>
+        await ExecuteAsync(async ct =>
         {
-            await action();
+            await action(ct);
             return true;
         }, cancellationToken);
     }
