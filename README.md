@@ -13,7 +13,7 @@ A PowerToys-like toolkit for Windows, built with WinUI 3 and .NET 10, supporting
 ## Build / 构建
 
 ```bash
-# Note: Git submodule integration for modules/ is planned for future releases
+git submodule update --init --recursive
 dotnet restore
 dotnet build
 ```
