@@ -41,18 +41,34 @@ public class SearchEngine
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = @"
-            DELETE FROM search_index WHERE document_id = @docId;
-            INSERT INTO search_index (document_id, document_type, title, content, metadata)
-            VALUES (@docId, @docType, @title, @content, @metadata)";
-        command.Parameters.AddWithValue("@docId", documentId);
-        command.Parameters.AddWithValue("@docType", documentType);
-        command.Parameters.AddWithValue("@title", title);
-        command.Parameters.AddWithValue("@content", content);
-        command.Parameters.AddWithValue("@metadata", metadata ?? string.Empty);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "DELETE FROM search_index WHERE document_id = @docId";
+            command.Parameters.AddWithValue("@docId", documentId);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+
+            command.Parameters.Clear();
+            command.CommandText = @"
+                INSERT INTO search_index (document_id, document_type, title, content, metadata)
+                VALUES (@docId, @docType, @title, @content, @metadata)";
+            command.Parameters.AddWithValue("@docId", documentId);
+            command.Parameters.AddWithValue("@docType", documentType);
+            command.Parameters.AddWithValue("@title", title);
+            command.Parameters.AddWithValue("@content", content);
+            command.Parameters.AddWithValue("@metadata", metadata ?? string.Empty);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task RemoveFromIndexAsync(string documentId, CancellationToken cancellationToken = default)
@@ -71,6 +87,9 @@ public class SearchEngine
 
     public async Task<IReadOnlyList<SearchResult>> SearchAsync(string query, string? documentType = null, int limit = 50, CancellationToken cancellationToken = default)
     {
+        if (limit < 0)
+            throw new ArgumentOutOfRangeException(nameof(limit));
+
         await EnsureInitializedAsync(cancellationToken);
 
         await using var connection = new SqliteConnection(_connectionString);
