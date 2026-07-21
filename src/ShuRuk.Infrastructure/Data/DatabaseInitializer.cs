@@ -148,6 +148,8 @@ public class DatabaseInitializer
                     PRIMARY KEY (key, module)
                 )");
 
+            // Note: password and totp_secret fields MUST be encrypted before storage
+            // using DataProtectionService. Never persist plaintext sensitive values.
             await ExecuteNonQueryAsync(connection, cancellationToken, @"
                 CREATE TABLE IF NOT EXISTS password_entries (
                     entry_id TEXT PRIMARY KEY,
