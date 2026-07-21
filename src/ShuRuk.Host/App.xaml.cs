@@ -23,7 +23,7 @@ public partial class App : Application
         InitializeComponent();
     }
 
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         var services = new ServiceCollection();
 
@@ -35,12 +35,29 @@ public partial class App : Application
         var modulesPath = Path.Combine(AppContext.BaseDirectory, "modules");
         var cachePath = Path.Combine(appDataPath, "cache");
 
-        services.AddSingleton(new DatabaseInitializer(dbPath));
+        var databaseInitializer = new DatabaseInitializer(dbPath);
+        services.AddSingleton(databaseInitializer);
         services.AddSingleton<IConfigurationService>(new ConfigurationService(dbPath));
         services.AddSingleton<IEncryptionService>(new EncryptionService());
         services.AddSingleton(new AuditLogService(logPath));
         services.AddSingleton(new SearchEngine(dbPath));
+        services.AddSingleton<IModuleManager>(new ModuleManager(databaseInitializer, modulesPath, appDataPath));
+        services.AddSingleton<IModuleDiscoveryService>(sp =>
+        {
+            var manager = sp.GetRequiredService<IModuleManager>();
+            var http = new HttpClient();
+            http.DefaultRequestHeaders.Add("User-Agent", "ShuRuk/1.0");
+            return new ModuleDiscoveryService(http, manager, modulesPath, cachePath);
+        });
+        services.AddSingleton<StatusMonitor>(sp =>
+        {
+            var manager = sp.GetRequiredService<IModuleManager>();
+            return new StatusMonitor(manager, TimeSpan.FromSeconds(5));
+        });
 
         Services = services.BuildServiceProvider();
+
+        var moduleManager = Services.GetRequiredService<IModuleManager>();
+        await moduleManager.InitializeAsync();
     }
 }
