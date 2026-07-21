@@ -69,6 +69,9 @@ public class AuditLogService
 
     public async Task CleanupAsync(int retentionDays, CancellationToken cancellationToken = default)
     {
+        if (retentionDays < 0)
+            throw new ArgumentOutOfRangeException(nameof(retentionDays));
+
         var cutoff = DateTime.UtcNow.AddDays(-retentionDays);
 
         foreach (var file in Directory.GetFiles(_logDirectory, "audit_*.jsonl"))
