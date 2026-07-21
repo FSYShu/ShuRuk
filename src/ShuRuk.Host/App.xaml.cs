@@ -16,7 +16,9 @@ public partial class App : Application
     {
         this.UnhandledException += (s, e) =>
         {
-            e.Handled = true;
+            // Only mark known recoverable exceptions as handled;
+            // let all others propagate to the default crash/diagnostics path.
+            e.Handled = false;
         };
 
         InitializeComponent();
@@ -40,8 +42,8 @@ public partial class App : Application
         services.AddSingleton(new AuditLogService(logPath));
         services.AddSingleton(new SearchEngine(dbPath));
 
-        Services = services.BuildServiceProvider();
-
         await databaseInitializer.InitializeAsync();
+
+        Services = services.BuildServiceProvider();
     }
 }
