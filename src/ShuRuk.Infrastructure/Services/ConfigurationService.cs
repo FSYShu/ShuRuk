@@ -10,7 +10,7 @@ public class ConfigurationService : IConfigurationService
 
     public ConfigurationService(string dbPath)
     {
-        _connectionString = $"Data Source={dbPath}";
+        _connectionString = $"Data Source={dbPath};Foreign Keys=True";
     }
 
     public async Task<T?> GetValueAsync<T>(string key, string? module = null, CancellationToken cancellationToken = default)
