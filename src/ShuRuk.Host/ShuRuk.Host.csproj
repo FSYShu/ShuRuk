@@ -15,7 +15,6 @@
     <EnableMsixTooling>false</EnableMsixTooling>
     <GeneratePriFilesOnBuild>true</GeneratePriFilesOnBuild>
     <DisableMrtAutoMerge>true</DisableMrtAutoMerge>
-    <AppxMSBuildToolsPath>C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VisualStudio\v17.0\AppxPackage\</AppxMSBuildToolsPath>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
