@@ -8,11 +8,21 @@ public class ConfigurationService : IConfigurationService
 {
     private readonly string _connectionString;
 
+    /// <summary>
+    /// Initializes a configuration service for the specified SQLite database file.
+    /// </summary>
+    /// <param name="dbPath">The path to the SQLite database file.</param>
     public ConfigurationService(string dbPath)
     {
         _connectionString = $"Data Source={dbPath}";
     }
 
+    /// <summary>
+    /// Retrieves a configuration value for the specified key and module.
+    /// </summary>
+    /// <param name="key">The configuration key.</param>
+    /// <param name="module">The module associated with the configuration value.</param>
+    /// <returns>The stored value, deserialized to the requested type, or the default value if no matching configuration exists.</returns>
     public async Task<T?> GetValueAsync<T>(string key, string? module = null, CancellationToken cancellationToken = default)
     {
         var moduleValue = module ?? string.Empty;
@@ -32,6 +42,12 @@ public class ConfigurationService : IConfigurationService
             : JsonSerializer.Deserialize<T>(result.ToString()!);
     }
 
+    /// <summary>
+    /// Stores a configuration value for a key and module, replacing any existing value with the same identifiers.
+    /// </summary>
+    /// <param name="key">The configuration key.</param>
+    /// <param name="value">The value to store.</param>
+    /// <param name="module">The module associated with the configuration value.</param>
     public async Task SetValueAsync<T>(string key, T value, string? module = null, CancellationToken cancellationToken = default)
     {
         var moduleValue = module ?? string.Empty;
@@ -51,6 +67,11 @@ public class ConfigurationService : IConfigurationService
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Removes a configuration value for the specified key and module.
+    /// </summary>
+    /// <param name="key">The configuration key to remove.</param>
+    /// <param name="module">The module associated with the configuration value, or <c>null</c> for the default module.</param>
     public async Task RemoveKeyAsync(string key, string? module = null, CancellationToken cancellationToken = default)
     {
         var moduleValue = module ?? string.Empty;
@@ -65,6 +86,11 @@ public class ConfigurationService : IConfigurationService
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Retrieves all configuration values for a module.
+    /// </summary>
+    /// <param name="module">The module whose configuration values are retrieved.</param>
+    /// <returns>A dictionary mapping configuration keys to their stored values.</returns>
     public async Task<IReadOnlyDictionary<string, object>> GetAllValuesAsync(string? module = null, CancellationToken cancellationToken = default)
     {
         var moduleValue = module ?? string.Empty;

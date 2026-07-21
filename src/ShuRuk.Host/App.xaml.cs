@@ -13,6 +13,9 @@ public partial class App : Application
 
     public static IServiceProvider Services { get; private set; } = null!;
 
+    /// <summary>
+    /// Initializes the application and marks unhandled exceptions as handled.
+    /// </summary>
     public App()
     {
         this.UnhandledException += (s, e) =>
@@ -23,6 +26,9 @@ public partial class App : Application
         InitializeComponent();
     }
 
+    /// <summary>
+    /// Initializes application services and creates the application-wide service provider when the application launches.
+    /// </summary>
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         var services = new ServiceCollection();

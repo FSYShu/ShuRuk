@@ -6,11 +6,19 @@ public class DatabaseInitializer
 {
     private readonly string _connectionString;
 
+    /// <summary>
+    /// Initializes a database initializer for the specified SQLite database file.
+    /// </summary>
+    /// <param name="dbPath">The path to the SQLite database file.</param>
     public DatabaseInitializer(string dbPath)
     {
         _connectionString = $"Data Source={dbPath}";
     }
 
+    /// <summary>
+    /// Initializes the SQLite database schema.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can cancel the initialization operation.</param>
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = new SqliteConnection(_connectionString);
@@ -171,6 +179,12 @@ public class DatabaseInitializer
         }
     }
 
+    /// <summary>
+    /// Executes a SQL statement that does not return rows.
+    /// </summary>
+    /// <param name="connection">The open SQLite connection used to execute the statement.</param>
+    /// <param name="cancellationToken">The token used to cancel execution.</param>
+    /// <param name="sql">The SQL statement to execute.</param>
     private static async Task ExecuteNonQueryAsync(SqliteConnection connection, CancellationToken cancellationToken, string sql)
     {
         await using var command = connection.CreateCommand();

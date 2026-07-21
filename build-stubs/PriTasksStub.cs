@@ -75,14 +75,58 @@ public abstract class PriTaskBase : Microsoft.Build.Utilities.Task
     public ITaskItem? PriConfigXml { get; set; }
 }
 
-public class ExpandPriContent : PriTaskBase { public override bool Execute() => true; }
-public class CreatePriConfigXmlForSplitting : PriTaskBase { public override bool Execute() => true; }
-public class CreatePriConfigXmlForMainPackageFileMap : PriTaskBase { public override bool Execute() => true; }
-public class CreatePriConfigXmlForFullIndex : PriTaskBase { public override bool Execute() => true; }
-public class CreatePriFilesForPortableLibraries : PriTaskBase { public override bool Execute() => true; }
-public class GenerateMainPriConfigurationFile : PriTaskBase { public override bool Execute() => true; }
-public class GeneratePriConfigurationFiles : PriTaskBase { public override bool Execute() => true; }
-public class GenerateProjectPriFile : PriTaskBase { public override bool Execute() => true; }
-public class RemoveDuplicatePriFiles : PriTaskBase { public override bool Execute() => true; }
-public class UpdateMainPackageFileMap : PriTaskBase { public override bool Execute() => true; }
-public class MergePriFiles : PriTaskBase { public override bool Execute() => true; }
+public class ExpandPriContent : PriTaskBase { /// <summary>
+/// Completes the task successfully.
+/// </summary>
+/// <returns><c>true</c>.</returns>
+public override bool Execute() => true; }
+public class CreatePriConfigXmlForSplitting : PriTaskBase { /// <summary>
+/// Completes the task successfully.
+/// </summary>
+/// <returns><c>true</c>.</returns>
+public override bool Execute() => true; }
+public class CreatePriConfigXmlForMainPackageFileMap : PriTaskBase { /// <summary>
+/// Completes the task successfully.
+/// </summary>
+/// <returns><c>true</c>.</returns>
+public override bool Execute() => true; }
+public class CreatePriConfigXmlForFullIndex : PriTaskBase { /// <summary>
+/// Completes the task successfully.
+/// </summary>
+/// <returns><c>true</c>.</returns>
+public override bool Execute() => true; }
+public class CreatePriFilesForPortableLibraries : PriTaskBase { /// <summary>
+/// Completes the task successfully.
+/// </summary>
+/// <returns><c>true</c>.</returns>
+public override bool Execute() => true; }
+public class GenerateMainPriConfigurationFile : PriTaskBase { /// <summary>
+/// Completes the task successfully.
+/// </summary>
+/// <returns><c>true</c>.</returns>
+public override bool Execute() => true; }
+public class GeneratePriConfigurationFiles : PriTaskBase { /// <summary>
+/// Completes the task successfully.
+/// </summary>
+/// <returns><c>true</c>.</returns>
+public override bool Execute() => true; }
+public class GenerateProjectPriFile : PriTaskBase { /// <summary>
+/// Completes the task successfully.
+/// </summary>
+/// <returns><c>true</c>.</returns>
+public override bool Execute() => true; }
+public class RemoveDuplicatePriFiles : PriTaskBase { /// <summary>
+/// Completes the task successfully.
+/// </summary>
+/// <returns><c>true</c>.</returns>
+public override bool Execute() => true; }
+public class UpdateMainPackageFileMap : PriTaskBase { /// <summary>
+/// Completes the task successfully.
+/// </summary>
+/// <returns><c>true</c>.</returns>
+public override bool Execute() => true; }
+public class MergePriFiles : PriTaskBase { /// <summary>
+/// Completes the task successfully.
+/// </summary>
+/// <returns><c>true</c>.</returns>
+public override bool Execute() => true; }

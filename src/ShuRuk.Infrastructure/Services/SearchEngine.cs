@@ -7,11 +7,19 @@ public class SearchEngine
     private readonly string _connectionString;
     private bool _initialized;
 
+    /// <summary>
+    /// Creates a search engine that uses the specified SQLite database.
+    /// </summary>
+    /// <param name="dbPath">The path to the SQLite database file.</param>
     public SearchEngine(string dbPath)
     {
         _connectionString = $"Data Source={dbPath}";
     }
 
+    /// <summary>
+    /// Ensures that the full-text search index is available for use.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel the initialization operation.</param>
     public async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
     {
         if (_initialized) return;
@@ -34,6 +42,14 @@ public class SearchEngine
         _initialized = true;
     }
 
+    /// <summary>
+    /// Adds or updates a document in the full-text search index.
+    /// </summary>
+    /// <param name="documentId">The unique identifier of the document.</param>
+    /// <param name="documentType">The type of the document.</param>
+    /// <param name="title">The document title.</param>
+    /// <param name="content">The searchable document content.</param>
+    /// <param name="metadata">Optional metadata associated with the document.</param>
     public async Task IndexAsync(string documentId, string documentType, string title, string content, string? metadata = null, CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
@@ -55,6 +71,10 @@ public class SearchEngine
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Removes a document from the search index.
+    /// </summary>
+    /// <param name="documentId">The identifier of the document to remove.</param>
     public async Task RemoveFromIndexAsync(string documentId, CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
@@ -69,6 +89,13 @@ public class SearchEngine
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Searches indexed documents and returns ranked matching results, optionally filtered by document type.
+    /// </summary>
+    /// <param name="query">The full-text search query.</param>
+    /// <param name="documentType">The document type used to filter results, or <c>null</c> to search all document types.</param>
+    /// <param name="limit">The maximum number of results to return.</param>
+    /// <returns>The ranked search results matching the query.</returns>
     public async Task<IReadOnlyList<SearchResult>> SearchAsync(string query, string? documentType = null, int limit = 50, CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
