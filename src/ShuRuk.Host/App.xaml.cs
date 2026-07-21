@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using ShuRuk.Contracts.Interfaces;
-using ShuRuk.Host.Services;
 using ShuRuk.Infrastructure.Data;
 using ShuRuk.Infrastructure.Services;
 
@@ -23,7 +22,7 @@ public partial class App : Application
         InitializeComponent();
     }
 
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         var services = new ServiceCollection();
 
@@ -35,11 +34,14 @@ public partial class App : Application
         var modulesPath = Path.Combine(AppContext.BaseDirectory, "modules");
         var cachePath = Path.Combine(appDataPath, "cache");
 
-        services.AddSingleton(new DatabaseInitializer(dbPath));
+        var databaseInitializer = new DatabaseInitializer(dbPath);
+        services.AddSingleton(databaseInitializer);
         services.AddSingleton<IConfigurationService>(new ConfigurationService(dbPath));
         services.AddSingleton(new AuditLogService(logPath));
         services.AddSingleton(new SearchEngine(dbPath));
 
         Services = services.BuildServiceProvider();
+
+        await databaseInitializer.InitializeAsync();
     }
 }
