@@ -15,6 +15,8 @@ public class SandboxExecutor
 
     public async Task<TResult?> ExecuteAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         try
         {
             return await action();
@@ -23,7 +25,7 @@ public class SandboxExecutor
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             IsIsolated = true;
             throw new ModuleExecutionException("Module execution failed within sandbox boundary", ex);

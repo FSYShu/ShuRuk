@@ -32,6 +32,24 @@ public class ModuleManager : IModuleManager
         await DiscoverBuiltInModulesAsync(cancellationToken);
     }
 
+    public Task RegisterModuleAsync(ModuleManifest manifest, string moduleDir, CancellationToken cancellationToken = default)
+    {
+        var validationResult = _validator.Validate(manifest);
+        if (!validationResult.IsValid)
+            throw new InvalidOperationException($"Invalid manifest: {string.Join("; ", validationResult.Errors)}");
+
+        var info = new ModuleInfo
+        {
+            Manifest = manifest,
+            State = ModuleState.Validated,
+            Source = ModuleSource.External,
+            SubmodulePath = moduleDir
+        };
+
+        _modules[manifest.Name] = info;
+        return Task.CompletedTask;
+    }
+
     private async Task DiscoverBuiltInModulesAsync(CancellationToken cancellationToken)
     {
         if (!Directory.Exists(_modulesPath)) return;
@@ -41,8 +59,9 @@ public class ModuleManager : IModuleManager
             var manifestPath = Path.Combine(dir, "manifest.json");
             if (!File.Exists(manifestPath)) continue;
 
+            await using var manifestStream = File.OpenRead(manifestPath);
             var manifest = await System.Text.Json.JsonSerializer.DeserializeAsync<ModuleManifest>(
-                File.OpenRead(manifestPath), cancellationToken: cancellationToken);
+                manifestStream, cancellationToken: cancellationToken);
 
             if (manifest is null) continue;
 
@@ -78,7 +97,7 @@ public class ModuleManager : IModuleManager
         if (info.State != ModuleState.Validated && info.State != ModuleState.Discovered)
             throw new InvalidOperationException($"Cannot install module '{moduleName}' in state {info.State}.");
 
-        if (info.Manifest.Source == ModuleSource.BuiltIn)
+        if (info.Source == ModuleSource.BuiltIn)
         {
             TransitionState(moduleName, info.State, ModuleState.Installed);
             return;
@@ -96,7 +115,7 @@ public class ModuleManager : IModuleManager
         if (info.State == ModuleState.Running || info.State == ModuleState.Loaded)
             await UnloadModuleAsync(moduleName, cancellationToken);
 
-        if (info.Manifest.Source == ModuleSource.BuiltIn)
+        if (info.Source == ModuleSource.BuiltIn)
         {
             info.IsUninstalled = true;
             info.UninstalledAt = DateTime.UtcNow;
@@ -228,7 +247,7 @@ public class ModuleManager : IModuleManager
         if (!_modules.TryGetValue(moduleName, out var info))
             throw new KeyNotFoundException($"Module '{moduleName}' not found.");
 
-        if (info.Manifest.Source != ModuleSource.BuiltIn)
+        if (info.Source != ModuleSource.BuiltIn)
             throw new InvalidOperationException($"Module '{moduleName}' is not a built-in module.");
 
         info.IsUninstalled = false;

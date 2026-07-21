@@ -20,7 +20,7 @@ public partial class ModuleManifestValidator
         "input_device", "credentials", "system", "ui"
     };
 
-    [GeneratedRegex(@"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$", RegexOptions.Compiled)]
+    [GeneratedRegex(@"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$", RegexOptions.Compiled)]
     private static partial Regex SemVerRegex();
 
     public ManifestValidationResult Validate(ModuleManifest manifest)

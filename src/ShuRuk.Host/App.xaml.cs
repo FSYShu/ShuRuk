@@ -23,7 +23,7 @@ public partial class App : Application
         InitializeComponent();
     }
 
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         var services = new ServiceCollection();
 
@@ -35,18 +35,13 @@ public partial class App : Application
         var modulesPath = Path.Combine(AppContext.BaseDirectory, "modules");
         var cachePath = Path.Combine(appDataPath, "cache");
 
-        services.AddSingleton(new DatabaseInitializer(dbPath));
+        var databaseInitializer = new DatabaseInitializer(dbPath);
+        services.AddSingleton(databaseInitializer);
         services.AddSingleton<IConfigurationService>(new ConfigurationService(dbPath));
         services.AddSingleton<IEncryptionService>(new EncryptionService());
         services.AddSingleton(new AuditLogService(logPath));
         services.AddSingleton(new SearchEngine(dbPath));
-        services.AddSingleton<IModuleManager>(sp =>
-        {
-            var dbInit = sp.GetRequiredService<DatabaseInitializer>();
-            var manager = new ModuleManager(dbInit, modulesPath, appDataPath);
-            manager.InitializeAsync().GetAwaiter().GetResult();
-            return manager;
-        });
+        services.AddSingleton<IModuleManager>(new ModuleManager(databaseInitializer, modulesPath, appDataPath));
         services.AddSingleton<IModuleDiscoveryService>(sp =>
         {
             var manager = sp.GetRequiredService<IModuleManager>();
@@ -61,5 +56,9 @@ public partial class App : Application
         });
 
         Services = services.BuildServiceProvider();
+
+        await databaseInitializer.InitializeAsync();
+        var moduleManager = Services.GetRequiredService<IModuleManager>();
+        await moduleManager.InitializeAsync();
     }
 }

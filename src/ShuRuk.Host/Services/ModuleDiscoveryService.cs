@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ShuRuk.Contracts.Enums;
@@ -138,7 +139,10 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
                         Category = null,
                         Downloads = item.TryGetProperty("stargazers_count", out var stars) ? stars.GetInt32() : 0,
                         Rating = 0,
-                        UpdatedAt = item.TryGetProperty("updated_at", out var updated) ? DateTime.Parse(updated.GetString()!) : DateTime.UtcNow,
+                        UpdatedAt = item.TryGetProperty("updated_at", out var updated)
+                        && DateTime.TryParse(updated.GetString(), CultureInfo.InvariantCulture,
+                            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed)
+                        ? parsed : DateTime.UtcNow,
                         Icon = null,
                         Installed = false
                     });
@@ -186,12 +190,20 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
     private async Task DownloadAndInstallAsync(ModuleManifest manifest, string repositoryUrl, CancellationToken cancellationToken)
     {
+        if (!IsSafeModuleName(manifest.Name))
+            throw new InvalidOperationException($"Unsafe module name: '{manifest.Name}'");
+
         var moduleDir = Path.Combine(_installPath, manifest.Name);
-        Directory.CreateDirectory(moduleDir);
+        var resolvedDir = Path.GetFullPath(moduleDir);
+        if (!resolvedDir.StartsWith(Path.GetFullPath(_installPath) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Module directory '{moduleDir}' escapes install path.");
+
+        Directory.CreateDirectory(resolvedDir);
 
         var manifestJson = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(Path.Combine(moduleDir, "manifest.json"), manifestJson, cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(resolvedDir, "manifest.json"), manifestJson, cancellationToken);
 
+        await _moduleManager.RegisterModuleAsync(manifest, resolvedDir, cancellationToken);
         await _moduleManager.InstallModuleAsync(manifest.Name, cancellationToken);
     }
 
@@ -204,10 +216,21 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
     private static string? ConvertToApiUrl(string repositoryUrl)
     {
-        var uri = new Uri(repositoryUrl);
+        if (!Uri.TryCreate(repositoryUrl, UriKind.Absolute, out var uri))
+            return null;
+
         var segments = uri.AbsolutePath.Trim('/').Split('/');
         if (segments.Length < 2) return null;
 
         return $"https://api.github.com/repos/{segments[0]}/{segments[1]}";
+    }
+
+    private static bool IsSafeModuleName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        if (Path.IsPathRooted(name)) return false;
+        if (name.Contains("..")) return false;
+        if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return false;
+        return true;
     }
 }

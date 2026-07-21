@@ -5,6 +5,8 @@ namespace ShuRuk.Contracts.Interfaces;
 
 public interface IModuleManager
 {
+    Task InitializeAsync(CancellationToken cancellationToken = default);
+
     Task<ModuleState> GetModuleStateAsync(string moduleName, CancellationToken cancellationToken = default);
 
     Task InstallModuleAsync(string moduleName, CancellationToken cancellationToken = default);
@@ -24,6 +26,8 @@ public interface IModuleManager
     Task ResumeModuleAsync(string moduleName, CancellationToken cancellationToken = default);
 
     Task ReinstallBuiltInModuleAsync(string moduleName, CancellationToken cancellationToken = default);
+
+    Task RegisterModuleAsync(ModuleManifest manifest, string moduleDir, CancellationToken cancellationToken = default);
 
     IReadOnlyList<ModuleManifest> GetInstalledModules();
 
