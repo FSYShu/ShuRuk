@@ -150,7 +150,7 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
             await SaveCacheAsync(entries, cancellationToken);
             return entries;
         }
-        catch (HttpRequestException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _isOffline = true;
             if (_cachedEntries is not null) return _cachedEntries;
@@ -186,6 +186,12 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
         }
     }
 
+    /// <summary>
+    /// Downloads and installs a module from a repository.
+    /// Currently only persists the enriched manifest metadata; actual module payload
+    /// (DLLs/assets) download is not yet implemented. Once implemented, this method
+    /// should fetch release assets or a zipball from the repository before installation.
+    /// </summary>
     private async Task DownloadAndInstallAsync(ModuleManifest manifest, string repositoryUrl, CancellationToken cancellationToken)
     {
         var moduleDir = Path.Combine(_installPath, manifest.Name);
