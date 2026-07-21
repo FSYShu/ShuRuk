@@ -13,13 +13,14 @@ public class ModuleResourceUsage
     public DateTime Timestamp { get; init; } = DateTime.UtcNow;
 }
 
-public class StatusMonitor
+public class StatusMonitor : IDisposable
 {
     private readonly IModuleManager _moduleManager;
     private readonly Dictionary<string, List<ModuleResourceUsage>> _history = new();
     private readonly object _lock = new();
     private readonly Timer _timer;
     private readonly int _historyRetentionCount;
+    private int _isCollecting;
 
     public event EventHandler<IReadOnlyList<ModuleResourceUsage>>? ResourceUsageUpdated;
 
@@ -54,6 +55,10 @@ public class StatusMonitor
 
     private async void OnTimerTick(object? state)
     {
+        // Reentrancy guard: skip this tick if the previous one is still running
+        if (Interlocked.CompareExchange(ref _isCollecting, 1, 0) != 0)
+            return;
+
         try
         {
             var modules = _moduleManager.GetInstalledModules();
@@ -91,29 +96,38 @@ public class StatusMonitor
         {
             Debug.WriteLine($"[StatusMonitor] Error collecting status: {ex}");
         }
+        finally
+        {
+            Interlocked.Exchange(ref _isCollecting, 0);
+        }
     }
 
     /// <summary>
     /// Placeholder: estimates CPU usage for a running module.
-    /// Currently returns 0; real implementation requires per-process CPU sampling.
+    /// Returns -1 (unknown) for running modules; real implementation requires per-process CPU sampling.
     /// </summary>
     private static double EstimateCpuUsage(string moduleName, ModuleState state)
     {
         if (state != ModuleState.Running) return 0;
-        return 0;
+        return -1; // Sentinel: unknown / not yet implemented
     }
 
     /// <summary>
     /// Placeholder: estimates memory usage for a running module.
-    /// Currently returns 0; real implementation requires per-process memory querying.
+    /// Returns -1 (unknown) for running modules; real implementation requires per-process memory querying.
     /// </summary>
     private static long EstimateMemoryUsage(string moduleName, ModuleState state)
     {
         if (state != ModuleState.Running) return 0;
-        return 0;
+        return -1; // Sentinel: unknown / not yet implemented
     }
 
     public void Stop()
+    {
+        _timer.Dispose();
+    }
+
+    public void Dispose()
     {
         _timer.Dispose();
     }
