@@ -73,6 +73,11 @@ public partial class App : Application
             {
                 await concreteManager.InitializeAsync();
             }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[App] IModuleManager is not ModuleManager (actual: {manager.GetType().FullName}); module initialization skipped.");
+            }
         }
         catch (Exception ex)
         {
