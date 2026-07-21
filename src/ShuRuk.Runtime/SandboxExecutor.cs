@@ -15,9 +15,15 @@ public class SandboxExecutor
 
     public async Task<TResult?> ExecuteAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         try
         {
             return await action();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (UnauthorizedAccessException)
         {
