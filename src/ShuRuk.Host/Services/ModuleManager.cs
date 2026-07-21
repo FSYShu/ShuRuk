@@ -13,6 +13,7 @@ public class ModuleManager : IModuleManager
     private readonly Dictionary<string, ModuleInfo> _modules = new();
     private readonly Dictionary<string, IModule> _loadedModules = new();
     private readonly Dictionary<string, IModuleContext> _moduleContexts = new();
+    private readonly ReaderWriterLockSlim _lock = new();
     private readonly ModuleManifestValidator _validator = new();
     private readonly DatabaseInitializer _dbInitializer;
     private readonly IConfigurationService _configurationService;
@@ -69,22 +70,52 @@ public class ModuleManager : IModuleManager
                 SubmodulePath = dir
             };
 
-            _modules[manifest.Name] = info;
+            _lock.EnterWriteLock();
+            try
+            {
+                _modules[manifest.Name] = info;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+
             TransitionState(manifest.Name, ModuleState.Discovered, ModuleState.Validated);
         }
     }
 
     public Task<ModuleState> GetModuleStateAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (_modules.TryGetValue(moduleName, out var info))
-            return Task.FromResult(info.State);
+        _lock.EnterReadLock();
+        try
+        {
+            if (_modules.TryGetValue(moduleName, out var info))
+                return Task.FromResult(info.State);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
 
         throw new KeyNotFoundException($"Module '{moduleName}' not found.");
     }
 
     public async Task InstallModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
+        _lock.EnterReadLock();
+        bool found;
+        try
+        {
+            found = _modules.TryGetValue(moduleName, out var info);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        ModuleInfo moduleInfo;
+
+        if (!found)
         {
             // Bootstrap from on-disk manifest for externally installed modules
             var moduleDir = Path.Combine(_modulesPath, moduleName);
@@ -104,33 +135,75 @@ public class ModuleManager : IModuleManager
                 throw new InvalidOperationException($"Cannot parse manifest for '{moduleName}'.", ex);
             }
 
-            info = new ModuleInfo
+            // Validate the bootstrapped manifest and verify name matches
+            var validationResult = _validator.Validate(manifest);
+            if (!validationResult.IsValid)
+                throw new InvalidOperationException($"Invalid manifest for '{moduleName}': {string.Join("; ", validationResult.Errors)}");
+
+            if (!string.Equals(manifest.Name, moduleName, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"Manifest name '{manifest.Name}' does not match module name '{moduleName}'.");
+
+            moduleInfo = new ModuleInfo
             {
                 Manifest = manifest,
                 State = ModuleState.Discovered,
                 Source = manifest.Source,
                 SubmodulePath = moduleDir
             };
-            _modules[moduleName] = info;
+
+            _lock.EnterWriteLock();
+            try
+            {
+                _modules[moduleName] = moduleInfo;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+
             TransitionState(moduleName, ModuleState.Discovered, ModuleState.Validated);
         }
-
-        if (info.State != ModuleState.Validated && info.State != ModuleState.Discovered)
-            throw new InvalidOperationException($"Cannot install module '{moduleName}' in state {info.State}.");
-
-        if (info.Manifest.Source == ModuleSource.BuiltIn)
+        else
         {
-            TransitionState(moduleName, info.State, ModuleState.Installed);
+            _lock.EnterReadLock();
+            try
+            {
+                moduleInfo = _modules[moduleName];
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        if (moduleInfo.State != ModuleState.Validated && moduleInfo.State != ModuleState.Discovered)
+            throw new InvalidOperationException($"Cannot install module '{moduleName}' in state {moduleInfo.State}.");
+
+        if (moduleInfo.Manifest.Source == ModuleSource.BuiltIn)
+        {
+            TransitionState(moduleName, moduleInfo.State, ModuleState.Installed);
             return;
         }
 
-        TransitionState(moduleName, info.State, ModuleState.Installed);
+        TransitionState(moduleName, moduleInfo.State, ModuleState.Installed);
         await Task.CompletedTask;
     }
 
     public async Task UninstallModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
+        _lock.EnterReadLock();
+        ModuleInfo? info;
+        bool found;
+        try
+        {
+            found = _modules.TryGetValue(moduleName, out info);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        if (!found || info is null)
             throw new KeyNotFoundException($"Module '{moduleName}' not found.");
 
         if (info.State == ModuleState.Running || info.State == ModuleState.Loaded)
@@ -155,13 +228,34 @@ public class ModuleManager : IModuleManager
             Directory.Delete(moduleDataPath, recursive: true);
         }
 
-        _modules.Remove(moduleName);
+        _lock.EnterWriteLock();
+        try
+        {
+            _modules.Remove(moduleName);
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+
         await Task.CompletedTask;
     }
 
     public async Task LoadModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
+        _lock.EnterReadLock();
+        ModuleInfo? info;
+        bool found;
+        try
+        {
+            found = _modules.TryGetValue(moduleName, out info);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        if (!found || info is null)
             throw new KeyNotFoundException($"Module '{moduleName}' not found.");
 
         if (info.State != ModuleState.Installed)
@@ -175,8 +269,17 @@ public class ModuleManager : IModuleManager
         try
         {
             await module.OnLoadAsync(context, cancellationToken);
-            _loadedModules[moduleName] = module;
-            _moduleContexts[moduleName] = context;
+            _lock.EnterWriteLock();
+            try
+            {
+                _loadedModules[moduleName] = module;
+                _moduleContexts[moduleName] = context;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+
             TransitionState(moduleName, info.State, ModuleState.Loaded);
         }
         catch
@@ -188,24 +291,70 @@ public class ModuleManager : IModuleManager
 
     public async Task UnloadModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
+        _lock.EnterReadLock();
+        ModuleInfo? info;
+        bool found;
+        try
+        {
+            found = _modules.TryGetValue(moduleName, out info);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        if (!found || info is null)
             throw new KeyNotFoundException($"Module '{moduleName}' not found.");
 
         if (info.State == ModuleState.Running)
             await StopModuleAsync(moduleName, cancellationToken);
 
-        if (!_loadedModules.TryGetValue(moduleName, out var module))
+        _lock.EnterReadLock();
+        IModule? module;
+        bool moduleFound;
+        try
+        {
+            moduleFound = _loadedModules.TryGetValue(moduleName, out module);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        if (!moduleFound || module is null)
             return;
 
         await module.OnUnloadAsync(cancellationToken);
-        _loadedModules.Remove(moduleName);
-        _moduleContexts.Remove(moduleName);
+
+        _lock.EnterWriteLock();
+        try
+        {
+            _loadedModules.Remove(moduleName);
+            _moduleContexts.Remove(moduleName);
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+
         TransitionState(moduleName, info.State, ModuleState.Unloaded);
     }
 
     public async Task StartModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
+        _lock.EnterReadLock();
+        ModuleInfo? info;
+        bool found;
+        try
+        {
+            found = _modules.TryGetValue(moduleName, out info);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        if (!found || info is null)
             throw new KeyNotFoundException($"Module '{moduleName}' not found.");
 
         if (info.State == ModuleState.Installed)
@@ -219,7 +368,19 @@ public class ModuleManager : IModuleManager
 
     public Task StopModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
+        _lock.EnterReadLock();
+        ModuleInfo? info;
+        bool found;
+        try
+        {
+            found = _modules.TryGetValue(moduleName, out info);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        if (!found || info is null)
             throw new KeyNotFoundException($"Module '{moduleName}' not found.");
 
         if (info.State != ModuleState.Running)
@@ -231,13 +392,37 @@ public class ModuleManager : IModuleManager
 
     public async Task PauseModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
+        _lock.EnterReadLock();
+        ModuleInfo? info;
+        bool found;
+        try
+        {
+            found = _modules.TryGetValue(moduleName, out info);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        if (!found || info is null)
             throw new KeyNotFoundException($"Module '{moduleName}' not found.");
 
         if (info.State != ModuleState.Running)
             throw new InvalidOperationException($"Cannot pause module '{moduleName}' in state {info.State}.");
 
-        if (_loadedModules.TryGetValue(moduleName, out var module))
+        _lock.EnterReadLock();
+        IModule? module;
+        bool moduleFound;
+        try
+        {
+            moduleFound = _loadedModules.TryGetValue(moduleName, out module);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        if (moduleFound && module is not null)
         {
             await module.OnPauseAsync(cancellationToken);
         }
@@ -247,13 +432,37 @@ public class ModuleManager : IModuleManager
 
     public async Task ResumeModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
+        _lock.EnterReadLock();
+        ModuleInfo? info;
+        bool found;
+        try
+        {
+            found = _modules.TryGetValue(moduleName, out info);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        if (!found || info is null)
             throw new KeyNotFoundException($"Module '{moduleName}' not found.");
 
         if (info.State != ModuleState.Paused)
             throw new InvalidOperationException($"Cannot resume module '{moduleName}' in state {info.State}.");
 
-        if (_loadedModules.TryGetValue(moduleName, out var module))
+        _lock.EnterReadLock();
+        IModule? module;
+        bool moduleFound;
+        try
+        {
+            moduleFound = _loadedModules.TryGetValue(moduleName, out module);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        if (moduleFound && module is not null)
         {
             await module.OnResumeAsync(cancellationToken);
         }
@@ -263,7 +472,19 @@ public class ModuleManager : IModuleManager
 
     public async Task ReinstallBuiltInModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
+        _lock.EnterReadLock();
+        ModuleInfo? info;
+        bool found;
+        try
+        {
+            found = _modules.TryGetValue(moduleName, out info);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        if (!found || info is null)
             throw new KeyNotFoundException($"Module '{moduleName}' not found.");
 
         if (info.Manifest.Source != ModuleSource.BuiltIn)
@@ -277,17 +498,33 @@ public class ModuleManager : IModuleManager
 
     public IReadOnlyList<ModuleManifest> GetInstalledModules()
     {
-        return _modules.Values
-            .Where(m => m.State is ModuleState.Installed or ModuleState.Loaded or ModuleState.Running or ModuleState.Paused)
-            .Select(m => m.Manifest)
-            .ToList();
+        _lock.EnterReadLock();
+        try
+        {
+            return _modules.Values
+                .Where(m => m.State is ModuleState.Installed or ModuleState.Loaded or ModuleState.Running or ModuleState.Paused)
+                .Select(m => m.Manifest)
+                .ToList();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
     }
 
     private void TransitionState(string moduleName, ModuleState oldState, ModuleState newState)
     {
-        if (_modules.TryGetValue(moduleName, out var info))
+        _lock.EnterWriteLock();
+        try
         {
-            info.State = newState;
+            if (_modules.TryGetValue(moduleName, out var info))
+            {
+                info.State = newState;
+            }
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
         }
 
         ModuleStateChanged?.Invoke(this, new ModuleStateChangedEventArgs
