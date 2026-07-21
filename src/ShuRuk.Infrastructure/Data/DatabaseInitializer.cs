@@ -8,7 +8,7 @@ public class DatabaseInitializer
 
     public DatabaseInitializer(string dbPath)
     {
-        _connectionString = $"Data Source={dbPath}";
+        _connectionString = $"Data Source={dbPath};Foreign Keys=True";
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
