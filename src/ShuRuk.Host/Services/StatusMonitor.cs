@@ -17,6 +17,7 @@ public class StatusMonitor
 {
     private readonly IModuleManager _moduleManager;
     private readonly Dictionary<string, List<ModuleResourceUsage>> _history = new();
+    private readonly object _lock = new();
     private readonly Timer _timer;
     private readonly int _historyRetentionCount;
 
@@ -31,31 +32,36 @@ public class StatusMonitor
 
     public IReadOnlyList<ModuleResourceUsage> GetLatestSnapshot()
     {
-        return _history.Values
-            .Select(h => h.LastOrDefault())
-            .Where(h => h is not null)
-            .Select(h => h!)
-            .ToList();
+        lock (_lock)
+        {
+            return _history.Values
+                .Select(h => h.LastOrDefault())
+                .Where(h => h is not null)
+                .Select(h => h!)
+                .ToList();
+        }
     }
 
     public IReadOnlyList<ModuleResourceUsage> GetModuleHistory(string moduleName)
     {
-        return _history.TryGetValue(moduleName, out var history)
-            ? history
-            : Array.Empty<ModuleResourceUsage>();
+        lock (_lock)
+        {
+            return _history.TryGetValue(moduleName, out var history)
+                ? history.ToList()
+                : Array.Empty<ModuleResourceUsage>();
+        }
     }
 
-    private void OnTimerTick(object? state)
+    private async void OnTimerTick(object? state)
     {
         try
         {
             var modules = _moduleManager.GetInstalledModules();
-            var currentProcess = Process.GetCurrentProcess();
             var snapshot = new List<ModuleResourceUsage>();
 
             foreach (var module in modules)
             {
-                var moduleState = _moduleManager.GetModuleStateAsync(module.Name).GetAwaiter().GetResult();
+                var moduleState = await _moduleManager.GetModuleStateAsync(module.Name);
 
                 var usage = new ModuleResourceUsage
                 {
@@ -65,30 +71,42 @@ public class StatusMonitor
                     MemoryUsageBytes = EstimateMemoryUsage(module.Name, moduleState)
                 };
 
-                if (!_history.ContainsKey(module.Name))
-                    _history[module.Name] = new List<ModuleResourceUsage>();
+                lock (_lock)
+                {
+                    if (!_history.ContainsKey(module.Name))
+                        _history[module.Name] = new List<ModuleResourceUsage>();
 
-                _history[module.Name].Add(usage);
+                    _history[module.Name].Add(usage);
 
-                if (_history[module.Name].Count > _historyRetentionCount)
-                    _history[module.Name].RemoveRange(0, _history[module.Name].Count - _historyRetentionCount);
+                    if (_history[module.Name].Count > _historyRetentionCount)
+                        _history[module.Name].RemoveRange(0, _history[module.Name].Count - _historyRetentionCount);
+                }
 
                 snapshot.Add(usage);
             }
 
             ResourceUsageUpdated?.Invoke(this, snapshot);
         }
-        catch
+        catch (Exception ex)
         {
+            Debug.WriteLine($"[StatusMonitor] Error collecting status: {ex}");
         }
     }
 
+    /// <summary>
+    /// Placeholder: estimates CPU usage for a running module.
+    /// Currently returns 0; real implementation requires per-process CPU sampling.
+    /// </summary>
     private static double EstimateCpuUsage(string moduleName, ModuleState state)
     {
         if (state != ModuleState.Running) return 0;
         return 0;
     }
 
+    /// <summary>
+    /// Placeholder: estimates memory usage for a running module.
+    /// Currently returns 0; real implementation requires per-process memory querying.
+    /// </summary>
     private static long EstimateMemoryUsage(string moduleName, ModuleState state)
     {
         if (state != ModuleState.Running) return 0;
