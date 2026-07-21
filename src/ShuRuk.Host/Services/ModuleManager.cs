@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using ShuRuk.Contracts.Enums;
 using ShuRuk.Contracts.Interfaces;
 using ShuRuk.Contracts.Models;
@@ -14,14 +15,16 @@ public class ModuleManager : IModuleManager
     private readonly Dictionary<string, IModuleContext> _moduleContexts = new();
     private readonly ModuleManifestValidator _validator = new();
     private readonly DatabaseInitializer _dbInitializer;
+    private readonly IConfigurationService _configurationService;
     private readonly string _modulesPath;
     private readonly string _dataPath;
 
     public event EventHandler<ModuleStateChangedEventArgs>? ModuleStateChanged;
 
-    public ModuleManager(DatabaseInitializer dbInitializer, string modulesPath, string dataPath)
+    public ModuleManager(DatabaseInitializer dbInitializer, IConfigurationService configurationService, string modulesPath, string dataPath)
     {
         _dbInitializer = dbInitializer;
+        _configurationService = configurationService;
         _modulesPath = modulesPath;
         _dataPath = dataPath;
     }
@@ -41,8 +44,17 @@ public class ModuleManager : IModuleManager
             var manifestPath = Path.Combine(dir, "manifest.json");
             if (!File.Exists(manifestPath)) continue;
 
-            var manifest = await System.Text.Json.JsonSerializer.DeserializeAsync<ModuleManifest>(
-                File.OpenRead(manifestPath), cancellationToken: cancellationToken);
+            ModuleManifest? manifest;
+            try
+            {
+                manifest = await JsonSerializer.DeserializeAsync<ModuleManifest>(
+                    File.OpenRead(manifestPath), cancellationToken: cancellationToken);
+            }
+            catch (Exception)
+            {
+                // Skip malformed manifests and continue scanning
+                continue;
+            }
 
             if (manifest is null) continue;
 
@@ -73,7 +85,35 @@ public class ModuleManager : IModuleManager
     public async Task InstallModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
         if (!_modules.TryGetValue(moduleName, out var info))
-            throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+        {
+            // Bootstrap from on-disk manifest for externally installed modules
+            var moduleDir = Path.Combine(_modulesPath, moduleName);
+            var manifestPath = Path.Combine(moduleDir, "manifest.json");
+            if (!File.Exists(manifestPath))
+                throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+
+            ModuleManifest manifest;
+            try
+            {
+                using var stream = File.OpenRead(manifestPath);
+                manifest = await JsonSerializer.DeserializeAsync<ModuleManifest>(stream, cancellationToken: cancellationToken)
+                    ?? throw new InvalidOperationException($"Cannot parse manifest for '{moduleName}'.");
+            }
+            catch (Exception ex) when (ex is not KeyNotFoundException and not InvalidOperationException)
+            {
+                throw new InvalidOperationException($"Cannot parse manifest for '{moduleName}'.", ex);
+            }
+
+            info = new ModuleInfo
+            {
+                Manifest = manifest,
+                State = ModuleState.Discovered,
+                Source = manifest.Source,
+                SubmodulePath = moduleDir
+            };
+            _modules[moduleName] = info;
+            TransitionState(moduleName, ModuleState.Discovered, ModuleState.Validated);
+        }
 
         if (info.State != ModuleState.Validated && info.State != ModuleState.Discovered)
             throw new InvalidOperationException($"Cannot install module '{moduleName}' in state {info.State}.");
@@ -189,7 +229,7 @@ public class ModuleManager : IModuleManager
         return Task.CompletedTask;
     }
 
-    public Task PauseModuleAsync(string moduleName, CancellationToken cancellationToken = default)
+    public async Task PauseModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
         if (!_modules.TryGetValue(moduleName, out var info))
             throw new KeyNotFoundException($"Module '{moduleName}' not found.");
@@ -199,14 +239,13 @@ public class ModuleManager : IModuleManager
 
         if (_loadedModules.TryGetValue(moduleName, out var module))
         {
-            module.OnPauseAsync(cancellationToken).GetAwaiter().GetResult();
+            await module.OnPauseAsync(cancellationToken);
         }
 
         TransitionState(moduleName, info.State, ModuleState.Paused);
-        return Task.CompletedTask;
     }
 
-    public Task ResumeModuleAsync(string moduleName, CancellationToken cancellationToken = default)
+    public async Task ResumeModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
         if (!_modules.TryGetValue(moduleName, out var info))
             throw new KeyNotFoundException($"Module '{moduleName}' not found.");
@@ -216,11 +255,10 @@ public class ModuleManager : IModuleManager
 
         if (_loadedModules.TryGetValue(moduleName, out var module))
         {
-            module.OnResumeAsync(cancellationToken).GetAwaiter().GetResult();
+            await module.OnResumeAsync(cancellationToken);
         }
 
         TransitionState(moduleName, info.State, ModuleState.Running);
-        return Task.CompletedTask;
     }
 
     public async Task ReinstallBuiltInModuleAsync(string moduleName, CancellationToken cancellationToken = default)
@@ -240,7 +278,7 @@ public class ModuleManager : IModuleManager
     public IReadOnlyList<ModuleManifest> GetInstalledModules()
     {
         return _modules.Values
-            .Where(m => m.State != ModuleState.Uninstalled && !m.IsUninstalled)
+            .Where(m => m.State is ModuleState.Installed or ModuleState.Loaded or ModuleState.Running or ModuleState.Paused)
             .Select(m => m.Manifest)
             .ToList();
     }
@@ -295,7 +333,7 @@ public class ModuleManager : IModuleManager
         var moduleDataPath = Path.Combine(_dataPath, moduleName);
         Directory.CreateDirectory(moduleDataPath);
 
-        return new DefaultModuleContext(moduleDataPath);
+        return new DefaultModuleContext(moduleDataPath, _configurationService);
     }
 }
 
@@ -303,9 +341,10 @@ internal class DefaultModuleContext : IModuleContext
 {
     private readonly Dictionary<Type, object> _services = new();
 
-    public DefaultModuleContext(string dataPath)
+    public DefaultModuleContext(string dataPath, IConfigurationService configurationService)
     {
         DataPath = dataPath;
+        Configuration = configurationService;
     }
 
     public T? GetService<T>() where T : class
@@ -315,7 +354,7 @@ internal class DefaultModuleContext : IModuleContext
 
     public string DataPath { get; }
 
-    public IConfigurationService Configuration => throw new NotImplementedException();
+    public IConfigurationService Configuration { get; }
 
     public void RegisterSettingsPage(object page) { }
 }
