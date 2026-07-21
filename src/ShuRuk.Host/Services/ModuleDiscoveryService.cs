@@ -174,7 +174,9 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
             var result = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
             var content = result.GetProperty("content").GetString()!;
-            var json = System.Convert.FromBase64String(content.Replace("\n", ""));
+            // Strip all whitespace (CR, LF, spaces) from Base64 content before decoding
+            var cleaned = new string(content.Where(c => !char.IsWhiteSpace(c)).ToArray());
+            var json = Convert.FromBase64String(cleaned);
 
             return await JsonSerializer.DeserializeAsync<ModuleManifest>(new MemoryStream(json), cancellationToken: cancellationToken);
         }
@@ -188,6 +190,23 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
     {
         var moduleDir = Path.Combine(_installPath, manifest.Name);
         Directory.CreateDirectory(moduleDir);
+
+        // Enrich manifest with external install metadata
+        manifest = new ModuleManifest
+        {
+            Name = manifest.Name,
+            DisplayName = manifest.DisplayName,
+            Version = manifest.Version,
+            Description = manifest.Description,
+            Entry = manifest.Entry,
+            Permissions = manifest.Permissions,
+            MinHostVersion = manifest.MinHostVersion,
+            Icon = manifest.Icon,
+            Source = ModuleSource.External,
+            SubmodulePath = moduleDir,
+            Repository = repositoryUrl,
+            Signature = manifest.Signature
+        };
 
         var manifestJson = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync(Path.Combine(moduleDir, "manifest.json"), manifestJson, cancellationToken);
@@ -204,7 +223,12 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
     private static string? ConvertToApiUrl(string repositoryUrl)
     {
-        var uri = new Uri(repositoryUrl);
+        if (!Uri.TryCreate(repositoryUrl, UriKind.Absolute, out var uri))
+            return null;
+
+        if (uri.Host != "github.com")
+            return null;
+
         var segments = uri.AbsolutePath.Trim('/').Split('/');
         if (segments.Length < 2) return null;
 
