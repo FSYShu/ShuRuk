@@ -4,10 +4,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectFile Include="modules\**\*.csproj" />
+    <ProjectFile Include="$(MSBuildThisFileDirectory)modules\**\*.csproj" />
   </ItemGroup>
 
-  <Target Name="IncludeModuleProjects" BeforeTargets="CollectProjectReferences">
+  <Target Name="IncludeModuleProjects" BeforeTargets="CollectProjectReferences" Condition="'$(MSBuildProjectName)' == 'ShuRuk.Host'">
     <ItemGroup>
       <ProjectReference Include="@(ProjectFile)" />
     </ItemGroup>
