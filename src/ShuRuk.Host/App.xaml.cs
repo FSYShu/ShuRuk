@@ -17,6 +17,20 @@ public partial class App : Application
     {
         this.UnhandledException += (s, e) =>
         {
+            try
+            {
+                var auditLog = Services?.GetService(typeof(AuditLogService)) as AuditLogService;
+                auditLog?.LogEventAsync("UnhandledApplicationException", new Dictionary<string, object>
+                {
+                    ["ExceptionType"] = e.Exception.GetType().FullName ?? "Unknown",
+                    ["Message"] = e.Exception.Message,
+                    ["StackTrace"] = e.Exception.StackTrace ?? string.Empty
+                }).GetAwaiter().GetResult();
+            }
+            catch
+            {
+                // Suppress logging errors to avoid recursive exception handling
+            }
             e.Handled = true;
         };
 
@@ -41,5 +55,11 @@ public partial class App : Application
         services.AddSingleton(new SearchEngine(dbPath));
 
         Services = services.BuildServiceProvider();
+
+        var dbInitializer = Services.GetService(typeof(DatabaseInitializer)) as DatabaseInitializer;
+        dbInitializer?.InitializeAsync().GetAwaiter().GetResult();
+
+        _window = new MainWindow();
+        _window.Activate();
     }
 }

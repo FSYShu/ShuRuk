@@ -65,7 +65,7 @@ public class ConfigurationService : IConfigurationService
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyDictionary<string, object>> GetAllValuesAsync(string? module = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyDictionary<string, object?>> GetAllValuesAsync(string? module = null, CancellationToken cancellationToken = default)
     {
         var moduleValue = module ?? string.Empty;
         await using var connection = new SqliteConnection(_connectionString);
@@ -75,11 +75,25 @@ public class ConfigurationService : IConfigurationService
         command.CommandText = "SELECT key, value FROM configurations WHERE module = @module";
         command.Parameters.AddWithValue("@module", moduleValue);
 
-        var result = new Dictionary<string, object>();
+        var result = new Dictionary<string, object?>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            result[reader.GetString(0)] = reader.GetString(1);
+            var key = reader.GetString(0);
+            var valueText = reader.GetString(1);
+
+            // Attempt to deserialize as JSON; if it fails, treat as string
+            object? deserializedValue;
+            try
+            {
+                deserializedValue = JsonSerializer.Deserialize<object>(valueText);
+            }
+            catch
+            {
+                deserializedValue = valueText;
+            }
+
+            result[key] = deserializedValue;
         }
 
         return result;

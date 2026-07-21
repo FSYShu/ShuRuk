@@ -8,5 +8,5 @@ public interface IConfigurationService
 
     Task RemoveKeyAsync(string key, string? module = null, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyDictionary<string, object>> GetAllValuesAsync(string? module = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<string, object?>> GetAllValuesAsync(string? module = null, CancellationToken cancellationToken = default);
 }

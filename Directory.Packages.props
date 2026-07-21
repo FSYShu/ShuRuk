@@ -4,5 +4,6 @@
 	<PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1" />
 	<PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.7.250310001" />
 	<PackageVersion Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+	<PackageVersion Include="Microsoft.Build.Utilities.Core" Version="10.0.0-preview.25081.2" />
   </ItemGroup>
 </Project>
