@@ -5,6 +5,11 @@ namespace ShuRuk.Runtime;
 /// This wraps module execution with crash isolation (exception catching) and
 /// permission enforcement. It does NOT provide OS-level process/container sandboxing.
 /// Module code runs in-process within the host application.
+///
+/// IMPORTANT: Permission checks via PermissionGuard are advisory only for in-process code
+/// and do not provide true isolation or security guarantees. In-process module code can
+/// potentially bypass these checks. For actual security isolation, modules must be executed
+/// in a separate process or container with OS-level sandboxing.
 /// </summary>
 public class ModuleExecutionBoundary
 {
@@ -32,6 +37,10 @@ public class ModuleExecutionBoundary
     /// Catches unhandled exceptions and wraps them in a <see cref="ModuleExecutionException"/>.
     /// <see cref="UnauthorizedAccessException"/> is re-thrown directly.
     /// <see cref="OperationCanceledException"/> is preserved to support cancellation.
+    ///
+    /// Note: This method does not enforce permission checks during execution. Permission enforcement
+    /// is advisory and relies on module code voluntarily using the PermissionGuard API. In-process
+    /// module code can potentially bypass these checks.
     /// </summary>
     public async Task<TResult?> ExecuteAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken = default)
     {

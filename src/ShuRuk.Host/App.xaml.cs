@@ -57,7 +57,6 @@ public partial class App : Application
 
         Services = services.BuildServiceProvider();
 
-        await databaseInitializer.InitializeAsync();
         var moduleManager = Services.GetRequiredService<IModuleManager>();
         await moduleManager.InitializeAsync();
     }
