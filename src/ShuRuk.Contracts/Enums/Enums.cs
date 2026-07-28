@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace ShuRuk.Contracts.Enums;
 
+[JsonConverter(typeof(JsonStringEnumConverter<ModuleSource>))]
 public enum ModuleSource
 {
     BuiltIn,

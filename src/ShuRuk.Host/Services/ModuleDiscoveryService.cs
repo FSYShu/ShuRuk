@@ -110,7 +110,7 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
         if (!File.Exists(cacheFile)) return Array.Empty<ModuleDiscoveryEntry>();
 
         await using var stream = File.OpenRead(cacheFile);
-        var result = await JsonSerializer.DeserializeAsync<List<ModuleDiscoveryEntry>>(stream, cancellationToken: cancellationToken);
+        var result = await JsonSerializer.DeserializeAsync<List<ModuleDiscoveryEntry>>(stream, ModuleManager.JsonOptions, cancellationToken: cancellationToken);
         return result ?? new List<ModuleDiscoveryEntry>();
     }
 
@@ -180,7 +180,7 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
             var content = result.GetProperty("content").GetString()!;
             var json = System.Convert.FromBase64String(content.Replace("\n", ""));
 
-            return await JsonSerializer.DeserializeAsync<ModuleManifest>(new MemoryStream(json), cancellationToken: cancellationToken);
+            return await JsonSerializer.DeserializeAsync<ModuleManifest>(new MemoryStream(json), ModuleManager.JsonOptions, cancellationToken: cancellationToken);
         }
         catch
         {
@@ -200,7 +200,7 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
         Directory.CreateDirectory(resolvedDir);
 
-        var manifestJson = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
+        var manifestJson = JsonSerializer.Serialize(manifest, ModuleManager.JsonOptions);
         await File.WriteAllTextAsync(Path.Combine(resolvedDir, "manifest.json"), manifestJson, cancellationToken);
 
         await _moduleManager.RegisterModuleAsync(manifest, resolvedDir, cancellationToken);
@@ -211,7 +211,7 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
     {
         var cacheFile = Path.Combine(_cachePath, "discovery_cache.json");
         await using var stream = File.Create(cacheFile);
-        await JsonSerializer.SerializeAsync(stream, entries, cancellationToken: cancellationToken);
+        await JsonSerializer.SerializeAsync(stream, entries, ModuleManager.JsonOptions, cancellationToken: cancellationToken);
     }
 
     private static string? ConvertToApiUrl(string repositoryUrl)

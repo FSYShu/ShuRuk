@@ -8,7 +8,19 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+
             </ResourceDictionary.MergedDictionaries>
+            <!--
+                Override the TitleBar's internal layout heights so the inner grid
+                scales to 48px to match the custom title bar height. Without this,
+                the grid stays at 32px (default TitleBarCompactHeight) regardless
+                of the TitleBar's Height, because the ExpandedHeight state only
+                activates when Content / LeftHeader / RightHeader is set. The back
+                and pane-toggle buttons (PART_BackButton / PART_PaneToggleButton)
+                are still forced to 40x40 square in code-behind.
+            -->
+            <x:Double x:Key="TitleBarCompactHeight">48</x:Double>
+            <x:Double x:Key="TitleBarExpandedHeight">48</x:Double>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

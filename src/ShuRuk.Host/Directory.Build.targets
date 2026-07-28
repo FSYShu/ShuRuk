@@ -1,3 +1,106 @@
 <Project>
+  <!--
+    For non-packaged WinUI 3 apps, some PRI-related MSBuild targets depend
+    on tasks from Microsoft.Build.AppxPackage.dll and
+    Microsoft.Build.Packaging.Pri.Tasks.dll, which are only available in
+    Visual Studio (not standalone .NET SDK). We override these targets and
+    generate resources.pri ourselves using makepri.exe.
+  -->
 
+  <!-- Override: Targets that use VS-only tasks (no-ops) -->
+  <Target Name="_GetSdkToolsPathsFromSdk" />
+  <Target Name="_GeneratePrisForPortableLibraries" />
+  <Target Name="_GetPriFilesFromPayload" />
+  <Target Name="_ComputeInputPriFiles" />
+  <Target Name="_GenerateProjectPriConfigurationFiles" />
+  <Target Name="_CalculateInputsForGenerateProjectPriFileCore" />
+  <Target Name="_GenerateProjectPriFileCore" />
+  <Target Name="_AddFileReadsAndFileWritesForProjectPri" />
+  <Target Name="_CreateProjectPriFileItem" />
+  <Target Name="_ExpandProjectPriFile" />
+  <Target Name="_GetPackageArchitecture" />
+  <Target Name="_GetDefaultResourceLanguage" />
+  <Target Name="_GetRecursiveProjectArchitecture" />
+  <Target Name="_ValidateConfiguration" />
+  <Target Name="OptionalProjectsOutputGroup" />
+  <Target Name="ComFilesOutputGroup" />
+
+  <!-- _ExpandPriFiles: pass-through (replaces ExpandPriContent task) -->
+  <Target Name="_ExpandPriFiles">
+    <ItemGroup>
+      <_ExpandedPriPayload Include="@(_PriFilesFromPayload)"
+                           Condition="'%(OutputGroup)' != 'ProjectPriFile'
+                                      and '%(OutputGroup)' != 'SDKRedistOutputGroup'" />
+    </ItemGroup>
+  </Target>
+
+  <!-- GetMrtPackagingOutputs: pass-through (replaces ExpandPayloadDirectories task) -->
+  <Target Name="GetMrtPackagingOutputs"
+          Returns="@(PackagingOutputs)"
+          DependsOnTargets="$(GetPackagingOutputsDependsOn)">
+    <ItemGroup>
+      <_PackagingOutputsExpanded Include="@(_PackagingOutputsUnexpanded)" />
+      <PackagingOutputs Include="@(_PackagingOutputsExpanded)" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    AddPriPayloadFilesToCopyToOutputDirectoryItems: skip only the project's own PRI
+    (blocked by AppxGeneratePriEnabled).
+  -->
+  <Target Name="AddPriPayloadFilesToCopyToOutputDirectoryItems" />
+
+  <!--
+    Ensure NuGet package .pri files are copied to the output directory.
+    When GeneratePriFilesOnBuild=false, the standard MSBuild pipeline skips copying
+    .pri files from NuGet packages. Without these files, CommunityToolkit controls
+    (SettingsCard, etc.) have no XAML theme resources and render without styling.
+    We find .pri files from resolved NuGet references that have a corresponding
+    .dll already in ReferenceCopyLocalPaths, and add them to the copy list.
+  -->
+  <Target Name="EnsureNuGetPriFilesInOutput"
+          AfterTargets="ResolveAssemblyReferences"
+          BeforeTargets="CopyFilesToOutputDirectory">
+    <ItemGroup>
+      <_CandidatePriFiles Include="@(ReferencePath)"
+                          Condition="'%(Extension)' == '.pri'" />
+      <_DllPaths Include="@(ReferenceCopyLocalPaths)"
+                 Condition="'%(Extension)' == '.dll'" />
+      <_SiblingPriFiles Include="@(_DllPaths->'%(RootDir)%(Directory)%(Filename).pri')" />
+    </ItemGroup>
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Include="@(_CandidatePriFiles)" />
+      <ReferenceCopyLocalPaths Include="@(_SiblingPriFiles)"
+                               Condition="Exists('%(Identity)')" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    Generate resources.pri using makepri.exe.
+    Without this file, the MRT resource resolver cannot initialize and
+    all ms-appx:// URIs fail with XamlParseException.
+    We use a dedicated staging directory containing only Strings/ and
+    the WinUI SDK .pri files, to avoid makepri choking on source files.
+  -->
+  <Target Name="GenerateProjectPriFileWithMakePri"
+          AfterTargets="Build"
+          Condition="'$(OutputType)' == 'WinExe' OR '$(OutputType)' == 'Exe'">
+    <PropertyGroup>
+      <MakePriExePath Condition="'$(MakePriExePath)' == ''">$(WindowsSDKBuildToolsBinVersionedArchFolder)\makepri.exe</MakePriExePath>
+      <PriConfigPath>$(IntermediateOutputPath)priconfig.xml</PriConfigPath>
+      <OutputPriPath>$(OutputPath)resources.pri</OutputPriPath>
+      <PriStagingDir>$(IntermediateOutputPath)pristaging</PriStagingDir>
+    </PropertyGroup>
+    <!-- Create a clean staging directory with only Strings/ and .pri files -->
+    <MakeDir Directories="$(PriStagingDir)" />
+    <ItemGroup>
+      <ReswFiles Include="$(MSBuildProjectDirectory)\Strings\**\*.resw" />
+      <SdkPriFiles Include="$(OutputPath)**\*.pri" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ReswFiles)" DestinationFolder="$(PriStagingDir)\Strings\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(SdkPriFiles)" DestinationFolder="$(PriStagingDir)\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <WriteLinesToFile File="$(PriConfigPath)" Overwrite="true" Lines="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;yes&quot;?&gt;&lt;resources targetOsVersion=&quot;10.0.0&quot; majorVersion=&quot;1&quot;&gt;&lt;packaging&gt;&lt;/packaging&gt;&lt;index root=&quot;\&quot; startIndexAt=&quot;\&quot;&gt;&lt;default&gt;&lt;qualifier name=&quot;Language&quot; value=&quot;zh-CN&quot;/&gt;&lt;/default&gt;&lt;indexer-config type=&quot;folder&quot; foldernameAsQualifier=&quot;true&quot; filenameAsQualifier=&quot;true&quot; qualifierDelimiter=&quot;.&quot;/&gt;&lt;indexer-config type=&quot;resw&quot; convertDotsToSlashes=&quot;true&quot; initialPath=&quot;&quot;/&gt;&lt;indexer-config type=&quot;PRI&quot;/&gt;&lt;/index&gt;&lt;/resources&gt;" />
+    <Exec Command="&quot;$(MakePriExePath)&quot; new /pr &quot;$(PriStagingDir)&quot; /cf &quot;$(PriConfigPath)&quot; /of &quot;$(OutputPriPath)&quot; /mn &quot;$(AssemblyName)&quot; /o"
+          ConsoleToMSBuild="true" />
+  </Target>
 </Project>

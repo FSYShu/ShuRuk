@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="ShuRuk.Host.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="ShuRuk">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TitleBar
+            x:Name="AppTitleBar"
+            Grid.Row="0"
+            Height="46"
+            Title="ShuRuk"
+            Subtitle="Dev"
+            IsBackButtonVisible="True"
+            IsBackButtonEnabled="False"
+            BackRequested="AppTitleBar_BackRequested"
+            IsPaneToggleButtonVisible="True"
+            PaneToggleRequested="AppTitleBar_PaneToggleRequested">
+            <TitleBar.IconSource>
+                <FontIconSource Glyph="&#xECAA;" />
+            </TitleBar.IconSource>
+        </TitleBar>
+
+        <NavigationView
+            x:Name="NavView"
+            Grid.Row="1"
+            IsBackButtonVisible="Collapsed"
+            IsPaneToggleButtonVisible="False"
+            IsSettingsVisible="True"
+            PaneDisplayMode="Auto"
+            ItemInvoked="NavView_ItemInvoked"
+            SelectionChanged="NavView_SelectionChanged"
+            OpenPaneLength="280"
+            CompactPaneLength="48">
+
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="NavHome" x:Uid="NavHome" Content="Home" Tag="home" Tapped="NavItem_Tapped">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavModules" x:Uid="NavModules" Content="Modules" Tag="modules" Tapped="NavItem_Tapped">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7B8;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItemSeparator />
+            </NavigationView.MenuItems>
+
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem x:Name="NavChangelog" x:Uid="NavChangelog" Content="Changelog" Tag="changelog" Tapped="NavItem_Tapped">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xECC5;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItemSeparator />
+
+                <NavigationViewItem x:Name="NavMonitor" x:Uid="NavMonitor" Content="Monitor" Tag="monitor" Tapped="NavItem_Tapped">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D9;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
+        </NavigationView>
+    </Grid>
+</Window>

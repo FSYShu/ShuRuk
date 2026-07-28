@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using ShuRuk.Contracts.Enums;
 using ShuRuk.Contracts.Interfaces;
 using ShuRuk.Contracts.Models;
@@ -9,6 +11,12 @@ namespace ShuRuk.Host.Services;
 
 public class ModuleManager : IModuleManager
 {
+    internal static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: true) }
+    };
+
     private readonly Dictionary<string, ModuleInfo> _modules = new();
     private readonly Dictionary<string, IModule> _loadedModules = new();
     private readonly Dictionary<string, IModuleContext> _moduleContexts = new();
@@ -61,7 +69,7 @@ public class ModuleManager : IModuleManager
 
             await using var manifestStream = File.OpenRead(manifestPath);
             var manifest = await System.Text.Json.JsonSerializer.DeserializeAsync<ModuleManifest>(
-                manifestStream, cancellationToken: cancellationToken);
+                manifestStream, JsonOptions, cancellationToken: cancellationToken);
 
             if (manifest is null) continue;
 

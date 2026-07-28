@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="ShuRuk.Host.Pages.DiscoverPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid RowSpacing="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ComboBox
+            x:Name="SortComboBox"
+            Grid.Row="0"
+            HorizontalAlignment="Right"
+            SelectedIndex="0"
+            SelectionChanged="SortComboBox_SelectionChanged">
+            <ComboBoxItem x:Name="DiscoverSortRating" Content="{x:Bind SortRatingText}" Tag="rating" />
+            <ComboBoxItem x:Name="DiscoverSortDownloads" Content="{x:Bind SortDownloadsText}" Tag="downloads" />
+            <ComboBoxItem x:Name="DiscoverSortUpdated" Content="{x:Bind SortUpdatedText}" Tag="updated" />
+        </ComboBox>
+
+        <Grid Grid.Row="1">
+            <InfoBar
+                x:Name="DiscoverOfflineNotice"
+                x:Uid="DiscoverOfflineNotice"
+                Title="Offline Mode"
+                Message="Cannot fetch latest module list. Showing cached data."
+                IsOpen="False"
+                IsClosable="True"
+                Severity="Warning"
+                VerticalAlignment="Top" />
+
+            <GridView
+                x:Name="DiscoverGridView"
+                SelectionMode="None"
+                IsItemClickEnabled="True"
+                ItemClick="DiscoverGridView_ItemClick">
+                <GridView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Width="260" Height="160" Padding="16" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                            <StackPanel Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding DisplayName}" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <TextBlock Text="{Binding Description}" Opacity="0.7" TextTrimming="CharacterEllipsis" MaxLines="2" />
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <FontIcon Glyph="&#xE734;" FontSize="12" />
+                                        <TextBlock Text="{Binding DownloadsText}" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.6" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <FontIcon Glyph="&#xE735;" FontSize="12" />
+                                        <TextBlock Text="{Binding RatingText}" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.6" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </GridView.ItemTemplate>
+            </GridView>
+
+            <!-- Empty state -->
+            <StackPanel
+                x:Name="EmptyState"
+                Visibility="Collapsed"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                Spacing="16">
+                <FontIcon
+                    Glyph="&#xE721;"
+                    FontSize="48"
+                    Opacity="0.3"
+                    HorizontalAlignment="Center" />
+                <TextBlock
+                    x:Name="DiscoverPageEmptyTitle"
+                    x:Uid="DiscoverPageEmptyTitle"
+                    Text="No modules found"
+                    Style="{StaticResource SubtitleTextBlockStyle}"
+                    HorizontalAlignment="Center"
+                    Opacity="0.6" />
+                <TextBlock
+                    x:Name="DiscoverPageEmptyDescription"
+                    x:Uid="DiscoverPageEmptyDescription"
+                    Text="Try adjusting your search or check back later."
+                    HorizontalAlignment="Center"
+                    TextAlignment="Center"
+                    Opacity="0.4"
+                    TextWrapping="Wrap"
+                    OpticalMarginAlignment="TrimSideBearings" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>
