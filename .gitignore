@@ -2,6 +2,7 @@
 .codeartsdoer
 .arts
 .vs/
+*.csproj.user
 
 # Reference / 参考文档
 uploads
@@ -21,6 +22,10 @@ packages/
 *.msixbundle
 *.appx
 *.appxbundle
+
+# Win32 resource files (generated, not used due to CS1564 conflict)
+# Win32资源文件（已生成，因CS1564冲突未使用）
+*.res
 
 # Build stubs / 构建桩
 build-stubs/bin/
@@ -42,3 +47,16 @@ stderr*.txt
 
 # Misc temp / 其他临时文件
 pass*.json
+
+# Signing certificates / 签名证书
+*_TemporaryKey.pfx
+
+# XAML compiler test output / XAML编译器测试输出
+xaml_err.txt
+xaml_out.txt
+output_test.json
+output2.json
+output3.json
+
+# makepri dump output / makepri转储输出
+resources.pri.xml

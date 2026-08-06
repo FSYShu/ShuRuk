@@ -1,0 +1,144 @@
+<Project>
+  <!--
+
+    For non-packaged WinUI 3 apps, some PRI-related MSBuild targets depend
+    on tasks from Microsoft.Build.AppxPackage.dll and
+    Microsoft.Build.Packaging.Pri.Tasks.dll, which are only available in
+    Visual Studio (not standalone .NET SDK). We override these targets and
+    generate resources.pri ourselves using makepri.exe.
+  -->
+
+  <!-- Override: Targets that use VS-only tasks (no-ops, unpackaged only) / 覆盖：使用VS专用任务的Target（仅解包模式） -->
+  <Target Name="_GetSdkToolsPathsFromSdk" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_GeneratePrisForPortableLibraries" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_GetPriFilesFromPayload" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_ComputeInputPriFiles" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_GenerateProjectPriConfigurationFiles" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_CalculateInputsForGenerateProjectPriFileCore" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_GenerateProjectPriFileCore" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_AddFileReadsAndFileWritesForProjectPri" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_CreateProjectPriFileItem" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_ExpandProjectPriFile" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_GetPackageArchitecture" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_GetDefaultResourceLanguage" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_GetRecursiveProjectArchitecture" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="_ValidateConfiguration" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="OptionalProjectsOutputGroup" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+  <Target Name="ComFilesOutputGroup" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+
+  <!-- _ExpandPriFiles: pass-through (replaces ExpandPriContent task) -->
+  <Target Name="_ExpandPriFiles" Condition="'$(WindowsPackageType)' != 'MSIX'">
+    <ItemGroup>
+      <_ExpandedPriPayload Include="@(_PriFilesFromPayload)"
+                           Condition="'%(OutputGroup)' != 'ProjectPriFile'
+                                      and '%(OutputGroup)' != 'SDKRedistOutputGroup'" />
+    </ItemGroup>
+  </Target>
+
+  <!-- GetMrtPackagingOutputs: pass-through (replaces ExpandPayloadDirectories task) -->
+  <Target Name="GetMrtPackagingOutputs"
+          Returns="@(PackagingOutputs)"
+          DependsOnTargets="$(GetPackagingOutputsDependsOn)"
+          Condition="'$(WindowsPackageType)' != 'MSIX'">
+    <ItemGroup>
+      <_PackagingOutputsExpanded Include="@(_PackagingOutputsUnexpanded)" />
+      <PackagingOutputs Include="@(_PackagingOutputsExpanded)" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    AddPriPayloadFilesToCopyToOutputDirectoryItems: skip only the project's own PRI
+    (blocked by AppxGeneratePriEnabled).
+  -->
+  <Target Name="AddPriPayloadFilesToCopyToOutputDirectoryItems" Condition="'$(WindowsPackageType)' != 'MSIX'" />
+
+  <!--
+    Ensure NuGet package .pri files are copied to the output directory.
+    The standard MSBuild pipeline may skip copying .pri files from NuGet packages
+    (e.g. when GeneratePriFilesOnBuild=false, or in MSIX mode where the SDK PRI
+    pipeline focuses on the app's own resources.pri). Without these files,
+    CommunityToolkit controls (SettingsCard, etc.) have no XAML theme resources
+    and render without styling. This target runs for all project types.
+  -->
+  <Target Name="EnsureNuGetPriFilesInOutput"
+          AfterTargets="ResolveAssemblyReferences"
+          BeforeTargets="CopyFilesToOutputDirectory">
+    <ItemGroup>
+      <_CandidatePriFiles Include="@(ReferencePath)"
+                          Condition="'%(Extension)' == '.pri'" />
+      <_DllPaths Include="@(ReferenceCopyLocalPaths)"
+                 Condition="'%(Extension)' == '.dll'" />
+      <_SiblingPriFiles Include="@(_DllPaths->'%(RootDir)%(Directory)%(Filename).pri')" />
+    </ItemGroup>
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Include="@(_CandidatePriFiles)" />
+      <ReferenceCopyLocalPaths Include="@(_SiblingPriFiles)"
+                               Condition="Exists('%(Identity)')" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+
+    Generate resources.pri using makepri.exe (fallback only).
+    In MSIX mode, the SDK PRI pipeline generates a complete resources.pri
+    including XAML resource indices. Overwriting it with makepri breaks
+    XAML parsing (XamlParseException). Only use makepri when the SDK
+    pipeline did not produce resources.pri (e.g. CLI builds without VS).
+    MSIX模式下SDK PRI管道生成含XAML索引的完整resources.pri，
+    覆盖它会导致XamlParseException。仅在SDK管道未生成时用makepri兜底。
+  -->
+  <!--
+    Include NuGet package .pri files in PRI generation.
+    The SDK's WinAppSdkRemoveDuplicatePriFiles task (invoked by _GetPriFilesFromPayload)
+    drops NuGet-supplied .pri files (e.g. CommunityToolkit.WinUI.Controls.SettingsControls.pri)
+    on CLI builds, so their XAML theme resources (SettingsCard default style, etc.) never
+    get indexed into resources.pri and the controls render unstyled when launched via
+    `dotnet run`. VS builds are unaffected because the PRI pipeline there retains them.
+    We re-add those .pri files to _PriFile after _ComputeInputPriFiles so the SDK PRI
+    generator merges their resource indices into resources.pri. De-dup against
+    _PriFilesFromPayload so VS builds (where the task already kept them) stay unchanged.
+    SDK的WinAppSdkRemoveDuplicatePriFiles任务在CLI构建下会丢弃NuGet包的.pri文件
+    （如CommunityToolkit.WinUI.Controls.SettingsControls.pri），导致其XAML主题资源
+    （SettingsCard默认样式等）未索引进resources.pri，`dotnet run`启动时控件无样式。
+    VS构建不受影响。此处将这些.pri重新加入_PriFile，并对_PriFilesFromPayload去重
+    以保证VS构建（任务已保留它们）不受影响。
+  -->
+  <Target Name="IncludeNuGetPriFilesInPriGeneration"
+          AfterTargets="_ComputeInputPriFiles"
+          BeforeTargets="_GenerateProjectPriConfigurationFiles"
+          Condition="'$(ShouldComputeInputPris)' == 'true'">
+    <ItemGroup>
+      <_NuGetPriForIndexing Include="@(PriOutputs)"
+                            Condition="'%(Extension)' == '.pri'
+                                       and '%(PriOutputs.ProjectName)' == '$(ProjectName)'
+                                       and '%(PriOutputs.OutputGroup)' != 'ProjectPriFile'" />
+      <_NuGetPriForIndexing Remove="@(_PriFilesFromPayload)" />
+    </ItemGroup>
+    <ItemGroup>
+      <_PriFile Include="@(_NuGetPriForIndexing)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="GenerateProjectPriFileWithMakePri"
+          BeforeTargets="BeforeGenerateAppxPackageRecipe"
+          Condition="('$(OutputType)' == 'WinExe' OR '$(OutputType)' == 'Exe') And !Exists('$(OutputPath)resources.pri')">
+    <PropertyGroup>
+      <MakePriExePath Condition="'$(MakePriExePath)' == ''">$(WindowsSDKBuildToolsBinVersionedArchFolder)\makepri.exe</MakePriExePath>
+      <PriConfigPath>$(IntermediateOutputPath)priconfig.xml</PriConfigPath>
+      <OutputPriPath>$(OutputPath)resources.pri</OutputPriPath>
+      <PriStagingDir>$(IntermediateOutputPath)pristaging</PriStagingDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(PriStagingDir)\Assets" />
+    <ItemGroup>
+      <ReswFiles Include="$(MSBuildProjectDirectory)\Strings\**\*.resw" />
+      <AssetFiles Include="$(MSBuildProjectDirectory)\Assets\**" />
+      <SdkPriFiles Include="$(OutputPath)**\*.pri" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ReswFiles)" DestinationFolder="$(PriStagingDir)\Strings\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(AssetFiles)" DestinationFolder="$(PriStagingDir)\Assets\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(SdkPriFiles)" DestinationFolder="$(PriStagingDir)\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <WriteLinesToFile File="$(PriConfigPath)" Overwrite="true" Lines="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;yes&quot;?&gt;&lt;resources targetOsVersion=&quot;10.0.0&quot; majorVersion=&quot;1&quot;&gt;&lt;packaging&gt;&lt;/packaging&gt;&lt;index root=&quot;\&quot; startIndexAt=&quot;\&quot;&gt;&lt;default&gt;&lt;qualifier name=&quot;Language&quot; value=&quot;zh-CN&quot;/&gt;&lt;/default&gt;&lt;indexer-config type=&quot;folder&quot; foldernameAsQualifier=&quot;true&quot; filenameAsQualifier=&quot;true&quot; qualifierDelimiter=&quot;.&quot;/&gt;&lt;indexer-config type=&quot;resw&quot; convertDotsToSlashes=&quot;true&quot; initialPath=&quot;&quot;/&gt;&lt;indexer-config type=&quot;PRI&quot;/&gt;&lt;/index&gt;&lt;/resources&gt;" />
+    <Exec Command="&quot;$(MakePriExePath)&quot; new /pr &quot;$(PriStagingDir)&quot; /cf &quot;$(PriConfigPath)&quot; /of &quot;$(OutputPriPath)&quot; /mn &quot;$(AssemblyName)&quot; /o"
+          ConsoleToMSBuild="true" />
+  </Target>
+</Project>

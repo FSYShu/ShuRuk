@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" minOccurs="0" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" minOccurs="0" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- MainPage / Navigation -->
+  <data name="NavHome.Content" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="NavModules.Content" xml:space="preserve">
+    <value>Modules</value>
+  </data>
+
+  <data name="NavMonitor.Content" xml:space="preserve">
+    <value>Monitor</value>
+  </data>
+
+  <data name="NavChangelog.Content" xml:space="preserve">
+    <value>Changelog</value>
+  </data>
+
+  <!-- HomePage -->
+  <data name="HomeTagline.Text" xml:space="preserve">
+    <value>Windows PowerToys-like Toolkit</value>
+  </data>
+  <data name="HomeWelcome.Title" xml:space="preserve">
+    <value>Welcome</value>
+  </data>
+  <data name="HomeWelcome.Message" xml:space="preserve">
+    <value>Manage modules, discover new tools, and customize your Windows experience.</value>
+  </data>
+
+
+  <!-- ModuleListPage -->
+  <data name="ModulePageInstalledTab.Text" xml:space="preserve">
+    <value>Installed</value>
+  </data>
+  <data name="ModulePageDiscoverTab.Text" xml:space="preserve">
+    <value>Discover</value>
+  </data>
+  <data name="ModulePageSearchBox.PlaceholderText" xml:space="preserve">
+    <value>Search modules...</value>
+  </data>
+
+  <!-- Code-behind strings -->
+  <data name="String_Rating" xml:space="preserve">
+    <value>Rating</value>
+  </data>
+  <data name="String_Downloads" xml:space="preserve">
+    <value>Downloads</value>
+  </data>
+  <data name="String_SearchModules" xml:space="preserve">
+    <value>Search modules...</value>
+  </data>
+
+
+  <!-- DiscoverPage -->
+  <data name="DiscoverSortRating.Content" xml:space="preserve">
+    <value>Rating</value>
+  </data>
+  <data name="DiscoverSortDownloads.Content" xml:space="preserve">
+    <value>Downloads</value>
+  </data>
+  <data name="DiscoverSortUpdated.Content" xml:space="preserve">
+    <value>Updated</value>
+  </data>
+  <data name="DiscoverOfflineNotice.Title" xml:space="preserve">
+    <value>Offline Mode</value>
+  </data>
+  <data name="DiscoverOfflineNotice.Message" xml:space="preserve">
+    <value>Cannot fetch latest module list. Showing cached data.</value>
+  </data>
+
+  <!-- ModuleDetailPage -->
+  <data name="ModuleDetailVersionLabel.Text" xml:space="preserve">
+    <value>Version</value>
+  </data>
+  <data name="ModuleDetailSourceLabel.Text" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="ModuleDetailStateLabel.Text" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="ModuleDetailPermissions.Text" xml:space="preserve">
+    <value>Permissions</value>
+  </data>
+  <data name="ModuleDetailUninstallButton.Content" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <data name="ModuleDetailReinstallButton.Content" xml:space="preserve">
+    <value>Re-enable</value>
+  </data>
+
+  <!-- Code-behind strings (loaded via LocalizationHelper) -->
+  <data name="String_DiscoverDialogInstallPrimary" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="String_DiscoverDialogCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="String_DiscoverDialogInstallFailedTitle" xml:space="preserve">
+    <value>Install Failed</value>
+  </data>
+  <data name="String_DiscoverDialogInstallConfirmTitleFormat" xml:space="preserve">
+    <value>Install {0}?</value>
+  </data>
+  <data name="String_DiscoverDialogInstallConfirmContentFormat" xml:space="preserve">
+    <value>Module: {0}
+Description: {1}
+
+This module will be installed from:
+{2}</value>
+  </data>
+
+  <data name="String_ModuleDetailSourceBuiltIn" xml:space="preserve">
+    <value>Built-in</value>
+  </data>
+  <data name="String_ModuleDetailSourceExternal" xml:space="preserve">
+    <value>External</value>
+  </data>
+  <data name="String_ModuleDetailUninstallLogical" xml:space="preserve">
+    <value>Uninstall (Logical)</value>
+  </data>
+  <data name="String_ModuleDetailUninstallPhysical" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <data name="String_ModuleDetailDialogTitle" xml:space="preserve">
+    <value>Uninstall Module</value>
+  </data>
+  <data name="String_ModuleDetailDialogLogicalContentFormat" xml:space="preserve">
+    <value>Built-in module '{0}' will be logically uninstalled. You can re-enable it anytime.</value>
+  </data>
+  <data name="String_ModuleDetailDialogExternalContentFormat" xml:space="preserve">
+    <value>External module '{0}' and its data will be permanently deleted.</value>
+  </data>
+
+  <!-- InstalledPage empty state -->
+  <data name="InstalledPageEmptyTitle.Text" xml:space="preserve">
+    <value>No modules installed</value>
+  </data>
+  <data name="InstalledPageEmptyDescription.Text" xml:space="preserve">
+    <value>Discover and install modules to get started.</value>
+  </data>
+  <data name="InstalledPageEmptyDiscoverButton.Content" xml:space="preserve">
+    <value>Browse modules</value>
+  </data>
+
+  <!-- DiscoverPage empty state -->
+  <data name="DiscoverPageEmptyTitle.Text" xml:space="preserve">
+    <value>No modules found</value>
+  </data>
+  <data name="DiscoverPageEmptyDescription.Text" xml:space="preserve">
+    <value>Try adjusting your search or check back later.</value>
+  </data>
+
+  <!-- SettingsPage -->
+
+  <data name="SettingsLanguageRestartTitle.Text" xml:space="preserve">
+    <value>Restart Required</value>
+  </data>
+  <data name="SettingsLanguageRestartHint.Text" xml:space="preserve">
+    <value>Restart the app to fully apply the new language.</value>
+  </data>
+  <data name="SettingsRestartButton.Content" xml:space="preserve">
+    <value>Restart Now</value>
+  </data>
+  <data name="String_SettingsSectionLanguage" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="String_SettingsLanguageHeader" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="String_SettingsLanguageDescription" xml:space="preserve">
+    <value>Choose the display language for the app. Changes take effect after restart.</value>
+  </data>
+  <data name="String_SettingsThemeHeader" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="String_SettingsThemeDescription" xml:space="preserve">
+    <value>Choose the appearance theme for the app. Changes take effect immediately.</value>
+  </data>
+  <data name="String_SettingsTestModeHeader" xml:space="preserve">
+    <value>Test Mode</value>
+  </data>
+  <data name="String_SettingsTestModeDescription" xml:space="preserve">
+    <value>Enable test mode for development and debugging.</value>
+  </data>
+
+  <!-- Language display names (code-behind) -->
+  <data name="String_LangFollowSystem" xml:space="preserve">
+    <value>Follow system</value>
+  </data>
+  <data name="String_ThemeFollowSystem" xml:space="preserve">
+    <value>Follow system</value>
+  </data>
+  <data name="String_ThemeLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="String_ThemeDark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+
+  <!-- About section -->
+  <data name="String_SettingsSectionAbout" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="String_SettingsAppNameHeader" xml:space="preserve">
+    <value>ShuRuk</value>
+  </data>
+  <data name="String_SettingsAppVersionFormat" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+
+  <!-- MonitorPage -->
+  <data name="String_MonitorHeaderName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="String_MonitorHeaderPid" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="String_MonitorHeaderCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="String_MonitorHeaderMemory" xml:space="preserve">
+    <value>Memory</value>
+  </data>
+  <data name="String_MonitorHostProcess" xml:space="preserve">
+    <value>Host Service</value>
+  </data>
+  <data name="String_MonitorLoading" xml:space="preserve">
+    <value>Loading monitor data…</value>
+  </data>
+  <data name="String_MonitorCpuCardTitle" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="String_MonitorMemoryCardTitle" xml:space="preserve">
+    <value>Memory</value>
+  </data>
+  <data name="String_MonitorModuleCardTitle" xml:space="preserve">
+    <value>Modules</value>
+  </data>
+
+
+  <!-- NavigationView built-in strings -->
+  <data name="String_NavSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+
+  <!-- ChangelogPage -->
+  <data name="String_ChangelogTitle" xml:space="preserve">
+    <value>Changelog</value>
+  </data>
+  <data name="String_ChangelogCategoryNew" xml:space="preserve">
+    <value>New</value>
+  </data>
+  <data name="String_ChangelogCategoryFix" xml:space="preserve">
+    <value>Fixes</value>
+  </data>
+  <data name="String_Changelog_0_1_0_New1" xml:space="preserve">
+    <value>Initial release with module management, monitoring, and settings</value>
+  </data>
+  <data name="String_Changelog_0_1_0_New2" xml:space="preserve">
+    <value>Module installation, uninstallation, and state management</value>
+  </data>
+  <data name="String_Changelog_0_1_0_New3" xml:space="preserve">
+    <value>Real-time process resource monitoring (CPU / Memory)</value>
+  </data>
+  <data name="String_Changelog_0_1_0_Fix1" xml:space="preserve">
+    <value>Fixed window not appearing after restart in some cases</value>
+  </data>
+  <data name="String_Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="String_NotAvailable" xml:space="preserve">
+    <value>N/A</value>
+  </data>
+  <data name="String_Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="String_ChangelogEmpty" xml:space="preserve">
+    <value>No changelog available</value>
+  </data>
+  <data name="String_NavBack" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="String_NavPaneOpen" xml:space="preserve">
+    <value>Open navigation</value>
+  </data>
+  <data name="String_NavPaneClose" xml:space="preserve">
+    <value>Close navigation</value>
+  </data>
+
+  <!-- Accessibility / 可访问性 -->
+  <data name="String_ModulePageTabBarA11y" xml:space="preserve">
+    <value>Module tabs</value>
+  </data>
+  <data name="String_DiscoverSortA11y" xml:space="preserve">
+    <value>Sort modules</value>
+  </data>
+
+</root>

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <NoWarn>$(NoWarn);NU1903</NoWarn>
+    <MrtCorePriGenEnabled Condition="'$(MSBuildProjectName)' == 'ShuRuk.UI'">false</MrtCorePriGenEnabled>
   </PropertyGroup>
 
   <ItemGroup>
