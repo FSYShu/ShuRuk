@@ -10,4 +10,5 @@ public class ModuleInfo
     public string? SubmodulePath { get; init; }
     public bool IsUninstalled { get; set; }
     public DateTime? UninstalledAt { get; set; }
+    public int Pid { get; set; }
 }

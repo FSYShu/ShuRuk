@@ -271,6 +271,14 @@ public class ModuleManager : IModuleManager
             .ToList();
     }
 
+    public IReadOnlyList<ModuleInfo> GetInstalledModuleInfos()
+    {
+        return _modules.Values
+            .Where(m => m.State != ModuleState.Uninstalled && !m.IsUninstalled)
+            .Select(m => m)
+            .ToList();
+    }
+
     private void TransitionState(string moduleName, ModuleState oldState, ModuleState newState)
     {
         if (_modules.TryGetValue(moduleName, out var info))

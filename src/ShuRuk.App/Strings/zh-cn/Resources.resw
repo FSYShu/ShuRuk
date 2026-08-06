@@ -59,9 +59,6 @@
   </data>
 
   <!-- HomePage -->
-  <data name="HomeTagline.Text" xml:space="preserve">
-    <value>Windows 工具集</value>
-  </data>
   <data name="HomeWelcome.Title" xml:space="preserve">
     <value>欢迎</value>
   </data>
@@ -243,9 +240,6 @@
   <data name="String_SettingsSectionAbout" xml:space="preserve">
     <value>关于</value>
   </data>
-  <data name="String_SettingsAppNameHeader" xml:space="preserve">
-    <value>ShuRuk</value>
-  </data>
   <data name="String_SettingsAppVersionFormat" xml:space="preserve">
     <value>版本 {0}</value>
   </data>
@@ -277,6 +271,27 @@
   </data>
   <data name="String_MonitorModuleCardTitle" xml:space="preserve">
     <value>模块</value>
+  </data>
+  <data name="String_MonitorModuleRunning" xml:space="preserve">
+    <value>运行中</value>
+  </data>
+  <data name="String_MonitorModuleInstalled" xml:space="preserve">
+    <value>已安装</value>
+  </data>
+  <data name="String_MonitorRestartProcess" xml:space="preserve">
+    <value>重启进程</value>
+  </data>
+  <data name="String_MonitorStopProcess" xml:space="preserve">
+    <value>结束进程</value>
+  </data>
+  <data name="String_MonitorRestartFailedTitle" xml:space="preserve">
+    <value>重启失败</value>
+  </data>
+  <data name="String_MonitorStopFailedTitle" xml:space="preserve">
+    <value>结束失败</value>
+  </data>
+  <data name="String_MonitorCommandCancel" xml:space="preserve">
+    <value>确定</value>
   </data>
 
 

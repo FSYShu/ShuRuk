@@ -5,47 +5,281 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:ShuRuk.App.Pages"
+    xmlns:controls="using:ShuRuk.App.Controls"
     mc:Ignorable="d">
 
-    <Grid Padding="16">
-        <ListView x:Name="MonitorListView">
+    <Page.Resources>
+        <local:AltRowBrushConverter x:Key="AltRowConverter" />
+    </Page.Resources>
+
+    <Grid Padding="16" RowSpacing="8" Background="Transparent" Tapped="RootGrid_Tapped">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border x:Name="CpuCard" Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" Opacity="0.7" Height="22">
+                        <FontIcon x:Name="CpuCardIcon" FontFamily="Segoe Fluent Icons" FontSize="16" VerticalAlignment="Center" />
+                        <TextBlock x:Name="CpuCardTitle" FontSize="16" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock x:Name="CpuCardDetail" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.5" Margin="0,2,0,0" />
+                    <TextBlock x:Name="CpuCardValue" FontSize="28" Margin="0,6,0,6" />
+                    <controls:SegmentedProgressBar x:Name="CpuProgressBar" Maximum="100" Height="16" Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="MemoryCard" Grid.Column="1" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" Opacity="0.7" Height="22">
+                        <FontIcon x:Name="MemoryCardIcon" FontFamily="Segoe Fluent Icons" FontSize="16" VerticalAlignment="Center" />
+                        <TextBlock x:Name="MemoryCardTitle" FontSize="16" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock x:Name="MemoryCardDetail" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.5" Margin="0,2,0,0" />
+                    <TextBlock x:Name="MemoryCardValue" FontSize="28" Margin="0,6,0,6" />
+                    <controls:SegmentedProgressBar x:Name="MemoryProgressBar" Maximum="100" Height="16" Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="ModuleCard" Grid.Column="2" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" Opacity="0.7" Height="22">
+                        <FontIcon x:Name="ModuleCardIcon" FontFamily="Segoe Fluent Icons" FontSize="16" VerticalAlignment="Center" />
+                        <TextBlock x:Name="ModuleCardTitle" FontSize="16" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock x:Name="ModuleCardDetail" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.5" Margin="0,2,0,0" />
+                    <TextBlock x:Name="ModuleCardValue" FontSize="28" Margin="0,6,0,6" />
+                    <controls:SegmentedProgressBar x:Name="ModuleProgressBar" Maximum="100" Height="16" Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Row 1: Command bar / 命令栏 -->
+        <CommandBar Grid.Row="1" HorizontalAlignment="Right" DefaultLabelPosition="Right" OverflowButtonVisibility="Collapsed" Margin="0,-4,0,-4">
+            <CommandBar.PrimaryCommands>
+                <AppBarButton x:Name="RestartProcessButton" Click="RestartProcessButton_Click" IsEnabled="False">
+                    <AppBarButton.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE72C;" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton x:Name="StopProcessButton" Click="StopProcessButton_Click" IsEnabled="False">
+                    <AppBarButton.Icon>
+                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE71A;" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+            </CommandBar.PrimaryCommands>
+        </CommandBar>
+
+        <Grid Grid.Row="2" Padding="3,3" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4" MinHeight="32">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="60" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="70" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="90" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="6" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Tapped="HeaderName_Tapped" Background="Transparent" CornerRadius="4" MinHeight="32" PointerEntered="HeaderBorder_PointerEntered" PointerExited="HeaderBorder_PointerExited">
+                <Grid Margin="8,0,4,0">
+                    <TextBlock x:Name="HeaderName" Opacity="0.7" VerticalAlignment="Center" />
+                    <FontIcon x:Name="SortArrowName" Glyph="&#xE70D;" FontSize="10" Opacity="0" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Width="8">
+                <Rectangle Width="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Opacity="0.4" VerticalAlignment="Stretch" HorizontalAlignment="Center" />
+            </Border>
+
+            <Border Grid.Column="2" Tapped="HeaderPid_Tapped" Background="Transparent" CornerRadius="4" MinHeight="32" PointerEntered="HeaderBorder_PointerEntered" PointerExited="HeaderBorder_PointerExited">
+                <Grid Margin="0,0,4,0">
+                    <TextBlock x:Name="HeaderPid" Opacity="0.7" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform x:Name="HeaderPidTranslate" />
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                    <FontIcon x:Name="SortArrowPid" Glyph="&#xE70D;" FontSize="10" Opacity="0" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="3" Width="8">
+                <Rectangle Width="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Opacity="0.4" VerticalAlignment="Stretch" HorizontalAlignment="Center" />
+            </Border>
+
+            <Border Grid.Column="4" Tapped="HeaderCpu_Tapped" Background="Transparent" CornerRadius="4" MinHeight="32" PointerEntered="HeaderBorder_PointerEntered" PointerExited="HeaderBorder_PointerExited">
+                <Grid Margin="0,0,4,0">
+                    <TextBlock x:Name="HeaderCpu" Opacity="0.7" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform x:Name="HeaderCpuTranslate" />
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                    <FontIcon x:Name="SortArrowCpu" Glyph="&#xE70D;" FontSize="10" Opacity="0" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="5" Width="8">
+                <Rectangle Width="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Opacity="0.4" VerticalAlignment="Stretch" HorizontalAlignment="Center" />
+            </Border>
+
+            <Border Grid.Column="6" Tapped="HeaderMemory_Tapped" Background="Transparent" CornerRadius="4" MinHeight="32" PointerEntered="HeaderBorder_PointerEntered" PointerExited="HeaderBorder_PointerExited">
+                <Grid Margin="0,0,4,0">
+                    <TextBlock x:Name="HeaderMemory" Opacity="0.7" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform x:Name="HeaderMemoryTranslate" />
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                    <FontIcon x:Name="SortArrowMemory" Glyph="&#xE70D;" FontSize="10" Opacity="0" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="7" Width="8">
+                <Rectangle Width="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Opacity="0.4" VerticalAlignment="Stretch" HorizontalAlignment="Center" />
+            </Border>
+        </Grid>
+
+        <ListView x:Name="MonitorListView" Grid.Row="3"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            ScrollViewer.HorizontalScrollMode="Disabled"
+            ScrollViewer.VerticalScrollBarVisibility="Visible"
+            SelectionMode="Single"
+            SelectionChanged="MonitorListView_SelectionChanged">
+            <ListView.RenderTransform>
+                <TranslateTransform x:Name="ListViewTranslate" />
+            </ListView.RenderTransform>
+            <ListView.ItemContainerTransitions>
+                <TransitionCollection />
+            </ListView.ItemContainerTransitions>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0,0,0,2" />
+                    <Setter Property="CornerRadius" Value="4" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListViewItem">
+                                <Border x:Name="RootBorder"
+                                        CornerRadius="{TemplateBinding CornerRadius}"
+                                        Padding="{TemplateBinding Padding}"
+                                        Margin="{TemplateBinding Margin}">
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal" />
+                                            <VisualState x:Name="PointerOver">
+                                                <VisualState.Setters>
+                                                    <Setter Target="HoverFill.Opacity" Value="1" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                            <VisualState x:Name="Pressed">
+                                                <VisualState.Setters>
+                                                    <Setter Target="HoverFill.Opacity" Value="1" />
+                                                    <Setter Target="HoverFill.Background" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                            <VisualState x:Name="Selected">
+                                                <VisualState.Setters>
+                                                    <Setter Target="SelectionFill.Visibility" Value="Visible" />
+                                                    <Setter Target="SelectionTint.Visibility" Value="Visible" />
+                                                    <Setter Target="SelectionIndicator.Visibility" Value="Visible" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                            <VisualState x:Name="PointerOverSelected">
+                                                <VisualState.Setters>
+                                                    <Setter Target="SelectionFill.Visibility" Value="Visible" />
+                                                    <Setter Target="SelectionTint.Visibility" Value="Visible" />
+                                                    <Setter Target="HoverFill.Opacity" Value="1" />
+                                                    <Setter Target="SelectionIndicator.Visibility" Value="Visible" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                            <VisualState x:Name="PressedSelected">
+                                                <VisualState.Setters>
+                                                    <Setter Target="SelectionFill.Visibility" Value="Visible" />
+                                                    <Setter Target="SelectionTint.Visibility" Value="Visible" />
+                                                    <Setter Target="SelectionIndicator.Visibility" Value="Visible" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                    <Grid>
+                                        <Border x:Name="HoverFill"
+                                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                Opacity="0"
+                                                CornerRadius="4"
+                                                IsHitTestVisible="False" />
+                                        <Border x:Name="SelectionFill"
+                                                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                                CornerRadius="4"
+                                                IsHitTestVisible="False"
+                                                Visibility="Collapsed" />
+                                        <Border x:Name="SelectionTint"
+                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                Opacity="0.12"
+                                                CornerRadius="4"
+                                                IsHitTestVisible="False"
+                                                Visibility="Collapsed" />
+                                        <ContentPresenter
+                                            Content="{TemplateBinding Content}"
+                                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                        <Border x:Name="SelectionIndicator"
+                                                Visibility="Collapsed"
+                                                Width="3"
+                                                HorizontalAlignment="Left"
+                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                CornerRadius="2"
+                                                Margin="2,6,0,6" />
+                                    </Grid>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <Grid Padding="8" ColumnSpacing="16">
+                    <Grid Padding="3,6,3,6"
+                        Background="{Binding IsAltRow, Converter={StaticResource AltRowConverter}}">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="200" />
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="100" />
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="60" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="70" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="14" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Text="{Binding ModuleName}" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="{Binding StateText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="{Binding MemoryText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-                        <ProgressBar Grid.Column="3" Value="{Binding CpuUsagePercent}" Minimum="0" Maximum="100" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ModuleName}" Margin="8,0,4,0" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding Pid}" Opacity="0.7" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="4" Text="{Binding CpuText}" Opacity="0.7" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="6" Text="{Binding MemoryText}" Opacity="0.7" VerticalAlignment="Center" HorizontalAlignment="Right" />
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>
-    </Grid>
 
-    <VisualStateManager.VisualStateGroups>
-        <VisualStateGroup>
-            <VisualState x:Name="WideState">
-                <VisualState.StateTriggers>
-                    <AdaptiveTrigger MinWindowWidth="1024" />
-                </VisualState.StateTriggers>
-            </VisualState>
-            <VisualState x:Name="MediumState">
-                <VisualState.StateTriggers>
-                    <AdaptiveTrigger MinWindowWidth="768" />
-                </VisualState.StateTriggers>
-            </VisualState>
-            <VisualState x:Name="NarrowState">
-                <VisualState.StateTriggers>
-                    <AdaptiveTrigger MinWindowWidth="0" />
-                </VisualState.StateTriggers>
-            </VisualState>
-        </VisualStateGroup>
-    </VisualStateManager.VisualStateGroups>
+        <Grid x:Name="LoadingOverlay" Grid.RowSpan="4" Visibility="Visible">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Opacity="0.7">
+                <ProgressRing x:Name="LoadingProgressRing" IsActive="True" Width="24" Height="24" />
+                <TextBlock x:Name="LoadingText" HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
 </Page>

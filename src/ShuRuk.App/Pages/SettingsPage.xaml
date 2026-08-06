@@ -63,6 +63,22 @@
                 </ctk:SettingsCard.Content>
             </ctk:SettingsCard>
 
+            <!-- TestMode Section / 测试模式分区 -->
+            <ctk:SettingsCard
+                x:Name="TestModeCard"
+                Header="{x:Bind TestModeHeader}"
+                Description="{x:Bind TestModeDescription}">
+                <ctk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xEC7A;" />
+                </ctk:SettingsCard.HeaderIcon>
+                <ctk:SettingsCard.Content>
+                    <ToggleSwitch
+                        x:Name="TestModeToggle"
+                        Toggled="TestModeToggle_Toggled" />
+                </ctk:SettingsCard.Content>
+            </ctk:SettingsCard>
+
+
             <!-- About Section / 关于分区 -->
             <TextBlock
                 x:Name="SettingsAboutSectionHeader"

@@ -84,9 +84,11 @@ public partial class App : Application, IAppContext
             services.AddSingleton<StatusMonitor>(sp =>
             {
                 var manager = sp.GetRequiredService<IModuleManager>();
-                return new StatusMonitor(manager, TimeSpan.FromSeconds(AppConstants.StatusMonitorIntervalSeconds));
+                var testMode = sp.GetRequiredService<ITestModeService>();
+                return new StatusMonitor(manager, testMode, TimeSpan.FromSeconds(AppConstants.StatusMonitorIntervalSeconds));
             });
             services.AddSingleton<LanguageService>();
+            services.AddSingleton<ITestModeService, TestModeService>();
             services.AddSingleton<ThemeService>();
 
             Services = services.BuildServiceProvider();

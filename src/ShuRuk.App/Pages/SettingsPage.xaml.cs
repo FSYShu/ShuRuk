@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Navigation;
 using ShuRuk.App;
 using ShuRuk.App.Helpers;
 using ShuRuk.App.Services;
+using ShuRuk.Contracts.Interfaces;
 
 
 namespace ShuRuk.App.Pages;
@@ -14,6 +15,7 @@ public sealed partial class SettingsPage : Page
 {
     private readonly LanguageService _languageService;
     private readonly ThemeService _themeService;
+    private readonly ITestModeService _testModeService;
     private bool _initializing = true;
 
     public string LanguageSectionHeader => LocalizationHelper.GetString("String_SettingsSectionLanguage");
@@ -21,6 +23,8 @@ public sealed partial class SettingsPage : Page
     public string LanguageDescription => LocalizationHelper.GetString("String_SettingsLanguageDescription");
     public string ThemeHeader => LocalizationHelper.GetString("String_SettingsThemeHeader");
     public string ThemeDescription => LocalizationHelper.GetString("String_SettingsThemeDescription");
+    public string TestModeHeader => LocalizationHelper.GetString("String_SettingsTestModeHeader");
+    public string TestModeDescription => LocalizationHelper.GetString("String_SettingsTestModeDescription");
     public string RestartButtonText => LocalizationHelper.GetString("SettingsRestartButton.Content");
     public string AboutSectionHeader => LocalizationHelper.GetString("String_SettingsSectionAbout");
     public string AppNameHeader => AppContextAccessor.Current.AppTitle;
@@ -33,6 +37,7 @@ public sealed partial class SettingsPage : Page
         InitializeComponent();
         _languageService = AppContextAccessor.Current.Services.GetRequiredService<LanguageService>();
         _themeService = AppContextAccessor.Current.Services.GetRequiredService<ThemeService>();
+        _testModeService = App.Services.GetRequiredService<ITestModeService>();
         Loaded += OnPageLoaded;
     }
 
@@ -61,6 +66,9 @@ public sealed partial class SettingsPage : Page
                 selectedThemeIndex = i;
         }
         ThemeComboBox.SelectedIndex = selectedThemeIndex;
+
+        // TestMode / 测试模式
+        TestModeToggle.IsOn = _testModeService.IsEnabled;
 
         _initializing = false;
 
@@ -142,6 +150,12 @@ public sealed partial class SettingsPage : Page
         {
             System.Diagnostics.Debug.WriteLine($"ThemeComboBox_SelectionChanged: {ex}");
         }
+    }
+
+    private async void TestModeToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_initializing) return;
+        await _testModeService.SetEnabledAsync(TestModeToggle.IsOn);
     }
 
     private void ShowRestartInfoBar()

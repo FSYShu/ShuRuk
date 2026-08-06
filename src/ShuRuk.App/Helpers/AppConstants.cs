@@ -47,6 +47,20 @@ internal static class AppConstants
     // Status monitor / 状态监控
     public const int StatusMonitorIntervalSeconds = 5;
     public const int StatusHistoryRetentionCount = 60;
+    public const int MonitorDataWaitRetries = 50;
+    public const int MonitorDataWaitDelayMs = 100;
+    public const int MonitorRefreshIntervalSeconds = 2;
+    public const int MonitorStopDelaySeconds = 30;
+
+    // Monitor animation / 监控页动画
+    public const int SortArrowAnimationMs = 150;
+    public const int SortFadeOutMs = 100;
+    public const int SortFadeInMs = 140;
+    public const int SortSlideDistance = 6;
+
+    // Test data provider / 测试数据
+    public const int MinTestMemoryMB = 8;
+    public const int MaxTestMemoryMB = 384;
 
     // Module discovery / 模块发现
     public const string GitHubSearchApiUrl =
@@ -99,5 +113,18 @@ internal static class AppConstants
         public const string AppTheme = "AppTheme";
         public const string AppThemeModule = "ShuRuk.UI";
         public const string AppLanguage = "app.language";
+        public const string AppConfigModule = "ShuRuk.App";
+        public const string MonitorSortBy = "MonitorSortBy";
+        public const string MonitorSortDescending = "MonitorSortDescending";
+        public const string TestModeEnabled = "TestModeEnabled";
+    }
+
+    // Monitor sort columns / 监控页排序列
+    public static class SortColumns
+    {
+        public const string Name = "Name";
+        public const string Pid = "Pid";
+        public const string Cpu = "Cpu";
+        public const string Memory = "Memory";
     }
 }

@@ -39,6 +39,7 @@
     <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="System.Management" />
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="System.Drawing.Common" />
   </ItemGroup>
