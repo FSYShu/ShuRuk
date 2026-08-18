@@ -1,0 +1,76 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RootNamespace>ShuRuk.App</RootNamespace>
+    <AssemblyName>ShuRuk</AssemblyName>
+    <Version>0.1.0</Version>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <DisableEmbeddedXbf>true</DisableEmbeddedXbf>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <WindowsPackageType>MSIX</WindowsPackageType>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
+    <DefaultResourceLanguage>zh-CN</DefaultResourceLanguage>
+    <PackageArchitecture>x64</PackageArchitecture>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <ApplicationIcon>Assets\ShuRuk.ico</ApplicationIcon>
+    <DefaultLanguage>zh-cn</DefaultLanguage>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <UseWindowsForms>False</UseWindowsForms>
+    <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
+    <PackageCertificateThumbprint>3439F0B573694DD7798AE4FE8C89405B6C41CBA4</PackageCertificateThumbprint>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AppxManifest Include="package.appxmanifest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" />
+    <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="System.Management" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="System.Drawing.Common" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ShuRuk.Contracts\ShuRuk.Contracts.csproj" />
+    <ProjectReference Include="..\ShuRuk.Runtime\ShuRuk.Runtime.csproj" />
+    <ProjectReference Include="..\ShuRuk.Infrastructure\ShuRuk.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Strings\**\*.resw" CopyToOutputDirectory="PreserveNewest" Link="Strings\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Properties\launchSettings.json" />
+  </ItemGroup>
+
+  <!-- Post-build: replace icon resource with full multi-size .ico for Task Manager clarity
+       构建后：用完整多尺寸.ico替换图标资源以解决任务管理器图标模糊 -->
+  <Target Name="ReplaceIconResource" AfterTargets="Build" Condition="'$(RuntimeIdentifier)' != ''">
+    <PropertyGroup>
+      <ReplaceIconScript>$(MSBuildProjectDirectory)\replace-icon.ps1</ReplaceIconScript>
+      <TargetExePath>$(TargetPath)</TargetExePath>
+      <SourceIcoPath>$(MSBuildProjectDirectory)\Assets\ShuRuk.ico</SourceIcoPath>
+    </PropertyGroup>
+    <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(ReplaceIconScript)&quot; -ExePath &quot;$(TargetExePath)&quot; -IcoPath &quot;$(SourceIcoPath)&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" Condition="Exists('$(ReplaceIconScript)') And Exists('$(TargetExePath)') And Exists('$(SourceIcoPath)')" ConsoleToMSBuild="true" />
+  </Target>
+
+</Project>

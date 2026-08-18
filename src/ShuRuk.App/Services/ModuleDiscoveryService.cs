@@ -1,12 +1,13 @@
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
+using ShuRuk.App.Helpers;
 using ShuRuk.Contracts.Enums;
 using ShuRuk.Contracts.Interfaces;
 using ShuRuk.Contracts.Models;
 using ShuRuk.Runtime;
 
-namespace ShuRuk.Host.Services;
+namespace ShuRuk.App.Services;
 
 public class ModuleDiscoveryService : IModuleDiscoveryService
 {
@@ -106,11 +107,11 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
     public async Task<IReadOnlyList<ModuleDiscoveryEntry>> GetCachedEntriesAsync(CancellationToken cancellationToken = default)
     {
-        var cacheFile = Path.Combine(_cachePath, "discovery_cache.json");
+        var cacheFile = Path.Combine(_cachePath, AppConstants.DiscoveryCacheFileName);
         if (!File.Exists(cacheFile)) return Array.Empty<ModuleDiscoveryEntry>();
 
         await using var stream = File.OpenRead(cacheFile);
-        var result = await JsonSerializer.DeserializeAsync<List<ModuleDiscoveryEntry>>(stream, cancellationToken: cancellationToken);
+        var result = await JsonSerializer.DeserializeAsync<List<ModuleDiscoveryEntry>>(stream, ModuleManager.JsonOptions, cancellationToken: cancellationToken);
         return result ?? new List<ModuleDiscoveryEntry>();
     }
 
@@ -118,7 +119,7 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
     {
         try
         {
-            var response = await _httpClient.GetAsync("https://api.github.com/search/repositories?q=shuruk-module+in:topics&per_page=100", cancellationToken);
+            var response = await _httpClient.GetAsync(AppConstants.GitHubSearchApiUrl, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var result = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
@@ -133,7 +134,7 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
                         Name = item.GetProperty("name").GetString() ?? "",
                         DisplayName = item.GetProperty("name").GetString() ?? "",
                         Description = item.TryGetProperty("description", out var desc) ? desc.GetString() : null,
-                        Version = "1.0.0",
+                        Version = AppConstants.DefaultModuleVersion,
                         Repository = item.GetProperty("html_url").GetString() ?? "",
                         Source = ModuleSource.External,
                         Category = null,
@@ -172,15 +173,16 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
         try
         {
-            var manifestUrl = $"{apiUri}/contents/manifest.json";
+            var manifestUrl = $"{apiUri}/contents/{AppConstants.ManifestFileName}";
             var response = await _httpClient.GetAsync(manifestUrl, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var result = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-            var content = result.GetProperty("content").GetString()!;
+            var content = result.GetProperty("content").GetString();
+            if (content is null) return null;
             var json = System.Convert.FromBase64String(content.Replace("\n", ""));
 
-            return await JsonSerializer.DeserializeAsync<ModuleManifest>(new MemoryStream(json), cancellationToken: cancellationToken);
+            return await JsonSerializer.DeserializeAsync<ModuleManifest>(new MemoryStream(json), ModuleManager.JsonOptions, cancellationToken: cancellationToken);
         }
         catch
         {
@@ -200,8 +202,8 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
         Directory.CreateDirectory(resolvedDir);
 
-        var manifestJson = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(Path.Combine(resolvedDir, "manifest.json"), manifestJson, cancellationToken);
+        var manifestJson = JsonSerializer.Serialize(manifest, ModuleManager.JsonOptions);
+        await File.WriteAllTextAsync(Path.Combine(resolvedDir, AppConstants.ManifestFileName), manifestJson, cancellationToken);
 
         await _moduleManager.RegisterModuleAsync(manifest, resolvedDir, cancellationToken);
         await _moduleManager.InstallModuleAsync(manifest.Name, cancellationToken);
@@ -209,9 +211,9 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
     private async Task SaveCacheAsync(List<ModuleDiscoveryEntry> entries, CancellationToken cancellationToken)
     {
-        var cacheFile = Path.Combine(_cachePath, "discovery_cache.json");
+        var cacheFile = Path.Combine(_cachePath, AppConstants.DiscoveryCacheFileName);
         await using var stream = File.Create(cacheFile);
-        await JsonSerializer.SerializeAsync(stream, entries, cancellationToken: cancellationToken);
+        await JsonSerializer.SerializeAsync(stream, entries, ModuleManager.JsonOptions, cancellationToken: cancellationToken);
     }
 
     private static string? ConvertToApiUrl(string repositoryUrl)
@@ -222,7 +224,7 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
         var segments = uri.AbsolutePath.Trim('/').Split('/');
         if (segments.Length < 2) return null;
 
-        return $"https://api.github.com/repos/{segments[0]}/{segments[1]}";
+        return $"{AppConstants.GitHubApiBase}{segments[0]}/{segments[1]}";
     }
 
     private static bool IsSafeModuleName(string name)

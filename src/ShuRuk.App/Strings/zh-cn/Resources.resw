@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" minOccurs="0" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" minOccurs="0" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- MainPage / Navigation -->
+  <data name="NavHome.Content" xml:space="preserve">
+    <value>首页</value>
+  </data>
+  <data name="NavModules.Content" xml:space="preserve">
+    <value>模块</value>
+  </data>
+
+  <data name="NavMonitor.Content" xml:space="preserve">
+    <value>监控</value>
+  </data>
+
+  <data name="NavChangelog.Content" xml:space="preserve">
+    <value>更新日志</value>
+  </data>
+
+  <!-- HomePage -->
+  <data name="HomeWelcome.Title" xml:space="preserve">
+    <value>欢迎</value>
+  </data>
+  <data name="HomeWelcome.Message" xml:space="preserve">
+    <value>管理模块、发现新工具，自定义您的 Windows 体验。</value>
+  </data>
+
+
+  <!-- ModuleListPage -->
+  <data name="ModulePageInstalledTab.Text" xml:space="preserve">
+    <value>已安装</value>
+  </data>
+  <data name="ModulePageDiscoverTab.Text" xml:space="preserve">
+    <value>发现</value>
+  </data>
+  <data name="ModulePageSearchBox.PlaceholderText" xml:space="preserve">
+    <value>搜索模块...</value>
+  </data>
+
+  <!-- Code-behind strings -->
+  <data name="String_Rating" xml:space="preserve">
+    <value>评分</value>
+  </data>
+  <data name="String_Downloads" xml:space="preserve">
+    <value>下载量</value>
+  </data>
+  <data name="String_SearchModules" xml:space="preserve">
+    <value>搜索模块...</value>
+  </data>
+
+
+  <!-- DiscoverPage -->
+  <data name="DiscoverSortRating.Content" xml:space="preserve">
+    <value>评分</value>
+  </data>
+  <data name="DiscoverSortDownloads.Content" xml:space="preserve">
+    <value>下载量</value>
+  </data>
+  <data name="DiscoverSortUpdated.Content" xml:space="preserve">
+    <value>更新时间</value>
+  </data>
+  <data name="DiscoverOfflineNotice.Title" xml:space="preserve">
+    <value>离线模式</value>
+  </data>
+  <data name="DiscoverOfflineNotice.Message" xml:space="preserve">
+    <value>无法获取最新模块列表，当前展示的是缓存数据。</value>
+  </data>
+
+  <!-- ModuleDetailPage -->
+  <data name="ModuleDetailVersionLabel.Text" xml:space="preserve">
+    <value>版本</value>
+  </data>
+  <data name="ModuleDetailSourceLabel.Text" xml:space="preserve">
+    <value>来源</value>
+  </data>
+  <data name="ModuleDetailStateLabel.Text" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="ModuleDetailPermissions.Text" xml:space="preserve">
+    <value>权限声明</value>
+  </data>
+  <data name="ModuleDetailUninstallButton.Content" xml:space="preserve">
+    <value>卸载</value>
+  </data>
+  <data name="ModuleDetailReinstallButton.Content" xml:space="preserve">
+    <value>重新启用</value>
+  </data>
+
+  <!-- Code-behind strings (loaded via LocalizationHelper) -->
+  <data name="String_DiscoverDialogInstallPrimary" xml:space="preserve">
+    <value>安装</value>
+  </data>
+  <data name="String_DiscoverDialogCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="String_DiscoverDialogInstallFailedTitle" xml:space="preserve">
+    <value>安装失败</value>
+  </data>
+  <data name="String_DiscoverDialogInstallConfirmTitleFormat" xml:space="preserve">
+    <value>安装「{0}」？</value>
+  </data>
+  <data name="String_DiscoverDialogInstallConfirmContentFormat" xml:space="preserve">
+    <value>模块: {0}
+描述: {1}
+
+将从以下地址安装此模块:
+{2}</value>
+  </data>
+
+  <data name="String_ModuleDetailSourceBuiltIn" xml:space="preserve">
+    <value>内置</value>
+  </data>
+  <data name="String_ModuleDetailSourceExternal" xml:space="preserve">
+    <value>外部</value>
+  </data>
+  <data name="String_ModuleDetailUninstallLogical" xml:space="preserve">
+    <value>卸载（逻辑）</value>
+  </data>
+  <data name="String_ModuleDetailUninstallPhysical" xml:space="preserve">
+    <value>卸载</value>
+  </data>
+  <data name="String_ModuleDetailDialogTitle" xml:space="preserve">
+    <value>卸载模块</value>
+  </data>
+  <data name="String_ModuleDetailDialogLogicalContentFormat" xml:space="preserve">
+    <value>内置模块「{0}」将被逻辑卸载，可随时重新启用。</value>
+  </data>
+  <data name="String_ModuleDetailDialogExternalContentFormat" xml:space="preserve">
+    <value>外部模块「{0}」及其数据将被永久删除。</value>
+  </data>
+
+  <!-- InstalledPage empty state -->
+  <data name="InstalledPageEmptyTitle.Text" xml:space="preserve">
+    <value>没有已安装的模块</value>
+  </data>
+  <data name="InstalledPageEmptyDescription.Text" xml:space="preserve">
+    <value>前往发现页浏览并安装模块。</value>
+  </data>
+  <data name="InstalledPageEmptyDiscoverButton.Content" xml:space="preserve">
+    <value>浏览模块</value>
+  </data>
+
+  <!-- DiscoverPage empty state -->
+  <data name="DiscoverPageEmptyTitle.Text" xml:space="preserve">
+    <value>未找到模块</value>
+  </data>
+  <data name="DiscoverPageEmptyDescription.Text" xml:space="preserve">
+    <value>请调整搜索条件或稍后再试。</value>
+  </data>
+
+  <!-- SettingsPage -->
+
+  <data name="SettingsLanguageRestartTitle.Text" xml:space="preserve">
+    <value>需要重启</value>
+  </data>
+  <data name="SettingsLanguageRestartHint.Text" xml:space="preserve">
+    <value>重启应用以完全切换到新语言。</value>
+  </data>
+  <data name="SettingsRestartButton.Content" xml:space="preserve">
+    <value>立即重启</value>
+  </data>
+  <data name="String_SettingsSectionLanguage" xml:space="preserve">
+    <value>常规</value>
+  </data>
+  <data name="String_SettingsLanguageHeader" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="String_SettingsLanguageDescription" xml:space="preserve">
+    <value>选择应用的显示语言，更改将在重启后生效。</value>
+  </data>
+  <data name="String_SettingsThemeHeader" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="String_SettingsThemeDescription" xml:space="preserve">
+    <value>选择应用的外观主题，更改将立即生效。</value>
+  </data>
+  <data name="String_SettingsTestModeHeader" xml:space="preserve">
+    <value>测试模式</value>
+  </data>
+  <data name="String_SettingsTestModeDescription" xml:space="preserve">
+    <value>启用测试模式以进行开发和调试。</value>
+  </data>
+
+  <!-- Language display names (code-behind) -->
+  <data name="String_LangFollowSystem" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="String_ThemeFollowSystem" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="String_ThemeLight" xml:space="preserve">
+    <value>浅色</value>
+  </data>
+  <data name="String_ThemeDark" xml:space="preserve">
+    <value>深色</value>
+  </data>
+
+  <!-- About section -->
+  <data name="String_SettingsSectionAbout" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="String_SettingsAppVersionFormat" xml:space="preserve">
+    <value>版本 {0}</value>
+  </data>
+
+  <!-- MonitorPage -->
+  <data name="String_MonitorHeaderName" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="String_MonitorHeaderPid" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="String_MonitorHeaderCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="String_MonitorHeaderMemory" xml:space="preserve">
+    <value>内存</value>
+  </data>
+  <data name="String_MonitorHostProcess" xml:space="preserve">
+    <value>主服务</value>
+  </data>
+  <data name="String_MonitorLoading" xml:space="preserve">
+    <value>正在加载监控数据…</value>
+  </data>
+  <data name="String_MonitorCpuCardTitle" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="String_MonitorMemoryCardTitle" xml:space="preserve">
+    <value>内存</value>
+  </data>
+  <data name="String_MonitorModuleCardTitle" xml:space="preserve">
+    <value>模块</value>
+  </data>
+  <data name="String_MonitorModuleRunning" xml:space="preserve">
+    <value>运行中</value>
+  </data>
+  <data name="String_MonitorModuleInstalled" xml:space="preserve">
+    <value>已安装</value>
+  </data>
+  <data name="String_MonitorRestartProcess" xml:space="preserve">
+    <value>重启进程</value>
+  </data>
+  <data name="String_MonitorStopProcess" xml:space="preserve">
+    <value>结束进程</value>
+  </data>
+  <data name="String_MonitorRestartFailedTitle" xml:space="preserve">
+    <value>重启失败</value>
+  </data>
+  <data name="String_MonitorStopFailedTitle" xml:space="preserve">
+    <value>结束失败</value>
+  </data>
+  <data name="String_MonitorCommandCancel" xml:space="preserve">
+    <value>确定</value>
+  </data>
+
+
+  <!-- NavigationView built-in strings -->
+  <data name="String_NavSettings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+
+  <!-- ChangelogPage -->
+  <data name="String_ChangelogTitle" xml:space="preserve">
+    <value>更新日志</value>
+  </data>
+  <data name="String_ChangelogCategoryNew" xml:space="preserve">
+    <value>新增</value>
+  </data>
+  <data name="String_ChangelogCategoryFix" xml:space="preserve">
+    <value>修复</value>
+  </data>
+  <data name="String_Changelog_0_1_0_New1" xml:space="preserve">
+    <value>初始版本发布，包含模块管理、监控、设置等基础功能</value>
+  </data>
+  <data name="String_Changelog_0_1_0_New2" xml:space="preserve">
+    <value>支持模块的安装、卸载与状态管理</value>
+  </data>
+  <data name="String_Changelog_0_1_0_New3" xml:space="preserve">
+    <value>实时进程资源监控（CPU / 内存）</value>
+  </data>
+  <data name="String_Changelog_0_1_0_Fix1" xml:space="preserve">
+    <value>修复窗口重启后偶发不显示的问题</value>
+  </data>
+  <data name="String_Unknown" xml:space="preserve">
+    <value>未知</value>
+  </data>
+  <data name="String_NotAvailable" xml:space="preserve">
+    <value>不可用</value>
+  </data>
+  <data name="String_Ok" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="String_ChangelogEmpty" xml:space="preserve">
+    <value>暂无更新日志</value>
+  </data>
+  <data name="String_NavBack" xml:space="preserve">
+    <value>返回</value>
+  </data>
+  <data name="String_NavPaneOpen" xml:space="preserve">
+    <value>打开导航</value>
+  </data>
+  <data name="String_NavPaneClose" xml:space="preserve">
+    <value>关闭导航</value>
+  </data>
+
+  <!-- Accessibility / 可访问性 -->
+  <data name="String_ModulePageTabBarA11y" xml:space="preserve">
+    <value>模块选项卡</value>
+  </data>
+  <data name="String_DiscoverSortA11y" xml:space="preserve">
+    <value>排序模块</value>
+  </data>
+
+</root>

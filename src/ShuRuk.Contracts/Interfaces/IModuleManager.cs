@@ -31,6 +31,8 @@ public interface IModuleManager
 
     IReadOnlyList<ModuleManifest> GetInstalledModules();
 
+    IReadOnlyList<ModuleInfo> GetInstalledModuleInfos();
+
     event EventHandler<ModuleStateChangedEventArgs>? ModuleStateChanged;
 }
 

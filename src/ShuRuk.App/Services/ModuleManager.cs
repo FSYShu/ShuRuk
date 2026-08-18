@@ -1,23 +1,40 @@
+using System.Collections.Concurrent;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using ShuRuk.Contracts.Enums;
 using ShuRuk.Contracts.Interfaces;
 using ShuRuk.Contracts.Models;
 using ShuRuk.Infrastructure.Data;
 using ShuRuk.Runtime;
 
-namespace ShuRuk.Host.Services;
+namespace ShuRuk.App.Services;
 
 public class ModuleManager : IModuleManager
 {
-    private readonly Dictionary<string, ModuleInfo> _modules = new();
-    private readonly Dictionary<string, IModule> _loadedModules = new();
-    private readonly Dictionary<string, IModuleContext> _moduleContexts = new();
+    internal static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: true) }
+    };
+
+    private readonly ConcurrentDictionary<string, ModuleInfo> _modules = new();
+    private readonly ConcurrentDictionary<string, IModule> _loadedModules = new();
+    private readonly ConcurrentDictionary<string, IModuleContext> _moduleContexts = new();
     private readonly ModuleManifestValidator _validator = new();
     private readonly DatabaseInitializer _dbInitializer;
     private readonly string _modulesPath;
     private readonly string _dataPath;
 
     public event EventHandler<ModuleStateChangedEventArgs>? ModuleStateChanged;
+
+    // Shared module lookup / 共享的模块查找方法
+    private ModuleInfo GetModuleOrThrow(string moduleName)
+    {
+        if (!_modules.TryGetValue(moduleName, out var info))
+            throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+        return info;
+    }
 
     public ModuleManager(DatabaseInitializer dbInitializer, string modulesPath, string dataPath)
     {
@@ -61,7 +78,7 @@ public class ModuleManager : IModuleManager
 
             await using var manifestStream = File.OpenRead(manifestPath);
             var manifest = await System.Text.Json.JsonSerializer.DeserializeAsync<ModuleManifest>(
-                manifestStream, cancellationToken: cancellationToken);
+                manifestStream, JsonOptions, cancellationToken: cancellationToken);
 
             if (manifest is null) continue;
 
@@ -91,8 +108,7 @@ public class ModuleManager : IModuleManager
 
     public async Task InstallModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
-            throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+        var info = GetModuleOrThrow(moduleName);
 
         if (info.State != ModuleState.Validated && info.State != ModuleState.Discovered)
             throw new InvalidOperationException($"Cannot install module '{moduleName}' in state {info.State}.");
@@ -109,8 +125,7 @@ public class ModuleManager : IModuleManager
 
     public async Task UninstallModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
-            throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+        var info = GetModuleOrThrow(moduleName);
 
         if (info.State == ModuleState.Running || info.State == ModuleState.Loaded)
             await UnloadModuleAsync(moduleName, cancellationToken);
@@ -134,14 +149,12 @@ public class ModuleManager : IModuleManager
             Directory.Delete(moduleDataPath, recursive: true);
         }
 
-        _modules.Remove(moduleName);
-        await Task.CompletedTask;
+        _modules.TryRemove(moduleName, out _);
     }
 
     public async Task LoadModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
-            throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+        var info = GetModuleOrThrow(moduleName);
 
         if (info.State != ModuleState.Installed)
             throw new InvalidOperationException($"Cannot load module '{moduleName}' in state {info.State}.");
@@ -167,8 +180,7 @@ public class ModuleManager : IModuleManager
 
     public async Task UnloadModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
-            throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+        var info = GetModuleOrThrow(moduleName);
 
         if (info.State == ModuleState.Running)
             await StopModuleAsync(moduleName, cancellationToken);
@@ -177,15 +189,14 @@ public class ModuleManager : IModuleManager
             return;
 
         await module.OnUnloadAsync(cancellationToken);
-        _loadedModules.Remove(moduleName);
-        _moduleContexts.Remove(moduleName);
+        _loadedModules.TryRemove(moduleName, out _);
+        _moduleContexts.TryRemove(moduleName, out _);
         TransitionState(moduleName, info.State, ModuleState.Unloaded);
     }
 
     public async Task StartModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
-            throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+        var info = GetModuleOrThrow(moduleName);
 
         if (info.State == ModuleState.Installed)
             await LoadModuleAsync(moduleName, cancellationToken);
@@ -198,8 +209,7 @@ public class ModuleManager : IModuleManager
 
     public Task StopModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
-            throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+        var info = GetModuleOrThrow(moduleName);
 
         if (info.State != ModuleState.Running)
             throw new InvalidOperationException($"Cannot stop module '{moduleName}' in state {info.State}.");
@@ -210,8 +220,7 @@ public class ModuleManager : IModuleManager
 
     public Task PauseModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
-            throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+        var info = GetModuleOrThrow(moduleName);
 
         if (info.State != ModuleState.Running)
             throw new InvalidOperationException($"Cannot pause module '{moduleName}' in state {info.State}.");
@@ -227,8 +236,7 @@ public class ModuleManager : IModuleManager
 
     public Task ResumeModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
-            throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+        var info = GetModuleOrThrow(moduleName);
 
         if (info.State != ModuleState.Paused)
             throw new InvalidOperationException($"Cannot resume module '{moduleName}' in state {info.State}.");
@@ -244,8 +252,7 @@ public class ModuleManager : IModuleManager
 
     public async Task ReinstallBuiltInModuleAsync(string moduleName, CancellationToken cancellationToken = default)
     {
-        if (!_modules.TryGetValue(moduleName, out var info))
-            throw new KeyNotFoundException($"Module '{moduleName}' not found.");
+        var info = GetModuleOrThrow(moduleName);
 
         if (info.Source != ModuleSource.BuiltIn)
             throw new InvalidOperationException($"Module '{moduleName}' is not a built-in module.");
@@ -261,6 +268,14 @@ public class ModuleManager : IModuleManager
         return _modules.Values
             .Where(m => m.State != ModuleState.Uninstalled && !m.IsUninstalled)
             .Select(m => m.Manifest)
+            .ToList();
+    }
+
+    public IReadOnlyList<ModuleInfo> GetInstalledModuleInfos()
+    {
+        return _modules.Values
+            .Where(m => m.State != ModuleState.Uninstalled && !m.IsUninstalled)
+            .Select(m => m)
             .ToList();
     }
 
@@ -298,7 +313,8 @@ public class ModuleManager : IModuleManager
 
                 if (moduleType is null) continue;
 
-                return Activator.CreateInstance(moduleType) as IModule;
+                if (Activator.CreateInstance(moduleType) is IModule module)
+                    return module;
             }
             catch
             {
