@@ -15,6 +15,12 @@ internal static class AppConstants
     public const string CrashLogFileName = "crash.log";
     public const string DefaultAppVersion = "0.0.0";
 
+    // File and folder names / 文件与文件夹名
+    public const string DbFileName = "shuruk.db";
+    public const string LogsFolderName = "logs";
+    public const string ModulesFolderName = "modules";
+    public const string CacheFolderName = "cache";
+
     // Window sizing / 窗口尺寸
     public const int DefaultWindowWidth = 1200;
     public const int DefaultWindowHeight = 800;
@@ -117,6 +123,7 @@ internal static class AppConstants
         public const string MonitorSortBy = "MonitorSortBy";
         public const string MonitorSortDescending = "MonitorSortDescending";
         public const string TestModeEnabled = "TestModeEnabled";
+        public const string TestModeFillData = "TestModeFillData";
     }
 
     // Monitor sort columns / 监控页排序列

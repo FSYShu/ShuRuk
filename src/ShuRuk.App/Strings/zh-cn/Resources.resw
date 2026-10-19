@@ -221,6 +221,18 @@
   <data name="String_SettingsTestModeDescription" xml:space="preserve">
     <value>启用测试模式以进行开发和调试。</value>
   </data>
+  <data name="String_SettingsTestModeFillHeader" xml:space="preserve">
+    <value>测试数据模式</value>
+  </data>
+  <data name="String_SettingsTestModeFillDescription" xml:space="preserve">
+    <value>选择测试数据的显示方式。</value>
+  </data>
+  <data name="String_SettingsTestModeFillEmpty" xml:space="preserve">
+    <value>空状态</value>
+  </data>
+  <data name="String_SettingsTestModeFillFull" xml:space="preserve">
+    <value>填充测试条目</value>
+  </data>
 
   <!-- Language display names (code-behind) -->
   <data name="String_LangFollowSystem" xml:space="preserve">
@@ -295,6 +307,7 @@
   </data>
 
 
+
   <!-- NavigationView built-in strings -->
   <data name="String_NavSettings" xml:space="preserve">
     <value>设置</value>
@@ -333,6 +346,18 @@
   </data>
   <data name="String_ChangelogEmpty" xml:space="preserve">
     <value>暂无更新日志</value>
+  </data>
+  <data name="String_ChangelogEmptyTitle" xml:space="preserve">
+    <value>暂无更新</value>
+  </data>
+  <data name="String_ChangelogEmptyDescription" xml:space="preserve">
+    <value>没有可显示的更新日志条目。</value>
+  </data>
+  <data name="String_MonitorEmptyTitle" xml:space="preserve">
+    <value>暂无进程</value>
+  </data>
+  <data name="String_MonitorEmptyDescription" xml:space="preserve">
+    <value>没有可显示的运行进程。</value>
   </data>
   <data name="String_NavBack" xml:space="preserve">
     <value>返回</value>

@@ -5,9 +5,32 @@
     <RootNamespace>ShuRuk.Runtime</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
+
+    <!-- WinUI class library: enables XAML compilation for Views/Controls / 启用WinUI类库XAML编译 -->
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <GenerateLibraryLayout>true</GenerateLibraryLayout>
+    <GenerateProjectPriFile>false</GenerateProjectPriFile>
+    <PriIndexName></PriIndexName>
+
+    <!-- Pack as NuGet for module SDK consumption / 打包为NuGet供模块SDK引用 -->
+    <IsPackable>true</IsPackable>
+    <PackageId>Shuruk.Runtime.Sdk</PackageId>
+    <Version>0.2.0</Version>
+    <Authors>ShuRuk</Authors>
+    <Description>ShuRuk common runtime: abstractions, module SDK, shared pages/controls / 公共运行时底座与通用页面组件</Description>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <!-- TODO: add MSIX framework package output for runtime install / 待增加MSIX框架包输出供运行时安装 -->
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ShuRuk.Contracts\ShuRuk.Contracts.csproj" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" />
+    <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
   </ItemGroup>
 </Project>

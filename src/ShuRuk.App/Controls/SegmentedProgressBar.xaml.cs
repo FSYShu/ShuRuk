@@ -10,6 +10,7 @@ public sealed partial class SegmentedProgressBar : UserControl
 {
     private const double MinSegmentFraction = 0.02;
     private const double AnimationDurationMs = 200;
+    private const double AnimationSkipThreshold = 0.5;
 
     private readonly Dictionary<int, Rectangle> _segmentRects = [];
 
@@ -81,8 +82,14 @@ public sealed partial class SegmentedProgressBar : UserControl
         var trackWidth = TrackBorder.ActualWidth;
         if (trackWidth <= 0) return;
 
-        var fractions = ComputeEffectiveFractions(segments, Maximum);
+        var (targetWidths, targetOffsets) = ComputeTargetLayout(segments, trackWidth);
+        UpdateExistingSegments(segments, targetWidths, targetOffsets);
+        RemoveStaleSegments(segments.Count);
+    }
 
+    private (double[] widths, double[] offsets) ComputeTargetLayout(IList<ProgressSegment> segments, double trackWidth)
+    {
+        var fractions = ComputeEffectiveFractions(segments, Maximum);
         var targetWidths = new double[segments.Count];
         var targetOffsets = new double[segments.Count];
         var offset = 0.0;
@@ -94,17 +101,18 @@ public sealed partial class SegmentedProgressBar : UserControl
             offset += targetWidths[i];
         }
 
-        var currentKeys = new HashSet<int>(_segmentRects.Keys);
+        return (targetWidths, targetOffsets);
+    }
 
+    private void UpdateExistingSegments(IList<ProgressSegment> segments, double[] targetWidths, double[] targetOffsets)
+    {
         for (int i = 0; i < segments.Count; i++)
         {
-
             if (_segmentRects.TryGetValue(i, out var rect))
             {
                 rect.Fill = segments[i].Brush;
                 AnimateProperty(rect, "Width", targetWidths[i]);
                 AnimateProperty(rect, "(Canvas.Left)", targetOffsets[i]);
-                currentKeys.Remove(i);
             }
             else
             {
@@ -120,8 +128,12 @@ public sealed partial class SegmentedProgressBar : UserControl
                 AnimateProperty(rect, "Width", targetWidths[i]);
             }
         }
+    }
 
-        foreach (var key in currentKeys)
+    private void RemoveStaleSegments(int activeCount)
+    {
+        var staleKeys = _segmentRects.Keys.Where(k => k >= activeCount).ToList();
+        foreach (var key in staleKeys)
         {
             if (_segmentRects.TryGetValue(key, out var rect))
             {
@@ -161,7 +173,7 @@ public sealed partial class SegmentedProgressBar : UserControl
         if (double.IsNaN(currentValue))
             currentValue = 0;
 
-        if (Math.Abs(currentValue - toValue) < 0.5)
+        if (Math.Abs(currentValue - toValue) < AnimationSkipThreshold)
         {
             if (propertyPath == "Width")
                 ((FrameworkElement)target).Width = toValue;

@@ -2,10 +2,9 @@ using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ShuRuk.App.Helpers;
-using ShuRuk.Contracts.Enums;
-using ShuRuk.Contracts.Interfaces;
-using ShuRuk.Contracts.Models;
-using ShuRuk.Runtime;
+using ShuRuk.Runtime.Abstractions.Interfaces;
+using ShuRuk.Runtime.Abstractions.Models;
+using ShuRuk.Runtime.Abstractions.Services;
 
 namespace ShuRuk.App.Services;
 

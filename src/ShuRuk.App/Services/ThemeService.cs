@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml;
 using ShuRuk.App.Helpers;
-using ShuRuk.Contracts.Interfaces;
+using ShuRuk.Runtime.Abstractions.Interfaces;
 
 namespace ShuRuk.App.Services;
 

@@ -7,9 +7,10 @@
       <Platform Solution="Debug|*" Project="x64" />
       <Deploy Solution="Debug|*" />
     </Project>
-    <Project Path="src/ShuRuk.Contracts/ShuRuk.Contracts.csproj" />
-    <Project Path="src/ShuRuk.Infrastructure/ShuRuk.Infrastructure.csproj" />
+
     <Project Path="src/ShuRuk.Runtime/ShuRuk.Runtime.csproj" />
+
+    <Project Path="src/ShuRuk.UninstallHelper/ShuRuk.UninstallHelper.csproj" />
 
   </Folder>
 </Solution>
