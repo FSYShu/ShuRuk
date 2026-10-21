@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
+
 using Microsoft.Windows.ApplicationModel.Resources;
 using System.Xml.Linq;
 
@@ -123,14 +123,14 @@ public static class LocalizationHelper
         // Walk logical tree (covers items not yet in visual tree, e.g. collapsed ComboBoxItems)
         ApplyToNamedElement(root, grouped);
         visited.Add(root);
-        foreach (var child in EnumerateLogicalChildren<FrameworkElement>(root))
+        foreach (var child in UiTreeHelper.EnumerateLogicalChildren<FrameworkElement>(root))
         {
             if (visited.Add(child))
                 ApplyToNamedElement(child, grouped);
         }
 
         // Walk visual tree (covers template-generated elements)
-        foreach (var child in EnumerateVisualChildren<FrameworkElement>(root))
+        foreach (var child in UiTreeHelper.EnumerateVisualChildren<FrameworkElement>(root))
         {
             if (visited.Add(child))
                 ApplyToNamedElement(child, grouped);
@@ -192,61 +192,5 @@ public static class LocalizationHelper
         }
     }
 
-    private static IEnumerable<T> EnumerateVisualChildren<T>(DependencyObject parent) where T : DependencyObject
-    {
-        int count = VisualTreeHelper.GetChildrenCount(parent);
-        for (int i = 0; i < count; i++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is T t) yield return t;
-            foreach (var grandChild in EnumerateVisualChildren<T>(child)) yield return grandChild;
-        }
-    }
 
-    private static IEnumerable<T> EnumerateLogicalChildren<T>(DependencyObject parent) where T : DependencyObject
-    {
-        // Panel (Grid, StackPanel, etc.) - check first since it's most common
-        if (parent is Panel panel)
-        {
-            foreach (var child in panel.Children)
-            {
-                if (child is T t) yield return t;
-                foreach (var grandChild in EnumerateLogicalChildren<T>(child)) yield return grandChild;
-            }
-        }
-        else if (parent is Border border && border.Child is DependencyObject borderChild)
-        {
-            if (borderChild is T t) yield return t;
-            foreach (var grandChild in EnumerateLogicalChildren<T>(borderChild)) yield return grandChild;
-        }
-        else if (parent is ContentControl cc && cc.Content is DependencyObject content)
-        {
-            if (content is T t) yield return t;
-            foreach (var grandChild in EnumerateLogicalChildren<T>(content)) yield return grandChild;
-        }
-        else if (parent is ScrollViewer sv && sv.Content is DependencyObject svContent)
-        {
-            if (svContent is T t) yield return t;
-            foreach (var grandChild in EnumerateLogicalChildren<T>(svContent)) yield return grandChild;
-        }
-        else if (parent is SelectorBar sb)
-        {
-            foreach (var item in sb.Items)
-            {
-                if (item is T t) yield return t;
-                foreach (var grandChild in EnumerateLogicalChildren<T>(item)) yield return grandChild;
-            }
-        }
-        else if (parent is ItemsControl ic)
-        {
-            foreach (var item in ic.Items)
-            {
-                if (item is DependencyObject dObj)
-                {
-                    if (dObj is T t) yield return t;
-                    foreach (var grandChild in EnumerateLogicalChildren<T>(dObj)) yield return grandChild;
-                }
-            }
-        }
-    }
 }

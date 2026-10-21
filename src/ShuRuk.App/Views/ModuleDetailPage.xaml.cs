@@ -12,17 +12,20 @@ public sealed partial class ModuleDetailPage : Page
 {
     private ModuleCardViewModel? _card;
 
+    // Constructor: init and subscribe to Loaded / 构造函数:初始化并订阅Loaded事件
     public ModuleDetailPage()
     {
         InitializeComponent();
         Loaded += OnPageLoaded;
     }
 
+    // Apply localized resources on page load / 页面加载时应用本地化资源
     private void OnPageLoaded(object sender, RoutedEventArgs e)
     {
         LocalizationHelper.ApplyUidResources(this);
     }
 
+    // Receive module card and populate detail fields / 接收模块卡片并填充详情字段
     protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
@@ -50,6 +53,7 @@ public sealed partial class ModuleDetailPage : Page
         }
     }
 
+    // Confirm and uninstall current module / 确认并卸载当前模块
     private async void UninstallButton_Click(object sender, RoutedEventArgs e)
     {
         if (_card is null) return;
@@ -91,10 +95,11 @@ public sealed partial class ModuleDetailPage : Page
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"UninstallButton_Click: {ex}");
+            CrashLogger.LogCrash("UninstallButton_Click", ex);
         }
     }
 
+    // Reinstall built-in module and go back / 重新安装内置模块并返回
     private async void ReinstallButton_Click(object sender, RoutedEventArgs e)
     {
         if (_card is null) return;
@@ -107,7 +112,7 @@ public sealed partial class ModuleDetailPage : Page
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"ReinstallButton_Click: {ex}");
+            CrashLogger.LogCrash("ReinstallButton_Click", ex);
         }
     }
 }

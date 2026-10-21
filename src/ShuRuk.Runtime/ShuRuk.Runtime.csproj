@@ -31,6 +31,13 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" />
+    <PackageReference Include="CommunityToolkit.Labs.WinUI.Controls.MarkdownTextBlock" />
+
     <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
+  </ItemGroup>
+
+  <!-- Copy .resw to output for file-based localization / 复制.resw到输出目录用于基于文件的本地化 -->
+  <ItemGroup>
+    <None Include="Strings\**\*.resw" CopyToOutputDirectory="PreserveNewest" Link="ShuRuk.Runtime\Strings\%(RecursiveDir)%(FileName)%(Extension)" />
   </ItemGroup>
 </Project>

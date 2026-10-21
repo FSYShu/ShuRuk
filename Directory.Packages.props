@@ -1,13 +1,14 @@
 <Project>
   <ItemGroup>
 	<PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
-	<PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1" />
-	<PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.7.250310001" />
+	<PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
 	<PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.10" />
 	<PackageVersion Include="System.Management" Version="10.0.10" />
 	<PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.10" />
-	<PackageVersion Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
-	<PackageVersion Include="CommunityToolkit.WinUI.Extensions" Version="8.2.251219" />
+    <PackageVersion Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
+    <PackageVersion Include="CommunityToolkit.Labs.WinUI.Controls.MarkdownTextBlock" Version="0.1.251217-build.2433" />
+    <PackageVersion Include="CommunityToolkit.WinUI.Extensions" Version="8.2.251219" />
     <PackageVersion Include="Shuruk.Runtime.Sdk" Version="0.2.0" />
   </ItemGroup>
 </Project>

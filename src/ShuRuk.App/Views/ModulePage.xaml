@@ -14,23 +14,22 @@
             x:Name="ContentFrame"
             Margin="0"
             IsNavigationStackEnabled="False" />
-
         <!-- Floating top bar / 悬浮顶栏 - top layer, mica material / 上层，云母材质 -->
         <Border
             x:Name="TopBar"
             Margin="16,16,16,0"
             VerticalAlignment="Top"
             CornerRadius="8"
-            Background="{ThemeResource SystemControlTransientBackgroundBrush}"
+            Background="{ThemeResource SolidBackgroundFillColorQuarternaryBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             Padding="12,6">
-            <Grid ColumnSpacing="12">
+            <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="320" />
+                    <ColumnDefinition Width="240" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-
                 <SelectorBar
                     x:Name="SubBar"
                     AutomationProperties.Name="Module tab bar"
@@ -60,9 +59,26 @@
                     VerticalAlignment="Center"
                     MinHeight="36"
                     MaxHeight="36"
+                    Margin="12,0,0,0"
                     x:Uid="ModulePageSearchBox"
                     QueryIcon="Find"
                     TextChanged="SearchBox_TextChanged" />
+
+                <DropDownButton
+                    x:Name="SortButton"
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    Margin="12,0,0,0"
+                    Visibility="Collapsed"
+                    Content="{x:Bind SortRatingText}">
+                    <DropDownButton.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <MenuFlyoutItem Text="{x:Bind SortRatingText}" Tag="rating" Click="SortMenuItem_Click" />
+                            <MenuFlyoutItem Text="{x:Bind SortDownloadsText}" Tag="downloads" Click="SortMenuItem_Click" />
+                            <MenuFlyoutItem Text="{x:Bind SortUpdatedText}" Tag="updated" Click="SortMenuItem_Click" />
+                        </MenuFlyout>
+                    </DropDownButton.Flyout>
+                </DropDownButton>
             </Grid>
         </Border>
     </Grid>

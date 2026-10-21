@@ -46,8 +46,11 @@ public sealed partial class MonitorPage : Page
 {
     private static readonly double TotalMemoryMB = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (AppConstants.ByteUnitBase * AppConstants.ByteUnitBase);
     private bool _isFirstLoad = true;
+    // Track theme to detect change while page away / 跟踪主题以检测页面离开期间的变化
+    private ElementTheme _lastTheme;
     private string _sortBy = AppConstants.SortColumns.Cpu;
     private bool _sortDescending = false;
+    private string _prevSortBy = string.Empty;
     private bool _sortIndicatorsApplied;
     private DispatcherTimer? _refreshTimer;
     private DispatcherTimer? _stopDelayTimer;
@@ -56,6 +59,7 @@ public sealed partial class MonitorPage : Page
     private ITestModeService? _testModeService;
     private readonly ObservableCollection<MonitorEntryViewModel> _entries = [];
 
+    // Constructor: init localization, config, bindings, events / 构造函数:初始化本地化、配置、绑定、事件
     public MonitorPage()
     {
         NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
@@ -71,14 +75,17 @@ public sealed partial class MonitorPage : Page
         ActualThemeChanged += OnActualThemeChanged;
     }
 
+    // Theme changed: regenerate list containers for alt row brushes / 主题变更:重新生成列表容器以刷新交错行
     private void OnActualThemeChanged(FrameworkElement sender, object args)
     {
-        var items = _entries.ToList();
+        _lastTheme = sender.ActualTheme;
+        // Force full container regeneration by re-binding / 清除并重新添加强制重新生成所有容器
+        var snapshot = _entries.ToList();
         _entries.Clear();
-        foreach (var item in items)
-            _entries.Add(item);
+        foreach (var item in snapshot) _entries.Add(item);
     }
 
+    // Page loaded: start monitor, wait data, init refresh timer / 页面加载:启动监控、等待数据、初始化刷新计时器
     private async void OnPageLoaded(object sender, RoutedEventArgs e)
     {
         _monitor = App.Services.GetService<StatusMonitor>();
@@ -116,6 +123,14 @@ public sealed partial class MonitorPage : Page
             // Hide overlay before LoadData so empty state can show / 先隐藏加载层再加载数据,使空状态可立即显示
             LoadingOverlay.Visibility = Visibility.Collapsed;
             LoadData();
+            _lastTheme = ActualTheme;
+        }
+        else if (ActualTheme != _lastTheme)
+        {
+            // Theme changed while page was away, refresh alt row brushes / 离开期间主题变化,刷新交错行画刷
+            _lastTheme = ActualTheme;
+            MonitorListView.ItemsSource = null;
+            MonitorListView.ItemsSource = _entries;
         }
 
         _refreshTimer = new DispatcherTimer
@@ -126,6 +141,7 @@ public sealed partial class MonitorPage : Page
         _refreshTimer.Start();
     }
 
+    // Page unloaded: stop refresh, start stop-delay timer / 页面卸载:停止刷新、启动停止延迟计时器
     private void OnPageUnloaded(object sender, RoutedEventArgs e)
     {
         if (_testModeService is not null)
@@ -146,6 +162,7 @@ public sealed partial class MonitorPage : Page
         _stopDelayTimer.Start();
     }
 
+    // Stop-delay tick: stop the status monitor / 停止延迟触发:停止状态监控
     private void OnStopDelayTick(object? sender, object e)
     {
         if (_stopDelayTimer is not null)
@@ -160,13 +177,15 @@ public sealed partial class MonitorPage : Page
         }
     }
 
+    // Refresh tick: reload data if not loading / 刷新触发:非加载状态时重新加载数据
     private void OnRefreshTick(object? sender, object e)
     {
         if (LoadingOverlay.Visibility == Visibility.Visible) return;
         LoadData();
     }
 
-    private void OnTestModeChanged(object? sender, bool enabled)
+    // Test mode changed: reload data on UI thread / 测试模式变更:在UI线程重新加载数据
+    private void OnTestModeChanged(object? sender, bool _)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
@@ -175,9 +194,10 @@ public sealed partial class MonitorPage : Page
         });
     }
 
+    // Load latest snapshot from monitor into list / 从监控加载最新快照到列表
     private void LoadData()
     {
-        var monitor = AppContextAccessor.Current.Services.GetService<StatusMonitor>();
+        var monitor = App.Services.GetService<StatusMonitor>();
         if (monitor is null)
         {
             _entries.Clear();
@@ -188,6 +208,7 @@ public sealed partial class MonitorPage : Page
         UpdateFromSnapshot(snapshot);
     }
 
+    // Build entries from snapshot, sort, restore selection, update cards / 从快照构建条目、排序、恢复选中、更新卡片
     private void UpdateFromSnapshot(IReadOnlyList<ModuleResourceUsage> snapshot)
     {
         var selectedKey = (MonitorListView.SelectedItem as MonitorEntryViewModel) is { } sel
@@ -273,6 +294,7 @@ public sealed partial class MonitorPage : Page
         }
     }
 
+    // Sort entries by current column and direction / 按当前列和方向排序条目
     private void ApplySort(List<MonitorEntryViewModel> entries)
     {
         switch (_sortBy)
@@ -297,11 +319,13 @@ public sealed partial class MonitorPage : Page
                     ? b.MemoryUsageBytes.CompareTo(a.MemoryUsageBytes)
                     : a.MemoryUsageBytes.CompareTo(b.MemoryUsageBytes));
                 break;
+            default:
+                break;
         }
     }
 
-    private string _prevSortBy = string.Empty;
 
+    // Update sort arrow glyphs with show/hide animation / 更新排序箭头字形(含显示/隐藏动画)
     private void UpdateSortIndicators()
     {
         if (_prevSortBy == _sortBy)
@@ -333,6 +357,7 @@ public sealed partial class MonitorPage : Page
         _prevSortBy = _sortBy;
     }
 
+    // Map sort column to its arrow icon and translate transform / 将排序列映射到其箭头图标和位移变换
     private (FontIcon arrow, TranslateTransform? translate) GetArrowAndTranslate(string column) => column switch
     {
         AppConstants.SortColumns.Name => (SortArrowName, null),
@@ -342,6 +367,7 @@ public sealed partial class MonitorPage : Page
         _ => (SortArrowCpu, null)
     };
 
+    // Animate arrow opacity (show/hide) / 动画切换箭头透明度(显示/隐藏)
     private static void AnimateArrow(FontIcon arrow, bool show)
     {
         var anim = new DoubleAnimation
@@ -358,6 +384,7 @@ public sealed partial class MonitorPage : Page
         sb.Begin();
     }
 
+    // Animate translate transform X to target / 动画移动变换X到目标值
     private static void AnimateTranslate(TranslateTransform transform, double toX)
     {
         var anim = new DoubleAnimation
@@ -375,6 +402,7 @@ public sealed partial class MonitorPage : Page
     }
 
     private static string? _cpuName;
+    // Get CPU name from registry (cached) / 从注册表获取CPU名称(缓存)
     private static string GetCpuName()
     {
         if (_cpuName is not null) return _cpuName;
@@ -387,7 +415,19 @@ public sealed partial class MonitorPage : Page
         return _cpuName;
     }
 
+
+
     private static string? _memoryInfo;
+    // DDR memory type lookup table / DDR内存类型查找表
+    private static readonly Dictionary<int, string> _memoryTypeNames = new()
+    {
+        [20] = "DDR", [21] = "DDR2", [22] = "DDR2 FB-DIMM", [24] = "DDR3",
+        [25] = "FBD2", [26] = "DDR4", [27] = "LPDDR", [28] = "LPDDR2",
+        [29] = "LPDDR3", [30] = "LPDDR4", [32] = "HBM", [33] = "HBM2",
+        [34] = "DDR5", [35] = "LPDDR5", [36] = "LPDDR5X", [37] = "HBM3",
+    };
+
+    // Get memory type and speed via WMI (cached) / 通过WMI获取内存类型和速度(缓存)
     private static string GetMemoryInfo()
     {
         if (_memoryInfo is not null) return _memoryInfo;
@@ -411,27 +451,10 @@ public sealed partial class MonitorPage : Page
                     if (val > speed) speed = val;
                 }
             }
-            var typeName = memoryType switch
-            {
-                20 => "DDR",
-                21 => "DDR2",
-                22 => "DDR2 FB-DIMM",
-                24 => "DDR3",
-                25 => "FBD2",
-                26 => "DDR4",
-                27 => "LPDDR",
-                28 => "LPDDR2",
-                29 => "LPDDR3",
-                30 => "LPDDR4",
-                32 => "HBM",
-                33 => "HBM2",
-                34 => "DDR5",
-                35 => "LPDDR5",
-                36 => "LPDDR5X",
-                37 => "HBM3",
-                > 0 => $"Type {memoryType}",
-                _ => null
-            };
+            var typeName = _memoryTypeNames.TryGetValue(memoryType, out var known)
+                ? known
+                : memoryType > 0 ? $"Type {memoryType}" : null;
+
             _memoryInfo = typeName != null
                 ? speed > 0 ? $"{typeName} · {speed} MT/s" : typeName
                 : speed > 0 ? $"{speed} MT/s" : string.Empty;
@@ -485,6 +508,7 @@ public sealed partial class MonitorPage : Page
     private static double _systemCpuPercent;
     private static bool _cpuSampleInitialized;
 
+    // Sample system CPU usage via GetSystemTimes deltas / 通过GetSystemTimes差值采样系统CPU使用率
     private static double SampleSystemCpuPercent()
     {
         if (!GetSystemTimes(out var idle, out var kernel, out var user))
@@ -510,6 +534,7 @@ public sealed partial class MonitorPage : Page
         return _systemCpuPercent;
     }
 
+    // Get system used memory via GlobalMemoryStatusEx / 通过GlobalMemoryStatusEx获取系统已用内存
     private static long GetSystemUsedMemoryBytes()
     {
         var memStatus = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
@@ -518,12 +543,25 @@ public sealed partial class MonitorPage : Page
         return 0;
     }
 
+    // Update CPU, memory, module summary cards / 更新CPU、内存、模块汇总卡片
     private void UpdateSummaryCards(IReadOnlyList<ModuleResourceUsage> snapshot)
     {
-        var totalCpu = snapshot.Sum(s => s.CpuUsagePercent);
-        var totalMemory = snapshot.Sum(s => s.MemoryUsageBytes);
-        var installedCount = snapshot.Count(s => s.ModuleName != StatusMonitor.HostProcessName);
-        var runningCount = snapshot.Count(s => s.ModuleName != StatusMonitor.HostProcessName && s.State == ModuleState.Running);
+        // Single pass to aggregate all totals / 单次遍历聚合所有总计
+        double totalCpu = 0;
+        long totalMemory = 0;
+        int installedCount = 0;
+        int runningCount = 0;
+        foreach (var s in snapshot)
+        {
+            totalCpu += s.CpuUsagePercent;
+            totalMemory += s.MemoryUsageBytes;
+            if (s.ModuleName != StatusMonitor.HostProcessName)
+            {
+                installedCount++;
+                if (s.State == ModuleState.Running)
+                    runningCount++;
+            }
+        }
         var isTestMode = _testModeService?.IsEnabled == true;
 
         UpdateCpuCard(snapshot, totalCpu, isTestMode);
@@ -531,6 +569,7 @@ public sealed partial class MonitorPage : Page
         UpdateModuleCard(installedCount, runningCount);
     }
 
+    // Update CPU card value, detail, and progress segments / 更新CPU卡片数值、详情、进度段
     private void UpdateCpuCard(IReadOnlyList<ModuleResourceUsage> snapshot, double totalCpu, bool isTestMode)
     {
         // Show dash for empty test mode / 空测试模式显示破折号
@@ -562,6 +601,7 @@ public sealed partial class MonitorPage : Page
         CpuProgressBar.Maximum = 100;
     }
 
+    // Update memory card value, detail, and progress segments / 更新内存卡片数值、详情、进度段
     private void UpdateMemoryCard(IReadOnlyList<ModuleResourceUsage> snapshot, long totalMemory, bool isTestMode)
     {
         // Show dash for empty test mode / 空测试模式显示破折号
@@ -597,6 +637,7 @@ public sealed partial class MonitorPage : Page
         MemoryProgressBar.Maximum = 100;
     }
 
+    // Update module card counts and progress segment / 更新模块卡片计数和进度段
     private void UpdateModuleCard(int installedCount, int runningCount)
     {
         // Show dash for empty data / 空数据显示破折号
@@ -619,6 +660,7 @@ public sealed partial class MonitorPage : Page
         ModuleProgressBar.Maximum = installedCount > 0 ? installedCount : 1;
     }
 
+    // Toggle sort column/direction, save, animate transition / 切换排序列/方向、保存、动画过渡
     private async void ToggleSort(string column)
     {
         if (_sortBy == column)
@@ -632,6 +674,7 @@ public sealed partial class MonitorPage : Page
         AnimateSortTransition();
     }
 
+    // Fade+slide out, reload, fade+slide in for sort transition / 淡出+滑出、重载、淡入+滑入排序过渡
     private void AnimateSortTransition()
     {
         var ease = new QuadraticEase();
@@ -663,21 +706,28 @@ public sealed partial class MonitorPage : Page
         sbOut.Begin();
     }
 
+    // Valid sort columns for validation / 有效排序列(用于验证)
+    private static readonly string[] _validSortColumns =
+        [AppConstants.SortColumns.Name, AppConstants.SortColumns.Pid, AppConstants.SortColumns.Cpu, AppConstants.SortColumns.Memory];
+
+    // Load sort preference from config / 从配置加载排序偏好
     private async Task LoadSortPreference()
     {
         var sortBy = await _config.GetValueAsync<string>(AppConstants.ConfigKeys.MonitorSortBy, AppConstants.ConfigKeys.AppConfigModule);
         var sortDesc = await _config.GetValueAsync<bool>(AppConstants.ConfigKeys.MonitorSortDescending, AppConstants.ConfigKeys.AppConfigModule);
-        if (!string.IsNullOrEmpty(sortBy) && new[] { AppConstants.SortColumns.Name, AppConstants.SortColumns.Pid, AppConstants.SortColumns.Cpu, AppConstants.SortColumns.Memory }.Contains(sortBy))
+        if (!string.IsNullOrEmpty(sortBy) && _validSortColumns.Contains(sortBy))
             _sortBy = sortBy;
         _sortDescending = sortDesc;
     }
 
+    // Save current sort preference to config / 保存当前排序偏好到配置
     private async Task SaveSortPreference()
     {
         await _config.SetValueAsync(AppConstants.ConfigKeys.MonitorSortBy, _sortBy, AppConstants.ConfigKeys.AppConfigModule);
         await _config.SetValueAsync(AppConstants.ConfigKeys.MonitorSortDescending, _sortDescending, AppConstants.ConfigKeys.AppConfigModule);
     }
 
+    // Apply localized strings to all headers and cards / 对所有表头和卡片应用本地化文本
     private void ApplyLocalization()
     {
         HeaderName.Text = LocalizationHelper.GetString("String_MonitorHeaderName");
@@ -702,21 +752,24 @@ public sealed partial class MonitorPage : Page
         StopProcessButton.Label = LocalizationHelper.GetString("String_MonitorStopProcess");
     }
 
+    // Header hover enter: set subtle background / 表头悬停进入:设置微妙背景色
     private void HeaderBorder_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
         if (sender is Border border)
             border.Background = (Brush?)Application.Current.Resources["SubtleFillColorSecondaryBrush"];
     }
 
+    // Header hover exit: clear background / 表头悬停退出:清除背景
     private void HeaderBorder_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         if (sender is Border border)
             border.Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
     }
 
+    // Format bytes to human-readable string (B/KB/MB/GB) / 格式化字节为可读字符串
     private static string FormatBytes(long bytes)
     {
-        if (bytes == 0) return "0 B";
+        if (bytes <= 0) return "0 B";
         string[] units = ["B", "KB", "MB", "GB"];
         var order = (int)Math.Log(bytes, AppConstants.ByteUnitBase);
         if (order >= units.Length) order = units.Length - 1;
@@ -724,26 +777,13 @@ public sealed partial class MonitorPage : Page
         return $"{size:0.##} {units[order]}";
     }
 
-    private void HeaderName_Tapped(object sender, TappedRoutedEventArgs e)
-    {
-        ToggleSort(AppConstants.SortColumns.Name);
-    }
+    // Header tapped: toggle sort by column (unified handler) / 表头点击:按列切换排序(统一处理)
+    private void HeaderName_Tapped(object sender, TappedRoutedEventArgs e) => ToggleSort(AppConstants.SortColumns.Name);
+    private void HeaderPid_Tapped(object sender, TappedRoutedEventArgs e) => ToggleSort(AppConstants.SortColumns.Pid);
+    private void HeaderCpu_Tapped(object sender, TappedRoutedEventArgs e) => ToggleSort(AppConstants.SortColumns.Cpu);
+    private void HeaderMemory_Tapped(object sender, TappedRoutedEventArgs e) => ToggleSort(AppConstants.SortColumns.Memory);
 
-    private void HeaderPid_Tapped(object sender, TappedRoutedEventArgs e)
-    {
-        ToggleSort(AppConstants.SortColumns.Pid);
-    }
-
-    private void HeaderCpu_Tapped(object sender, TappedRoutedEventArgs e)
-    {
-        ToggleSort(AppConstants.SortColumns.Cpu);
-    }
-
-    private void HeaderMemory_Tapped(object sender, TappedRoutedEventArgs e)
-    {
-        ToggleSort(AppConstants.SortColumns.Memory);
-    }
-
+    // Selection changed: update IsSelected flags and command bar / 选择变更:更新IsSelected标志和命令栏
     private void MonitorListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (MonitorListView.ItemsSource is not System.Collections.IList items) return;
@@ -769,6 +809,7 @@ public sealed partial class MonitorPage : Page
         MonitorListView.SelectedItem = null;
     }
 
+    // Enable/disable restart and stop buttons by selection state / 按选中状态启用/禁用重启和停止按钮
     private void UpdateCommandBarState(MonitorEntryViewModel? selected)
     {
         if (selected is null || selected.RawModuleName == StatusMonitor.HostProcessName)
@@ -783,6 +824,7 @@ public sealed partial class MonitorPage : Page
         StopProcessButton.IsEnabled = selected.State is ModuleState.Running or ModuleState.Paused;
     }
 
+    // Restart selected module: stop then start, show error on failure / 重启选中模块:停止再启动,失败显示错误
     private async void RestartProcessButton_Click(object sender, RoutedEventArgs e)
     {
         var selected = MonitorListView.SelectedItem as MonitorEntryViewModel;
@@ -809,10 +851,13 @@ public sealed partial class MonitorPage : Page
             };
             await dialog.ShowAsync();
         }
-
-        LoadData();
+        finally
+        {
+            LoadData();
+        }
     }
 
+    // Stop selected module, show error on failure / 停止选中模块,失败显示错误
     private async void StopProcessButton_Click(object sender, RoutedEventArgs e)
     {
         var selected = MonitorListView.SelectedItem as MonitorEntryViewModel;
@@ -836,17 +881,21 @@ public sealed partial class MonitorPage : Page
             };
             await dialog.ShowAsync();
         }
-
-        LoadData();
+        finally
+        {
+            LoadData();
+        }
     }
 }
 
 public class AltRowBrushConverter : IValueConverter
 {
-    private static readonly SolidColorBrush _lightBrush = new(Microsoft.UI.ColorHelper.FromArgb(0x08, 0x00, 0x00, 0x00));
+    // Light: #08000000 (~3% black) / Dark: #04FFFFFF (~1.6% white) / 浅色#08000000 深色#04FFFFFF
+    private static readonly SolidColorBrush _lightBrush = new(Microsoft.UI.ColorHelper.FromArgb(0x06, 0x00, 0x00, 0x00));
     private static readonly SolidColorBrush _darkBrush = new(Microsoft.UI.ColorHelper.FromArgb(0x04, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush _transparent = new(Microsoft.UI.Colors.Transparent);
 
+    // Convert IsAltRow bool to theme-aware alt row brush / 将IsAltRow布尔值转换为主题感知的交错行画刷
     public object? Convert(object value, Type targetType, object parameter, string language)
     {
         if (value is bool isAlt && isAlt)
@@ -858,8 +907,7 @@ public class AltRowBrushConverter : IValueConverter
         return _transparent;
     }
 
+    // ConvertBack not supported (one-way binding) / 反向转换不支持(单向绑定)
     public object ConvertBack(object value, Type targetType, object parameter, string language)
-    {
-        throw new NotImplementedException();
-    }
+        => throw new NotSupportedException();
 }

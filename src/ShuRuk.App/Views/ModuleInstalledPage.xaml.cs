@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using ShuRuk.App;
+using ShuRuk.App.Abstractions.Interfaces;
 using ShuRuk.App.Helpers;
 using ShuRuk.App.ViewModels;
 using ShuRuk.Runtime.Abstractions.Models;
@@ -12,13 +13,14 @@ using ShuRuk.Runtime.Abstractions.Services;
 
 namespace ShuRuk.App.Views;
 
-public sealed partial class InstalledPage : Page, ISearchablePage
+public sealed partial class ModuleInstalledPage : Page, ISearchablePage
 {
     private readonly List<ModuleCardViewModel> _allCards = new();
     private string _currentKeyword = string.Empty;
     private ITestModeService? _testModeService;
 
-    public InstalledPage()
+    // Constructor: init and wire load/unload / 构造函数:初始化并挂载加载/卸载事件
+    public ModuleInstalledPage()
     {
         NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Disabled;
         InitializeComponent();
@@ -26,6 +28,7 @@ public sealed partial class InstalledPage : Page, ISearchablePage
         Unloaded += OnPageUnloaded;
     }
 
+    // Apply localization, subscribe test mode, load modules / 应用本地化、订阅测试模式、加载模块
     private void OnPageLoaded(object sender, RoutedEventArgs e)
     {
         LocalizationHelper.ApplyUidResources(this);
@@ -43,29 +46,32 @@ public sealed partial class InstalledPage : Page, ISearchablePage
         _ = LoadInstalledAsync();
     }
 
+    // Unsubscribe test mode events on unload / 卸载时取消订阅测试模式事件
     private void OnPageUnloaded(object sender, RoutedEventArgs e)
     {
         if (_testModeService is not null)
         {
             _testModeService.TestModeChanged -= OnTestModeChanged;
             _testModeService.FillDataChanged -= OnTestModeChanged;
+            _testModeService = null;
         }
     }
 
     // Reload modules when test mode toggles / 测试模式切换时重新加载模块
-    private async void OnTestModeChanged(object? sender, bool enabled)
+    private async void OnTestModeChanged(object? sender, bool _)
     {
         _allCards.Clear();
         await LoadInstalledAsync();
     }
 
 
+    // Load installed modules or test data into card list / 加载已安装模块或测试数据到卡片列表
     private async Task LoadInstalledAsync()
     {
         _allCards.Clear();
 
         // Use test data when test mode is enabled / 测试模式开启时使用测试数据
-        var testModeService = AppContextAccessor.Current.Services.GetService<ITestModeService>();
+        var testModeService = App.Services.GetService<ITestModeService>();
         if (testModeService?.IsEnabled == true)
         {
             LoadTestModules();
@@ -73,7 +79,7 @@ public sealed partial class InstalledPage : Page, ISearchablePage
             return;
         }
 
-        if (AppContextAccessor.Current.Services.GetService<IModuleManager>() is IModuleManager manager)
+        if (App.Services.GetService<IModuleManager>() is IModuleManager manager)
         {
             foreach (var manifest in manager.GetInstalledModules())
             {
@@ -109,8 +115,7 @@ public sealed partial class InstalledPage : Page, ISearchablePage
     private void LoadTestModules()
     {
         // Fill data flag: full scrollable list or empty state / 填充标志: 足量可滚动列表或空状态
-        var testModeService = AppContextAccessor.Current.Services.GetService<ITestModeService>();
-        if (testModeService?.IsFillDataEnabled != true) return;
+        if (_testModeService?.IsFillDataEnabled != true) return;
 
         foreach (var info in TestDataProvider.GetFullTestModules())
         {
@@ -130,6 +135,7 @@ public sealed partial class InstalledPage : Page, ISearchablePage
         }
     }
 
+    // Filter cards by keyword and update grid/empty state / 按关键词过滤卡片并更新网格/空状态
     public void ApplyFilter(string keyword)
     {
         _currentKeyword = keyword ?? string.Empty;
@@ -153,6 +159,7 @@ public sealed partial class InstalledPage : Page, ISearchablePage
         EmptyState.Visibility = filtered.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    // Item click: navigate to detail with drill-in / 条目点击:以钻取动画导航到详情
     private void InstalledGridView_ItemClick(object sender, ItemClickEventArgs e)
     {
         if (e.ClickedItem is ModuleCardViewModel card)
@@ -163,29 +170,20 @@ public sealed partial class InstalledPage : Page, ISearchablePage
         }
     }
 
+    // Empty state button: switch to discover tab / 空状态按钮:切换到发现标签
     private void EmptyDiscoverButton_Click(object sender, RoutedEventArgs e)
     {
         FindParentModulePage()?.SwitchToDiscoverTab();
     }
 
+    // Find hosting ModulePage by walking up visual tree / 向上遍历可视树查找承载的ModulePage
     private ModulePage? FindParentModulePage()
     {
-        DependencyObject? parent = VisualTreeHelper.GetParent(this);
-        // Walk up: Page 閿?Frame 閿?Grid 閿?ModulePage
+        // Walk up visual tree to find hosting ModulePage / 向上遍历可视树查找承载的 ModulePage
+        DependencyObject? parent = this;
         while (parent is not null)
         {
-            if (parent is Frame frame)
-            {
-                parent = VisualTreeHelper.GetParent(frame);
-                continue;
-            }
-            if (parent is Grid grid)
-            {
-                parent = VisualTreeHelper.GetParent(grid);
-                continue;
-            }
-            if (parent is ModulePage modulePage)
-                return modulePage;
+            if (parent is ModulePage modulePage) return modulePage;
             parent = VisualTreeHelper.GetParent(parent);
         }
         return null;

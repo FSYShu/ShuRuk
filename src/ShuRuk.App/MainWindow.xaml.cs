@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -10,6 +11,8 @@ using ShuRuk.App.Views;
 using ShuRuk.App;
 using ShuRuk.App.Helpers;
 using ShuRuk.App.Services;
+using ShuRuk.Runtime.Abstractions.Interfaces;
+
 using System.Runtime.InteropServices;
 using WinRT.Interop;
 
@@ -23,8 +26,10 @@ public sealed partial class MainWindow : Window
     private Frame ContentFrame = null!;
     private string? _lastSidebarTag = null;
     private readonly Stack<string> _history = new();
-    private int _layoutRetryCount = 0;
 
+
+
+    // Initialize main window: backdrop, title bar, nav, theme / 初始化主窗口:背景、标题栏、导航、主题
     public MainWindow()
     {
         Title = "ShuRuk";
@@ -32,7 +37,10 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
+            SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
+            {
+                Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base
+            };
         }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"MicaBackdrop not supported: {ex}"); }
 
@@ -71,6 +79,12 @@ public sealed partial class MainWindow : Window
         if (Content is FrameworkElement root)
         {
             root.RequestedTheme = initialTheme;
+            // Listen for system theme changes to update title bar / 监听系统主题变化更新标题栏
+            root.ActualThemeChanged += (_, _) =>
+            {
+                var isDark = root.ActualTheme == ElementTheme.Dark;
+                ApplyTitleBarDarkMode(isDark);
+            };
         }
 
         RefreshNavItems();
@@ -88,7 +102,8 @@ public sealed partial class MainWindow : Window
         NavView.Content = host;
 
         _suppressNavigation = true;
-        NavView.SelectedItem = NavView.MenuItems[0];
+        if (NavView.MenuItems.Count > 0)
+            NavView.SelectedItem = NavView.MenuItems[0];
         _suppressNavigation = false;
         NavigateTo("home", pushHistory: false);
         LocalizationHelper.ApplyUidResources(NavView);
@@ -102,22 +117,33 @@ public sealed partial class MainWindow : Window
         });
 
         Activated += MainWindow_Activated;
+        SizeChanged += MainWindow_SizeChanged;
     }
 
+    // Invalidate layout on resize to refresh MicaBackdrop without rebuilding / 缩放时仅刷新布局,不重建MicaBackdrop对象避免闪烁
+    private void MainWindow_SizeChanged(object sender, WindowSizeChangedEventArgs e)
+    {
+        if (Content is not FrameworkElement root) return;
+        root.InvalidateMeasure();
+        root.InvalidateArrange();
+    }
+
+    // Refresh built-in nav items when NavigationView finishes loading / 导航视图加载完成时刷新内置导航项
     private void NavView_Loaded(object sender, RoutedEventArgs e)
     {
-        RefreshNavItems();
         RefreshNavBuiltInItems();
     }
 
+    // Log navigation failures and mark as handled / 记录导航失败并标记为已处理
     private void ContentFrame_NavigationFailed(object sender, Microsoft.UI.Xaml.Navigation.NavigationFailedEventArgs e)
     {
-        System.Diagnostics.Debug.WriteLine($"ContentFrame_NavigationFailed: {e.Exception}");
+        CrashLogger.LogCrash("ContentFrame_NavigationFailed", e.Exception);
         e.Handled = true;
     }
 
     private bool _sizeInitialized;
 
+    // Compute DPI-scaled size and center window on screen / 计算DPI缩放尺寸并居中窗口
     private void InitializeWindowSize()
     {
         _sizeInitialized = true;
@@ -125,12 +151,12 @@ public sealed partial class MainWindow : Window
         var appWindow = AppWindow;
         var hWnd = WindowNative.GetWindowHandle(this);
         var dpi = GetDpiForWindow(hWnd);
-        var scale = dpi / 96.0;
+        var scale = dpi / AppConstants.DpiBase;
 
-        var width = (int)(1200 * scale);
-        var height = (int)(800 * scale);
+        var width = (int)(AppConstants.DefaultWindowWidth * scale);
+        var height = (int)(AppConstants.DefaultWindowHeight * scale);
 
-        SetWindowMinSize(800, 600);
+        SetWindowMinSize(AppConstants.MinWindowWidth, AppConstants.MinWindowHeight);
 
         var screenRect = DisplayArea.GetFromWindowId(appWindow.Id, DisplayAreaFallback.Primary).WorkArea;
         var x = (screenRect.Width - width) / 2;
@@ -141,6 +167,7 @@ public sealed partial class MainWindow : Window
 
     private bool _titleBarThemeApplied;
 
+    // First activation: init size and apply theme / 首次激活:初始化尺寸并应用主题
     private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
     {
         if (!_sizeInitialized)
@@ -156,6 +183,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // Apply theme to root element and reload MonitorPage / 应用主题到根元素并重载监控页
     public void ApplyTheme(ElementTheme theme)
     {
         if (Content is FrameworkElement root)
@@ -163,6 +191,7 @@ public sealed partial class MainWindow : Window
             root.RequestedTheme = theme;
         }
 
+        // Apply title bar dark mode and reload MonitorPage in one dispatch / 一次调度应用标题栏暗色模式并重载监控页
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
             if (Content is FrameworkElement r)
@@ -170,26 +199,37 @@ public sealed partial class MainWindow : Window
                 var isDark = r.ActualTheme == ElementTheme.Dark;
                 ApplyTitleBarDarkMode(isDark);
             }
+
+            // Reload MonitorPage on theme change to refresh alt rows / 主题切换时重载监控页刷新交错行
+            if (ContentFrame.Content is MonitorPage)
+            {
+                ContentFrame.Navigate(typeof(MonitorPage));
+                ContentFrame.BackStack.Clear();
+            }
         });
     }
 
+    // Cache IsCustomizationSupported result (constant per session) / 缓存标题栏自定义支持结果(会话内不变)
+    private static readonly bool _titleBarCustomizationSupported = AppWindowTitleBar.IsCustomizationSupported();
+
+    // Apply DWM dark mode and title bar button colors / 应用DWM暗色模式及标题栏按钮颜色
     private void ApplyTitleBarDarkMode(bool isDark)
     {
         var hWnd = WindowNative.GetWindowHandle(this);
         var value = isDark ? 1 : 0;
-        DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE_20, ref value, sizeof(int));
-        DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE_19, ref value, sizeof(int));
+        DwmSetWindowAttribute(hWnd, AppConstants.DwmwaUseImmersiveDarkMode20, ref value, sizeof(int));
+        DwmSetWindowAttribute(hWnd, AppConstants.DwmwaUseImmersiveDarkMode19, ref value, sizeof(int));
 
-        if (AppWindowTitleBar.IsCustomizationSupported())
+        if (_titleBarCustomizationSupported)
         {
             var titleBar = AppWindow.TitleBar;
             var fgColor = isDark ? Colors.White : Colors.Black;
             var hoverBg = isDark
-                ? ColorHelper.FromArgb(40, 255, 255, 255)
-                : ColorHelper.FromArgb(40, 0, 0, 0);
+                ? ColorHelper.FromArgb(AppConstants.TitleBarHoverBgAlpha, 255, 255, 255)
+                : ColorHelper.FromArgb(AppConstants.TitleBarHoverBgAlpha, 0, 0, 0);
             var pressedBg = isDark
-                ? ColorHelper.FromArgb(60, 255, 255, 255)
-                : ColorHelper.FromArgb(60, 0, 0, 0);
+                ? ColorHelper.FromArgb(AppConstants.TitleBarPressedBgAlpha, 255, 255, 255)
+                : ColorHelper.FromArgb(AppConstants.TitleBarPressedBgAlpha, 0, 0, 0);
 
             titleBar.ButtonForegroundColor = fgColor;
             titleBar.ButtonHoverForegroundColor = fgColor;
@@ -198,24 +238,24 @@ public sealed partial class MainWindow : Window
             titleBar.ButtonPressedBackgroundColor = pressedBg;
             titleBar.ButtonBackgroundColor = Colors.Transparent;
             titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-            titleBar.ButtonInactiveForegroundColor = ColorHelper.FromArgb(150, fgColor.R, fgColor.G, fgColor.B);
+            titleBar.ButtonInactiveForegroundColor = ColorHelper.FromArgb(AppConstants.TitleBarInactiveFgAlpha, fgColor.R, fgColor.G, fgColor.B);
         }
     }
 
-    private const int DWMWA_USE_IMMERSIVE_DARK_MODE_20 = 20;
-    private const int DWMWA_USE_IMMERSIVE_DARK_MODE_19 = 19;
 
     [DllImport("dwmapi.dll", PreserveSig = true)]
     private static extern int DwmSetWindowAttribute(IntPtr hWnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
 
     // ── Title bar template adjustments / 标题栏模板调整 ──────────
 
+    // TitleBar loaded: apply overrides and track layout updates / 标题栏加载:应用覆盖并跟踪布局更新
     private void AppTitleBar_Loaded(object sender, RoutedEventArgs e)
     {
         DispatcherQueue.TryEnqueue(ApplyTitleBarTemplateOverrides);
         AppTitleBar.LayoutUpdated += AppTitleBar_LayoutUpdated;
     }
 
+    // TitleBar size changed: re-apply template overrides / 标题栏尺寸变化:重新应用模板覆盖
     private void AppTitleBar_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         DispatcherQueue.TryEnqueue(ApplyTitleBarTemplateOverrides);
@@ -223,21 +263,22 @@ public sealed partial class MainWindow : Window
 
     private void AppTitleBar_LayoutUpdated(object? sender, object e)
     {
-        if (++_layoutRetryCount > 5)
-        {
-            AppTitleBar.LayoutUpdated -= AppTitleBar_LayoutUpdated;
-            return;
-        }
-        ApplyTitleBarTemplateOverrides();
+        // LayoutUpdated fires repeatedly until layout stabilizes; apply once then detach
+        // LayoutUpdated 在布局稳定前会反复触发,应用一次后取消订阅
+        AppTitleBar.LayoutUpdated -= AppTitleBar_LayoutUpdated;
+        try { ApplyTitleBarTemplateOverrides(); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"AppTitleBar_LayoutUpdated: {ex}"); }
     }
 
+
+    // Resize back/pane toggle buttons and clear text min-widths / 调整返回/面板按钮尺寸并清除文本最小宽度
     private void ApplyTitleBarTemplateOverrides()
     {
         try
         {
-            const double buttonSize = 40;
+            const double buttonSize = AppConstants.TitleBarButtonSize;
 
-            foreach (var button in EnumerateVisualChildren<Button>(AppTitleBar))
+            foreach (var button in UiTreeHelper.EnumerateVisualChildren<Button>(AppTitleBar))
             {
                 if (button.Name != "PART_BackButton" && button.Name != "PART_PaneToggleButton")
                     continue;
@@ -250,8 +291,17 @@ public sealed partial class MainWindow : Window
                 button.VerticalAlignment = VerticalAlignment.Center;
                 button.Padding = new Thickness(0);
 
-                button.ApplyTemplate();
-                foreach (var border in EnumerateVisualChildren<Border>(button))
+                // Clear pressed background on disabled back button's RootGrid / 清除禁用返回键RootGrid的按下背景
+                if (button.Name == "PART_BackButton" && !button.IsEnabled)
+                {
+                    foreach (var grid in UiTreeHelper.EnumerateVisualChildren<Grid>(button))
+                    {
+                        if (grid.Name == "RootGrid")
+                            grid.Background = new SolidColorBrush(Colors.Transparent);
+                    }
+                }
+
+                foreach (var border in UiTreeHelper.EnumerateVisualChildren<Border>(button))
                 {
                     border.ClearValue(FrameworkElement.WidthProperty);
                     border.ClearValue(FrameworkElement.HeightProperty);
@@ -262,7 +312,7 @@ public sealed partial class MainWindow : Window
 
             var title = AppTitleBar.Title;
             var subtitle = AppTitleBar.Subtitle;
-            foreach (var tb in EnumerateVisualChildren<TextBlock>(AppTitleBar))
+            foreach (var tb in UiTreeHelper.EnumerateVisualChildren<TextBlock>(AppTitleBar))
             {
                 if (tb.Text == title || tb.Text == subtitle)
                     tb.ClearValue(FrameworkElement.MinWidthProperty);
@@ -275,19 +325,11 @@ public sealed partial class MainWindow : Window
     }
 
 
-    private static IEnumerable<T> EnumerateVisualChildren<T>(DependencyObject parent) where T : DependencyObject
-    {
-        int count = VisualTreeHelper.GetChildrenCount(parent);
-        for (int i = 0; i < count; i++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is T t) yield return t;
-            foreach (var grandChild in EnumerateVisualChildren<T>(child)) yield return grandChild;
-        }
-    }
+
 
     // ── TitleBar events ───────────────────────────────────────────
 
+    // Language changed: refresh nav items and re-apply resources / 语言变更:刷新导航项并重新应用资源
     private void OnLanguageChanged()
     {
         DispatcherQueue.TryEnqueue(() =>
@@ -298,21 +340,23 @@ public sealed partial class MainWindow : Window
         });
     }
 
+    // Update localized content for nav menu items / 更新导航菜单项的本地化内容
     private void RefreshNavItems()
     {
         foreach (var item in NavView.MenuItems.OfType<NavigationViewItem>().Concat(NavView.FooterMenuItems.OfType<NavigationViewItem>()))
         {
             item.Content = item.Tag?.ToString() switch
             {
-                "home" => LocalizationHelper.GetString("NavHome.Content"),
-                "modules" => LocalizationHelper.GetString("NavModules.Content"),
-                "changelog" => LocalizationHelper.GetString("NavChangelog.Content"),
-                "monitor" => LocalizationHelper.GetString("NavMonitor.Content"),
+                var t when t == AppConstants.NavTags.Home => LocalizationHelper.GetString("NavHome.Content"),
+                var t when t == AppConstants.NavTags.Modules => LocalizationHelper.GetString("NavModules.Content"),
+                var t when t == AppConstants.NavTags.Changelog => LocalizationHelper.GetString("NavChangelog.Content"),
+                var t when t == AppConstants.NavTags.Monitor => LocalizationHelper.GetString("NavMonitor.Content"),
                 _ => item.Content
             };
         }
     }
 
+    // Update settings item and back/pane button tooltips / 更新设置项及返回/面板按钮提示
     private void RefreshNavBuiltInItems()
     {
         var settingsText = LocalizationHelper.GetString("String_NavSettings");
@@ -325,7 +369,7 @@ public sealed partial class MainWindow : Window
             settingsNavItem.Content = settingsText;
         }
 
-        foreach (var item in EnumerateVisualChildren<NavigationViewItem>(NavView))
+        foreach (var item in UiTreeHelper.EnumerateVisualChildren<NavigationViewItem>(NavView))
         {
             if (ReferenceEquals(item, NavView.SettingsItem) ||
                 item.Name == "SettingsNavViewItem" ||
@@ -335,7 +379,7 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        foreach (var button in EnumerateVisualChildren<Button>(AppTitleBar))
+        foreach (var button in UiTreeHelper.EnumerateVisualChildren<Button>(AppTitleBar))
         {
             if (button.Name == "PART_BackButton")
             {
@@ -347,7 +391,7 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        foreach (var button in EnumerateVisualChildren<Button>(NavView))
+        foreach (var button in UiTreeHelper.EnumerateVisualChildren<Button>(NavView))
         {
             if (button.Name == "BackButton")
             {
@@ -361,20 +405,15 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void ReNavigateCurrentPage()
-    {
-        if (ContentFrame.Content is not Page currentPage) return;
-        var pageType = currentPage.GetType();
-        ContentFrame.Navigate(pageType);
-        ContentFrame.BackStack.Clear();
-    }
 
+    // Toggle nav pane open/close from title bar / 从标题栏切换导航面板开/关
     private void AppTitleBar_PaneToggleRequested(TitleBar sender, object args)
     {
         NavView.IsPaneOpen = !NavView.IsPaneOpen;
         RefreshNavBuiltInItems();
     }
 
+    // Back requested: inner detail first, then history stack / 返回请求:优先内嵌详情,再历史栈
     private void AppTitleBar_BackRequested(TitleBar sender, object args)
     {
         // Check inner detail page first / 先检查内嵌详情页返回
@@ -393,6 +432,7 @@ public sealed partial class MainWindow : Window
 
     private bool _suppressNavigation;
 
+    // Nav selection changed: navigate to selected tag / 导航选择变更:跳转到选中标签
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (_suppressNavigation) return;
@@ -404,11 +444,12 @@ public sealed partial class MainWindow : Window
         }
 
         var tag = (args.SelectedItemContainer as NavigationViewItem)?.Tag?.ToString();
-        System.Diagnostics.Debug.WriteLine($"NavView_SelectionChanged: tag={tag}");
+
         if (tag is not null)
             NavigateTo(tag);
     }
 
+    // Nav item invoked: navigate to invoked tag / 导航项调用:跳转到调用标签
     private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
         if (_suppressNavigation) return;
@@ -419,31 +460,31 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var tag = args.InvokedItemContainer?.Tag?.ToString()
-            ?? (sender.SelectedItem as NavigationViewItem)?.Tag?.ToString();
-        System.Diagnostics.Debug.WriteLine($"NavView_ItemInvoked: tag={tag}");
+        var tag = args.InvokedItemContainer?.Tag?.ToString();
         if (tag is not null)
             NavigateTo(tag);
     }
 
-    public void NavigateTo(string tag, bool pushHistory = true)
+
+    // Navigate to page by tag with history and error fallback / 按标签导航页面,含历史记录与错误回退
+    public void NavigateTo(string tag, bool pushHistory = true, object? parameter = null)
     {
-        System.Diagnostics.Debug.WriteLine($"NavigateTo: tag={tag}, current={ContentFrame.Content?.GetType().Name}");
+
         // Module/submodule navigation routes to host page / 模块/子模块导航路由到承载页
         Type? pageType = tag.StartsWith("module:", StringComparison.Ordinal) || tag.StartsWith("submodule:", StringComparison.Ordinal)
-            ? typeof(ShuRuk.App.Views.ModuleHostPage)
+            ? typeof(ModulePage)
             : tag switch
             {
-                "home" => typeof(HomePage),
+                "home" => typeof(ShuRuk.Runtime.Views.HomePage),
                 "modules" => typeof(ModulePage),
 
-                "changelog" => typeof(ChangelogPage),
+                "changelog" => typeof(ShuRuk.Runtime.Views.ChangelogPage),
                 "monitor" => typeof(MonitorPage),
-                "settings" => typeof(SettingsPage),
+                "settings" => typeof(ShuRuk.Runtime.Views.SettingsPage),
                 _ => null
             };
-        if (pageType is null) { System.Diagnostics.Debug.WriteLine($"NavigateTo: pageType is null for {tag}"); return; }
-        if (ContentFrame.Content?.GetType() == pageType) { System.Diagnostics.Debug.WriteLine($"NavigateTo: already on {tag}"); return; }
+        if (pageType is null) return;
+        if (ContentFrame.Content?.GetType() == pageType) return;
 
         if (pushHistory && _lastSidebarTag is not null && _lastSidebarTag != tag)
         {
@@ -472,6 +513,20 @@ public sealed partial class MainWindow : Window
             _suppressNavigation = false;
         }
 
+        // Auto-construct changelog parameter from test mode config / 从测试模式配置自动构造更新日志参数
+        if (tag == "changelog" && parameter is null)
+        {
+            var testMode = App.Services.GetService<ITestModeService>();
+            if (testMode is not null)
+            {
+                parameter = new ShuRuk.Runtime.Views.ChangelogPageParameter
+                {
+                    RepoUrl = testMode.ChangelogRepoUrl,
+                    SectionFilter = string.IsNullOrEmpty(testMode.ChangelogSectionFilter) ? null : testMode.ChangelogSectionFilter
+                };
+            }
+        }
+
         // Attempt Frame.Navigate; fallback to direct content assignment on failure
         // 尝试Frame.Navigate；失败时回退为直接赋值
         var transition = new SlideNavigationTransitionInfo
@@ -481,31 +536,37 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var navigated = ContentFrame.Navigate(pageType, null, transition);
+            var navigated = ContentFrame.Navigate(pageType, parameter, transition);
             if (!navigated)
             {
-                System.Diagnostics.Debug.WriteLine($"NavigateTo: Frame.Navigate returned false for {tag}, falling back to direct content");
+
                 ContentFrame.Content = (Page)Activator.CreateInstance(pageType)!;
             }
         }
-        catch (Exception navEx)
+        catch (Exception)
         {
-            System.Diagnostics.Debug.WriteLine($"NavigateTo: Frame.Navigate threw for {tag}: {navEx}");
             try
             {
                 ContentFrame.Content = (Page)Activator.CreateInstance(pageType)!;
             }
             catch (Exception fbEx)
             {
-                System.Diagnostics.Debug.WriteLine($"NavigateTo: fallback also failed for {tag}: {fbEx}");
                 _ = ShowNavigationErrorAsync(tag, fbEx);
             }
         }
 
         _lastSidebarTag = tag;
         AppTitleBar.IsBackButtonEnabled = _history.Count > 0;
+        EnqueueTitleBarFix();
     }
 
+    // Schedule a low-priority override to run after TitleBar updates / 低优先级调度,确保在TitleBar更新后执行
+    private void EnqueueTitleBarFix()
+    {
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, ApplyTitleBarTemplateOverrides);
+    }
+
+    // Show error dialog when navigation fails / 导航失败时显示错误对话框
     private async Task ShowNavigationErrorAsync(string tag, Exception ex)
     {
         try
@@ -514,7 +575,7 @@ public sealed partial class MainWindow : Window
             {
                 Title = "导航失败",
                 Content = $"无法导航到 {tag}:\n{ex}",
-                CloseButtonText = "确定",
+                CloseButtonText = LocalizationHelper.GetString("String_Ok"),
                 XamlRoot = NavView.XamlRoot
             };
             await dialog.ShowAsync();
@@ -526,6 +587,7 @@ public sealed partial class MainWindow : Window
     public void UpdateBackButtonState()
     {
         AppTitleBar.IsBackButtonEnabled = _history.Count > 0;
+        EnqueueTitleBarFix();
     }
 
     // Handle shuruk:// protocol activation for module handover / 处理shuruk://协议唤起模块接管
@@ -538,7 +600,7 @@ public sealed partial class MainWindow : Window
         var id = segments[1];
         // Navigate to module page, select requested module / 跳转模块页并定位请求的模块
         NavigateTo("modules");
-        System.Diagnostics.Debug.WriteLine($"HandleProtocolActivation: kind={kind}, id={id}");
+
     }
 
     // Populate installed modules as nav items with sub-module children / 填充已安装模块为导航条目，子模块为子条目
@@ -563,7 +625,7 @@ public sealed partial class MainWindow : Window
                 {
                     Content = module.DisplayName,
                     Tag = $"module:{module.ModuleId ?? module.Name}",
-                    Icon = new FontIcon { Glyph = "\uE739" }
+                    Icon = new FontIcon { Glyph = AppConstants.ModuleIconGlyph }
                 };
 
                 // Add sub-module children if present / 添加子模块子条目
@@ -575,7 +637,7 @@ public sealed partial class MainWindow : Window
                         {
                             Content = sub.Name,
                             Tag = $"submodule:{sub.ModuleId}",
-                            Icon = new FontIcon { Glyph = sub.Light ? "\uE7A7" : "\uE739" }
+                            Icon = new FontIcon { Glyph = sub.Light ? AppConstants.SubModuleLightIconGlyph : AppConstants.ModuleIconGlyph }
                         });
                     }
                 }
@@ -597,6 +659,7 @@ public sealed partial class MainWindow : Window
     private SUBCLASSPROC? _subclassProc;
     private IntPtr _subclassId;
 
+    // Install subclass proc to enforce min window size / 安装子类化过程以强制窗口最小尺寸
     private void SetWindowMinSize(int minWidth, int minHeight)
     {
         _minWidth = minWidth;
@@ -606,14 +669,13 @@ public sealed partial class MainWindow : Window
         SetWindowSubclass(_hWnd, _subclassProc, IntPtr.Zero, out _subclassId);
     }
 
+    // Subclass wndproc: clamp min size via WM_GETMINMAXINFO / 子类化窗口过程:通过WM_GETMINMAXINFO限制最小尺寸
     private IntPtr SubclassWndProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData)
     {
-        const uint WM_GETMINMAXINFO = 0x0024;
-
-        if (uMsg == WM_GETMINMAXINFO)
+        if (uMsg == AppConstants.WmGetMinMaxInfo)
         {
             var dpi = GetDpiForWindow(hWnd);
-            var scale = dpi / 96.0;
+            var scale = dpi / AppConstants.DpiBase;
             var info = Marshal.PtrToStructure<MINMAXINFO>(lParam);
             info.ptMinTrackSize.x = (int)(_minWidth * scale);
             info.ptMinTrackSize.y = (int)(_minHeight * scale);

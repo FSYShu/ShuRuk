@@ -1,12 +1,18 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <Page
-    x:Class="ShuRuk.App.Views.SettingsPage"
+    x:Class="ShuRuk.Runtime.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ctk="using:CommunityToolkit.WinUI.Controls">
 
-    <ScrollViewer Padding="16">
+    <ScrollViewer Padding="24,16,24,0">
         <StackPanel Spacing="4">
+
+            <!-- Page title / 页标题 -->
+            <TextBlock
+                Text="{x:Bind PageTitleText}"
+                Style="{StaticResource TitleTextBlockStyle}"
+                Margin="0,0,0,16" />
 
             <!-- General Section / 常规分区 -->
             <TextBlock
@@ -64,39 +70,59 @@
             </ctk:SettingsCard>
 
             <!-- TestMode Section / 测试模式分区 -->
-            <ctk:SettingsCard
-                x:Name="TestModeCard"
+            <ctk:SettingsExpander
+                x:Name="TestModeExpander"
                 Header="{x:Bind TestModeHeader}"
                 Description="{x:Bind TestModeDescription}">
-                <ctk:SettingsCard.HeaderIcon>
+                <ctk:SettingsExpander.HeaderIcon>
                     <FontIcon Glyph="&#xEC7A;" />
-                </ctk:SettingsCard.HeaderIcon>
-                <ctk:SettingsCard.Content>
+                </ctk:SettingsExpander.HeaderIcon>
+                <ctk:SettingsExpander.Content>
                     <ToggleSwitch
                         x:Name="TestModeToggle"
                         Toggled="TestModeToggle_Toggled" />
-                </ctk:SettingsCard.Content>
-            </ctk:SettingsCard>
+                </ctk:SettingsExpander.Content>
+                <ctk:SettingsExpander.Items>
+                    <ctk:SettingsCard
+                        Header="{x:Bind TestModeFillHeader}"
+                        Description="{x:Bind TestModeFillDescription}">
 
-            <!-- TestMode data mode selector (only visible when test mode on) / 测试数据模式选择(仅测试模式开启时可见) -->
-            <ctk:SettingsCard
-                x:Name="TestModeFillCard"
-                Header="{x:Bind TestModeFillHeader}"
-                Description="{x:Bind TestModeFillDescription}"
-                Visibility="Collapsed">
-                <ctk:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE8FD;" />
-                </ctk:SettingsCard.HeaderIcon>
-                <ctk:SettingsCard.Content>
-                    <ComboBox
-                        x:Name="TestModeFillCombo"
-                        Width="200"
-                        SelectionChanged="TestModeFillCombo_SelectionChanged">
-                        <ComboBoxItem x:Name="TestModeFillEmptyItem" Content="{x:Bind TestModeFillEmpty}" />
-                        <ComboBoxItem x:Name="TestModeFillFullItem" Content="{x:Bind TestModeFillFull}" />
-                    </ComboBox>
-                </ctk:SettingsCard.Content>
-            </ctk:SettingsCard>
+                        <ctk:SettingsCard.Content>
+                            <ComboBox
+                                x:Name="TestModeFillCombo"
+                                Width="200"
+                                SelectionChanged="TestModeFillCombo_SelectionChanged">
+                                <ComboBoxItem x:Name="TestModeFillEmptyItem" Content="{x:Bind TestModeFillEmpty}" />
+                                <ComboBoxItem x:Name="TestModeFillFullItem" Content="{x:Bind TestModeFillFull}" />
+                            </ComboBox>
+                        </ctk:SettingsCard.Content>
+                    </ctk:SettingsCard>
+                    <ctk:SettingsCard
+                        Header="{x:Bind ChangelogRepoHeader}"
+                        Description="{x:Bind ChangelogRepoDescription}">
+
+                        <ctk:SettingsCard.Content>
+                            <TextBox
+                                x:Name="ChangelogRepoTextBox"
+                                Width="240"
+                                PlaceholderText="owner/repo"
+                                TextChanged="ChangelogRepoTextBox_TextChanged" />
+                        </ctk:SettingsCard.Content>
+                    </ctk:SettingsCard>
+                    <ctk:SettingsCard
+                        Header="{x:Bind ChangelogSectionHeader}"
+                        Description="{x:Bind ChangelogSectionDescription}">
+
+                        <ctk:SettingsCard.Content>
+                            <TextBox
+                                x:Name="ChangelogSectionTextBox"
+                                Width="240"
+                                TextChanged="ChangelogSectionTextBox_TextChanged" />
+                        </ctk:SettingsCard.Content>
+                    </ctk:SettingsCard>
+                </ctk:SettingsExpander.Items>
+            </ctk:SettingsExpander>
+
 
 
             <!-- About Section / 关于分区 -->
@@ -104,14 +130,14 @@
                 x:Name="SettingsAboutSectionHeader"
                 Text="{x:Bind AboutSectionHeader}"
                 Style="{StaticResource SubtitleTextBlockStyle}"
-                Margin="0,20,0,4" />
+                Margin="0,16,0,4" />
 
-            <ctk:SettingsCard
+            <ctk:SettingsExpander
                 Description="{x:Bind AppVersionDescription}">
-                <ctk:SettingsCard.HeaderIcon>
+                <ctk:SettingsExpander.HeaderIcon>
                     <FontIcon Glyph="&#xE946;" />
-                </ctk:SettingsCard.HeaderIcon>
-                <ctk:SettingsCard.Header>
+                </ctk:SettingsExpander.HeaderIcon>
+                <ctk:SettingsExpander.Header>
                     <StackPanel Orientation="Horizontal"
                                 Spacing="8"
                                 VerticalAlignment="Center">
@@ -120,8 +146,16 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
-                </ctk:SettingsCard.Header>
-            </ctk:SettingsCard>
+                </ctk:SettingsExpander.Header>
+                <ctk:SettingsExpander.Items>
+                    <ctk:SettingsCard
+                        Header="{x:Bind SdkVersionHeader}"
+                        Description="{x:Bind SdkVersionDescription}" />
+                    <ctk:SettingsCard
+                        Header="{x:Bind ToolkitVersionHeader}"
+                        Description="{x:Bind ToolkitVersionDescription}" />
+                </ctk:SettingsExpander.Items>
+            </ctk:SettingsExpander>
 
         </StackPanel>
     </ScrollViewer>

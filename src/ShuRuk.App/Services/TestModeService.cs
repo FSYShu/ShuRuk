@@ -8,9 +8,13 @@ public class TestModeService : ITestModeService
     private readonly IConfigurationService _configService;
     private bool _isEnabled;
     private bool _isFillDataEnabled;
+    private string _changelogRepoUrl = string.Empty;
+    private string _changelogSectionFilter = string.Empty;
 
     public bool IsEnabled => _isEnabled;
     public bool IsFillDataEnabled => _isFillDataEnabled;
+    public string ChangelogRepoUrl => _changelogRepoUrl;
+    public string ChangelogSectionFilter => _changelogSectionFilter;
 
     public event EventHandler<bool>? TestModeChanged;
     public event EventHandler<bool>? FillDataChanged;
@@ -20,6 +24,7 @@ public class TestModeService : ITestModeService
         _configService = configService;
         _isEnabled = false;
         _isFillDataEnabled = false;
+
     }
 
     public async Task InitializeAsync()
@@ -35,6 +40,14 @@ public class TestModeService : ITestModeService
             AppConstants.ConfigKeys.TestModeFillData,
             AppConstants.ConfigKeys.AppConfigModule);
         _isFillDataEnabled = fillSaved;
+
+        // Read changelog params from config / 从配置读取更新日志参数
+        _changelogRepoUrl = await _configService.GetValueAsync<string>(
+            AppConstants.ConfigKeys.ChangelogRepoUrl,
+            AppConstants.ConfigKeys.AppConfigModule) ?? string.Empty;
+        _changelogSectionFilter = await _configService.GetValueAsync<string>(
+            AppConstants.ConfigKeys.ChangelogSectionFilter,
+            AppConstants.ConfigKeys.AppConfigModule) ?? string.Empty;
     }
 
     public async Task SetEnabledAsync(bool enabled)
@@ -52,6 +65,23 @@ public class TestModeService : ITestModeService
             AppConstants.ConfigKeys.AppConfigModule);
         FillDataChanged?.Invoke(this, enabled);
     }
+
+    public async Task SetChangelogRepoUrlAsync(string repoUrl)
+    {
+        _changelogRepoUrl = repoUrl ?? string.Empty;
+        await _configService.SetValueAsync(
+            AppConstants.ConfigKeys.ChangelogRepoUrl, _changelogRepoUrl,
+            AppConstants.ConfigKeys.AppConfigModule);
+    }
+
+    public async Task SetChangelogSectionFilterAsync(string sectionFilter)
+    {
+        _changelogSectionFilter = sectionFilter ?? string.Empty;
+        await _configService.SetValueAsync(
+            AppConstants.ConfigKeys.ChangelogSectionFilter, _changelogSectionFilter,
+            AppConstants.ConfigKeys.AppConfigModule);
+    }
+
 
     private async Task SetValueAsync(bool value)
     {

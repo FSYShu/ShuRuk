@@ -65,21 +65,30 @@
             </Border>
         </Grid>
 
-        <!-- Row 1: Command bar / 命令栏 -->
-        <CommandBar Grid.Row="1" HorizontalAlignment="Right" DefaultLabelPosition="Right" OverflowButtonVisibility="Collapsed" Margin="0,-4,0,-4">
-            <CommandBar.PrimaryCommands>
-                <AppBarButton x:Name="RestartProcessButton" Click="RestartProcessButton_Click" IsEnabled="False">
-                    <AppBarButton.Icon>
-                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE72C;" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
-                <AppBarButton x:Name="StopProcessButton" Click="StopProcessButton_Click" IsEnabled="False">
-                    <AppBarButton.Icon>
-                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE71A;" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
-            </CommandBar.PrimaryCommands>
-        </CommandBar>
+        <!-- Row 1: Process title + Command bar / 进程标题+命令栏 -->
+        <Grid Grid.Row="1" Margin="0,-4,0,-4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="进程" VerticalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" Margin="4,0,0,0" />
+
+            <CommandBar Grid.Column="1" HorizontalAlignment="Right" DefaultLabelPosition="Right" OverflowButtonVisibility="Collapsed">
+                <CommandBar.PrimaryCommands>
+                    <AppBarButton x:Name="RestartProcessButton" Click="RestartProcessButton_Click" IsEnabled="False">
+                        <AppBarButton.Icon>
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE72C;" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton x:Name="StopProcessButton" Click="StopProcessButton_Click" IsEnabled="False">
+                        <AppBarButton.Icon>
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE71A;" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                </CommandBar.PrimaryCommands>
+            </CommandBar>
+        </Grid>
 
         <Grid Grid.Row="2" Padding="3,3" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4" MinHeight="32">
             <Grid.ColumnDefinitions>
@@ -194,14 +203,12 @@
                                             <VisualState x:Name="Selected">
                                                 <VisualState.Setters>
                                                     <Setter Target="SelectionFill.Visibility" Value="Visible" />
-                                                    <Setter Target="SelectionTint.Visibility" Value="Visible" />
                                                     <Setter Target="SelectionIndicator.Visibility" Value="Visible" />
                                                 </VisualState.Setters>
                                             </VisualState>
                                             <VisualState x:Name="PointerOverSelected">
                                                 <VisualState.Setters>
                                                     <Setter Target="SelectionFill.Visibility" Value="Visible" />
-                                                    <Setter Target="SelectionTint.Visibility" Value="Visible" />
                                                     <Setter Target="HoverFill.Opacity" Value="1" />
                                                     <Setter Target="SelectionIndicator.Visibility" Value="Visible" />
                                                 </VisualState.Setters>
@@ -209,7 +216,6 @@
                                             <VisualState x:Name="PressedSelected">
                                                 <VisualState.Setters>
                                                     <Setter Target="SelectionFill.Visibility" Value="Visible" />
-                                                    <Setter Target="SelectionTint.Visibility" Value="Visible" />
                                                     <Setter Target="SelectionIndicator.Visibility" Value="Visible" />
                                                 </VisualState.Setters>
                                             </VisualState>
@@ -222,13 +228,7 @@
                                                 CornerRadius="4"
                                                 IsHitTestVisible="False" />
                                         <Border x:Name="SelectionFill"
-                                                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                                                CornerRadius="4"
-                                                IsHitTestVisible="False"
-                                                Visibility="Collapsed" />
-                                        <Border x:Name="SelectionTint"
-                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                                Opacity="0.12"
+                                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                                 CornerRadius="4"
                                                 IsHitTestVisible="False"
                                                 Visibility="Collapsed" />
@@ -281,16 +281,12 @@
                     Visibility="Collapsed"
                     VerticalAlignment="Center"
                     HorizontalAlignment="Center"
-                    Spacing="16">
-            <Border Width="72" Height="72" CornerRadius="36"
-                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                    HorizontalAlignment="Center">
-                <FontIcon Glyph="&#xE721;"
-                          FontSize="32"
-                          Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Center" />
-            </Border>
+                    Spacing="8">
+            <FontIcon Glyph="&#xE9A4;"
+                      FontSize="48"
+                      Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                      HorizontalAlignment="Center"
+                      Margin="0,0,0,16" />
             <TextBlock x:Name="MonitorEmptyTitle"
                        Style="{StaticResource SubtitleTextBlockStyle}"
                        HorizontalAlignment="Center"

@@ -58,14 +58,6 @@
     <value>更新日志</value>
   </data>
 
-  <!-- HomePage -->
-  <data name="HomeWelcome.Title" xml:space="preserve">
-    <value>欢迎</value>
-  </data>
-  <data name="HomeWelcome.Message" xml:space="preserve">
-    <value>管理模块、发现新工具，自定义您的 Windows 体验。</value>
-  </data>
-
 
   <!-- ModuleListPage -->
   <data name="ModulePageInstalledTab.Text" xml:space="preserve">
@@ -90,7 +82,7 @@
   </data>
 
 
-  <!-- DiscoverPage -->
+  <!-- ModuleDiscoverPage -->
   <data name="DiscoverSortRating.Content" xml:space="preserve">
     <value>评分</value>
   </data>
@@ -131,6 +123,9 @@
   <data name="String_DiscoverDialogInstallPrimary" xml:space="preserve">
     <value>安装</value>
   </data>
+  <data name="String_DiscoverLoading" xml:space="preserve">
+    <value>正在加载模块数据…</value>
+  </data>
   <data name="String_DiscoverDialogCancel" xml:space="preserve">
     <value>取消</value>
   </data>
@@ -170,91 +165,25 @@
     <value>外部模块「{0}」及其数据将被永久删除。</value>
   </data>
 
-  <!-- InstalledPage empty state -->
-  <data name="InstalledPageEmptyTitle.Text" xml:space="preserve">
+  <!-- ModuleInstalledPage empty state -->
+  <data name="ModuleInstalledPageEmptyTitle.Text" xml:space="preserve">
     <value>没有已安装的模块</value>
   </data>
-  <data name="InstalledPageEmptyDescription.Text" xml:space="preserve">
+  <data name="ModuleInstalledPageEmptyDescription.Text" xml:space="preserve">
     <value>前往发现页浏览并安装模块。</value>
   </data>
-  <data name="InstalledPageEmptyDiscoverButton.Content" xml:space="preserve">
+  <data name="ModuleInstalledPageEmptyDiscoverButton.Content" xml:space="preserve">
     <value>浏览模块</value>
   </data>
 
-  <!-- DiscoverPage empty state -->
-  <data name="DiscoverPageEmptyTitle.Text" xml:space="preserve">
+  <!-- ModuleDiscoverPage empty state -->
+  <data name="ModuleDiscoverPageEmptyTitle.Text" xml:space="preserve">
     <value>未找到模块</value>
   </data>
-  <data name="DiscoverPageEmptyDescription.Text" xml:space="preserve">
+  <data name="ModuleDiscoverPageEmptyDescription.Text" xml:space="preserve">
     <value>请调整搜索条件或稍后再试。</value>
   </data>
 
-  <!-- SettingsPage -->
-
-  <data name="SettingsLanguageRestartTitle.Text" xml:space="preserve">
-    <value>需要重启</value>
-  </data>
-  <data name="SettingsLanguageRestartHint.Text" xml:space="preserve">
-    <value>重启应用以完全切换到新语言。</value>
-  </data>
-  <data name="SettingsRestartButton.Content" xml:space="preserve">
-    <value>立即重启</value>
-  </data>
-  <data name="String_SettingsSectionLanguage" xml:space="preserve">
-    <value>常规</value>
-  </data>
-  <data name="String_SettingsLanguageHeader" xml:space="preserve">
-    <value>语言</value>
-  </data>
-  <data name="String_SettingsLanguageDescription" xml:space="preserve">
-    <value>选择应用的显示语言，更改将在重启后生效。</value>
-  </data>
-  <data name="String_SettingsThemeHeader" xml:space="preserve">
-    <value>主题</value>
-  </data>
-  <data name="String_SettingsThemeDescription" xml:space="preserve">
-    <value>选择应用的外观主题，更改将立即生效。</value>
-  </data>
-  <data name="String_SettingsTestModeHeader" xml:space="preserve">
-    <value>测试模式</value>
-  </data>
-  <data name="String_SettingsTestModeDescription" xml:space="preserve">
-    <value>启用测试模式以进行开发和调试。</value>
-  </data>
-  <data name="String_SettingsTestModeFillHeader" xml:space="preserve">
-    <value>测试数据模式</value>
-  </data>
-  <data name="String_SettingsTestModeFillDescription" xml:space="preserve">
-    <value>选择测试数据的显示方式。</value>
-  </data>
-  <data name="String_SettingsTestModeFillEmpty" xml:space="preserve">
-    <value>空状态</value>
-  </data>
-  <data name="String_SettingsTestModeFillFull" xml:space="preserve">
-    <value>填充测试条目</value>
-  </data>
-
-  <!-- Language display names (code-behind) -->
-  <data name="String_LangFollowSystem" xml:space="preserve">
-    <value>跟随系统</value>
-  </data>
-  <data name="String_ThemeFollowSystem" xml:space="preserve">
-    <value>跟随系统</value>
-  </data>
-  <data name="String_ThemeLight" xml:space="preserve">
-    <value>浅色</value>
-  </data>
-  <data name="String_ThemeDark" xml:space="preserve">
-    <value>深色</value>
-  </data>
-
-  <!-- About section -->
-  <data name="String_SettingsSectionAbout" xml:space="preserve">
-    <value>关于</value>
-  </data>
-  <data name="String_SettingsAppVersionFormat" xml:space="preserve">
-    <value>版本 {0}</value>
-  </data>
 
   <!-- MonitorPage -->
   <data name="String_MonitorHeaderName" xml:space="preserve">
@@ -348,7 +277,7 @@
     <value>暂无更新日志</value>
   </data>
   <data name="String_ChangelogEmptyTitle" xml:space="preserve">
-    <value>暂无更新</value>
+    <value>暂无日志</value>
   </data>
   <data name="String_ChangelogEmptyDescription" xml:space="preserve">
     <value>没有可显示的更新日志条目。</value>

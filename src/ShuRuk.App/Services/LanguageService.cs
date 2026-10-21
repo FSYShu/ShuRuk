@@ -5,7 +5,7 @@ using ShuRuk.Runtime.Abstractions.Interfaces;
 
 namespace ShuRuk.App.Services;
 
-public class LanguageService
+public class LanguageService : ILanguageService
 {
     public const string KeyLanguage = AppConstants.ConfigKeys.AppLanguage;
 
@@ -15,7 +15,7 @@ public class LanguageService
 
     public bool IsRestartPending { get; private set; }
 
-    public readonly List<(string Code, string DisplayName)> AvailableLanguages =
+    public List<(string Code, string DisplayName)> AvailableLanguages { get; } =
     [
         (AppConstants.Languages.System, "Follow system"),
         (AppConstants.Languages.ZhCn, "中文"),
@@ -52,6 +52,7 @@ public class LanguageService
         }
 
         LocalizationHelper.SetLanguage(lang);
+        ShuRuk.Runtime.Helpers.RuntimeLocalizationHelper.SetLanguage(lang);
     }
 
     public async Task SetLanguageAsync(string code)
@@ -62,6 +63,7 @@ public class LanguageService
         await _config.SetValueAsync(KeyLanguage, code);
         var lang = code == AppConstants.Languages.System ? null : code;
         LocalizationHelper.SetLanguage(lang);
+        ShuRuk.Runtime.Helpers.RuntimeLocalizationHelper.SetLanguage(lang);
         LanguageChanged?.Invoke();
     }
 

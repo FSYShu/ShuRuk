@@ -1,48 +1,85 @@
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
-using ShuRuk.App;
-using ShuRuk.App.Helpers;
-
-using ShuRuk.App.Services;
+using ShuRuk.Runtime.Abstractions;
 using ShuRuk.Runtime.Abstractions.Interfaces;
+using ShuRuk.Runtime.Helpers;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
 
-
-namespace ShuRuk.App.Views;
+namespace ShuRuk.Runtime.Views;
 
 public sealed partial class SettingsPage : Page
 {
-    private readonly LanguageService _languageService;
-    private readonly ThemeService _themeService;
+    private readonly ILanguageService _languageService;
+    private readonly IThemeService _themeService;
     private readonly ITestModeService _testModeService;
+    private readonly IAppContext _appContext;
     private bool _initializing = true;
 
-    public string LanguageSectionHeader => LocalizationHelper.GetString("String_SettingsSectionLanguage");
-    public string LanguageHeader => LocalizationHelper.GetString("String_SettingsLanguageHeader");
-    public string LanguageDescription => LocalizationHelper.GetString("String_SettingsLanguageDescription");
-    public string ThemeHeader => LocalizationHelper.GetString("String_SettingsThemeHeader");
-    public string ThemeDescription => LocalizationHelper.GetString("String_SettingsThemeDescription");
-    public string TestModeHeader => LocalizationHelper.GetString("String_SettingsTestModeHeader");
-    public string TestModeDescription => LocalizationHelper.GetString("String_SettingsTestModeDescription");
-    public string TestModeFillHeader => LocalizationHelper.GetString("String_SettingsTestModeFillHeader");
-    public string TestModeFillDescription => LocalizationHelper.GetString("String_SettingsTestModeFillDescription");
-    public string TestModeFillEmpty => LocalizationHelper.GetString("String_SettingsTestModeFillEmpty");
-    public string TestModeFillFull => LocalizationHelper.GetString("String_SettingsTestModeFillFull");
-    public string RestartButtonText => LocalizationHelper.GetString("SettingsRestartButton.Content");
-    public string AboutSectionHeader => LocalizationHelper.GetString("String_SettingsSectionAbout");
-    public string AppNameHeader => AppContextAccessor.Current.AppTitle;
-    public string AppSubtitle => AppContextAccessor.Current.AppSubtitle;
-    public string AppVersionDescription => LocalizationHelper.GetString("String_SettingsAppVersionFormat")
-        .Replace("{0}", AppContextAccessor.Current.AppVersion);
+    public string PageTitleText => RuntimeLocalizationHelper.GetString("String_SettingsPageTitle");
+    public string LanguageSectionHeader => RuntimeLocalizationHelper.GetString("String_SettingsSectionLanguage");
+    public string LanguageHeader => RuntimeLocalizationHelper.GetString("String_SettingsLanguageHeader");
+    public string LanguageDescription => RuntimeLocalizationHelper.GetString("String_SettingsLanguageDescription");
+    public string ThemeHeader => RuntimeLocalizationHelper.GetString("String_SettingsThemeHeader");
+    public string ThemeDescription => RuntimeLocalizationHelper.GetString("String_SettingsThemeDescription");
+    public string TestModeHeader => RuntimeLocalizationHelper.GetString("String_SettingsTestModeHeader");
+    public string TestModeDescription => RuntimeLocalizationHelper.GetString("String_SettingsTestModeDescription");
+    public string TestModeFillHeader => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillHeader");
+    public string TestModeFillDescription => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillDescription");
+    public string TestModeFillEmpty => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillEmpty");
+    public string TestModeFillFull => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillFull");
+    public string ChangelogRepoHeader => RuntimeLocalizationHelper.GetString("String_SettingsChangelogRepoHeader");
+    public string ChangelogRepoDescription => RuntimeLocalizationHelper.GetString("String_SettingsChangelogRepoDescription");
+    public string ChangelogSectionHeader => RuntimeLocalizationHelper.GetString("String_SettingsChangelogSectionHeader");
+    public string ChangelogSectionDescription => RuntimeLocalizationHelper.GetString("String_SettingsChangelogSectionDescription");
+
+    public string RestartButtonText => RuntimeLocalizationHelper.GetString("SettingsRestartButton.Content");
+    public string AboutSectionHeader => RuntimeLocalizationHelper.GetString("String_SettingsSectionAbout");
+    public string AppNameHeader => _appContext.AppTitle;
+    public string AppSubtitle => _appContext.AppSubtitle;
+    public string AppVersionDescription => RuntimeLocalizationHelper.GetString("String_SettingsAppVersionFormat")
+        .Replace("{0}", _appContext.AppVersion);
+    public string SdkVersionDescription => RuntimeLocalizationHelper.GetString("String_SettingsSdkVersionFormat")
+        .Replace("{0}", _sdkVersion ?? "unknown");
+    public string SdkVersionHeader => RuntimeLocalizationHelper.GetString("String_SettingsSdkVersionHeader");
+    public string ToolkitVersionDescription => RuntimeLocalizationHelper.GetString("String_SettingsToolkitVersionFormat")
+        .Replace("{0}", _toolkitVersion ?? "unknown");
+    public string ToolkitVersionHeader => RuntimeLocalizationHelper.GetString("String_SettingsToolkitVersionHeader");
+
+    // Read NuGet package versions from .deps.json at runtime / 运行时从 deps.json 读取 NuGet 包版本
+    private static readonly string? _sdkVersion = TryGetPackageVersion("Microsoft.WindowsAppSDK");
+    private static readonly string? _toolkitVersion = TryGetPackageVersion("CommunityToolkit.WinUI.Controls.SettingsControls");
+
+    private static string? TryGetPackageVersion(string packageName)
+    {
+        try
+        {
+            var assemblyName = Assembly.GetEntryAssembly()?.GetName().Name ?? "ShuRuk";
+            var depsPath = Path.Combine(AppContext.BaseDirectory, $"{assemblyName}.deps.json");
+            if (!File.Exists(depsPath)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(depsPath));
+            var libraries = doc.RootElement.GetProperty("libraries");
+            foreach (var lib in libraries.EnumerateObject())
+            {
+                var slashIndex = lib.Name.IndexOf('/');
+                if (slashIndex > 0 && lib.Name.AsSpan(0, slashIndex).SequenceEqual(packageName))
+                    return lib.Name[(slashIndex + 1)..];
+            }
+        }
+        catch { }
+        return null;
+    }
 
     public SettingsPage()
     {
         InitializeComponent();
-        _languageService = AppContextAccessor.Current.Services.GetRequiredService<LanguageService>();
-        _themeService = AppContextAccessor.Current.Services.GetRequiredService<ThemeService>();
-        _testModeService = App.Services.GetRequiredService<ITestModeService>();
+        _languageService = RuntimeServices.LanguageService!;
+        _themeService = RuntimeServices.ThemeService!;
+        _testModeService = RuntimeServices.TestModeService!;
+        _appContext = RuntimeServices.AppContext!;
         Loaded += OnPageLoaded;
     }
 
@@ -61,9 +98,9 @@ public sealed partial class SettingsPage : Page
             var theme = _themeService.AvailableThemes[i];
             var displayName = theme.Code switch
             {
-                AppConstants.Themes.System => LocalizationHelper.GetString("String_ThemeFollowSystem"),
-                AppConstants.Themes.Light => LocalizationHelper.GetString("String_ThemeLight"),
-                AppConstants.Themes.Dark => LocalizationHelper.GetString("String_ThemeDark"),
+                RuntimeConstants.Themes.System => RuntimeLocalizationHelper.GetString("String_ThemeFollowSystem"),
+                RuntimeConstants.Themes.Light => RuntimeLocalizationHelper.GetString("String_ThemeLight"),
+                RuntimeConstants.Themes.Dark => RuntimeLocalizationHelper.GetString("String_ThemeDark"),
                 _ => theme.DisplayName
             };
             ThemeComboBox.Items.Add(displayName);
@@ -75,6 +112,9 @@ public sealed partial class SettingsPage : Page
         // TestMode / 测试模式
         TestModeToggle.IsOn = _testModeService.IsEnabled;
         TestModeFillCombo.SelectedIndex = _testModeService.IsFillDataEnabled ? 1 : 0;
+        ChangelogRepoTextBox.Text = _testModeService.ChangelogRepoUrl;
+        ChangelogSectionTextBox.Text = _testModeService.ChangelogSectionFilter;
+
         UpdateFillCardVisibility();
 
         _initializing = false;
@@ -93,8 +133,8 @@ public sealed partial class SettingsPage : Page
         for (int i = 0; i < _languageService.AvailableLanguages.Count; i++)
         {
             var lang = _languageService.AvailableLanguages[i];
-            var displayName = lang.Code == AppConstants.Languages.System
-                ? LocalizationHelper.GetString("String_LangFollowSystem")
+            var displayName = lang.Code == RuntimeConstants.Languages.System
+                ? RuntimeLocalizationHelper.GetString("String_LangFollowSystem")
                 : lang.DisplayName;
             LanguageComboBox.Items.Add(displayName);
             if (lang.Code == selectedCode)
@@ -151,7 +191,7 @@ public sealed partial class SettingsPage : Page
 
             var code = _themeService.AvailableThemes[index].Code;
             await _themeService.SetThemeAsync(code);
-            AppContextAccessor.Current.ApplyTheme(_themeService.CurrentTheme);
+            _appContext.ApplyTheme(_themeService.CurrentTheme);
         }
         catch (Exception ex)
         {
@@ -173,49 +213,31 @@ public sealed partial class SettingsPage : Page
         await _testModeService.SetFillDataEnabledAsync(TestModeFillCombo.SelectedIndex == 1);
     }
 
-    // Show/hide fill card with fade animation / 带淡入淡出动画显示/隐藏填充卡片
+    private async void ChangelogRepoTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_initializing) return;
+        await _testModeService.SetChangelogRepoUrlAsync(ChangelogRepoTextBox.Text);
+    }
+
+    private async void ChangelogSectionTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_initializing) return;
+        await _testModeService.SetChangelogSectionFilterAsync(ChangelogSectionTextBox.Text);
+    }
+
+
+    // Expand/collapse test mode expander based on toggle state / 根据开关状态展开/折叠测试模式
     private void UpdateFillCardVisibility()
     {
-        var shouldShow = TestModeToggle.IsOn;
-        if (shouldShow && TestModeFillCard.Visibility != Visibility.Visible)
-        {
-            TestModeFillCard.Opacity = 0;
-            TestModeFillCard.Visibility = Visibility.Visible;
-            var fadeIn = new DoubleAnimation
-            {
-                From = 0,
-                To = 1,
-                Duration = TimeSpan.FromMilliseconds(AppConstants.RestartInfoBarShowMs),
-                EasingFunction = new QuadraticEase()
-            };
-            Storyboard.SetTarget(fadeIn, TestModeFillCard);
-            Storyboard.SetTargetProperty(fadeIn, "Opacity");
-            var sbIn = new Storyboard();
-            sbIn.Children.Add(fadeIn);
-            sbIn.Begin();
-        }
-        else if (!shouldShow && TestModeFillCard.Visibility == Visibility.Visible)
-        {
-            var fadeOut = new DoubleAnimation
-            {
-                From = 1,
-                To = 0,
-                Duration = TimeSpan.FromMilliseconds(AppConstants.RestartInfoBarHideMs),
-                EasingFunction = new QuadraticEase()
-            };
-            Storyboard.SetTarget(fadeOut, TestModeFillCard);
-            Storyboard.SetTargetProperty(fadeOut, "Opacity");
-            var sbOut = new Storyboard();
-            sbOut.Children.Add(fadeOut);
-            sbOut.Completed += (s, e) => TestModeFillCard.Visibility = Visibility.Collapsed;
-            sbOut.Begin();
-        }
+        TestModeExpander.IsExpanded = TestModeToggle.IsOn;
     }
+
+
 
     private void ShowRestartInfoBar()
     {
-        RestartInfoBar.Title = LocalizationHelper.GetString("SettingsLanguageRestartTitle.Text");
-        RestartInfoBar.Message = LocalizationHelper.GetString("SettingsLanguageRestartHint.Text");
+        RestartInfoBar.Title = RuntimeLocalizationHelper.GetString("SettingsLanguageRestartTitle.Text");
+        RestartInfoBar.Message = RuntimeLocalizationHelper.GetString("SettingsLanguageRestartHint.Text");
         RestartInfoBar.Visibility = Visibility.Visible;
         RestartInfoBar.Opacity = 0;
         RestartInfoBar.IsOpen = true;
@@ -224,7 +246,7 @@ public sealed partial class SettingsPage : Page
         {
             From = 0,
             To = 1,
-            Duration = TimeSpan.FromMilliseconds(AppConstants.RestartInfoBarShowMs),
+            Duration = TimeSpan.FromMilliseconds(RuntimeConstants.RestartInfoBarShowMs),
             EasingFunction = new QuadraticEase()
         };
         Storyboard.SetTarget(anim, RestartInfoBar);
@@ -240,7 +262,7 @@ public sealed partial class SettingsPage : Page
         {
             From = 1,
             To = 0,
-            Duration = TimeSpan.FromMilliseconds(AppConstants.RestartInfoBarHideMs),
+            Duration = TimeSpan.FromMilliseconds(RuntimeConstants.RestartInfoBarHideMs),
             EasingFunction = new QuadraticEase()
         };
         Storyboard.SetTarget(anim, RestartInfoBar);
@@ -282,6 +304,6 @@ public sealed partial class SettingsPage : Page
 
     private void RestartButton_Click(object sender, RoutedEventArgs e)
     {
-        AppContextAccessor.Current.Restart();
+        _appContext.Restart();
     }
 }

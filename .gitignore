@@ -30,7 +30,7 @@ build-stubs/
 global.json
 
 # Temp / 临时文件
-temp/
+.temp/
 
 # Build logs / 构建日志
 build_log*.txt

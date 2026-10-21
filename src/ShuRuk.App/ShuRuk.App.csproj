@@ -20,6 +20,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
     <ApplicationIcon>Assets\ShuRuk.ico</ApplicationIcon>
     <DefaultLanguage>zh-cn</DefaultLanguage>
 

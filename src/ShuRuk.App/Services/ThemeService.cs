@@ -4,7 +4,7 @@ using ShuRuk.Runtime.Abstractions.Interfaces;
 
 namespace ShuRuk.App.Services;
 
-public class ThemeService
+public class ThemeService : IThemeService
 {
     private const string ConfigKey = AppConstants.ConfigKeys.AppTheme;
     private const string ConfigModule = AppConstants.ConfigKeys.AppThemeModule;
@@ -15,7 +15,7 @@ public class ThemeService
 
     public event EventHandler<string>? ThemeChanged;
 
-    public readonly List<(string Code, string DisplayName)> AvailableThemes =
+    public List<(string Code, string DisplayName)> AvailableThemes { get; } =
     [
         (AppConstants.Themes.System, "Follow system"),
         (AppConstants.Themes.Light, "Light"),

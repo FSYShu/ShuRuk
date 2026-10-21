@@ -5,7 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="ShuRuk">
 
-    <Grid Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -30,7 +30,6 @@
         <NavigationView
             x:Name="NavView"
             Grid.Row="1"
-            Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
             IsBackButtonVisible="Collapsed"
             IsPaneToggleButtonVisible="False"
             IsSettingsVisible="True"
@@ -54,12 +53,6 @@
                 </NavigationViewItem>
 
                 <NavigationViewItemSeparator />
-
-                <NavigationViewItem x:Name="NavFolderPalette" Content="FolderPalette" Tag="folderpalette">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8B7;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>

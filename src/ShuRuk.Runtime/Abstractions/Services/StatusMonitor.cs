@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 
 using ShuRuk.Runtime.Abstractions.Interfaces;
 using ShuRuk.Runtime.Abstractions.Models;
+using ShuRuk.Runtime.Helpers;
 
 namespace ShuRuk.Runtime.Abstractions.Services;
 
@@ -19,7 +20,7 @@ public class ModuleResourceUsage
 public class StatusMonitor
 {
     // Host process display name / 宿主进程显示名
-    public const string HostProcessName = "<host>";
+    public static string HostProcessName => RuntimeLocalizationHelper.GetString("RuntimeMonitorHostProcess");
 
     private readonly IModuleManager _moduleManager;
     private readonly ITestModeService? _testModeService;
