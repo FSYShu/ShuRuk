@@ -25,10 +25,19 @@
                 SelectionMode="None"
                 IsItemClickEnabled="True"
                 ItemClick="DiscoverGridView_ItemClick"
-                Padding="24,96,22,0">
+                Padding="24,96,22,0"
+                SizeChanged="DiscoverGridView_SizeChanged">
                 <GridView.ItemContainerTransitions>
                     <TransitionCollection />
                 </GridView.ItemContainerTransitions>
+                <GridView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsWrapGrid
+
+                            HorizontalAlignment="Center"
+                            Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </GridView.ItemsPanel>
                 <GridView.ItemTemplate>
                     <DataTemplate x:DataType="local:DiscoverCardViewModel">
                         <Grid Width="268" Height="160" Padding="16" CornerRadius="8"

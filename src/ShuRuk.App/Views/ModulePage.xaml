@@ -20,8 +20,8 @@
             Margin="16,16,16,0"
             VerticalAlignment="Top"
             CornerRadius="8"
-            Background="{ThemeResource SolidBackgroundFillColorQuarternaryBrush}"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            Background="{ThemeResource SystemControlTransientBackgroundBrush}"
+            BorderBrush="{ThemeResource ControlElevationBorderBrush}"
             BorderThickness="1"
             Padding="12,6">
             <Grid>

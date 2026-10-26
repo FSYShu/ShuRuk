@@ -15,11 +15,20 @@
             Padding="24,96,22,0"
             SelectionMode="None"
             IsItemClickEnabled="True"
-            ItemClick="InstalledGridView_ItemClick">
+            ItemClick="InstalledGridView_ItemClick"
+            SizeChanged="InstalledGridView_SizeChanged">
 
             <GridView.ItemContainerTransitions>
                 <TransitionCollection />
             </GridView.ItemContainerTransitions>
+            <GridView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsWrapGrid
+
+                        HorizontalAlignment="Center"
+                        Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </GridView.ItemsPanel>
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="vm:ModuleCardViewModel">
                     <Grid Width="268" Height="160" Padding="16" CornerRadius="8"

@@ -372,7 +372,7 @@ internal class DefaultModuleContext : IModuleContext
     public DefaultModuleContext(string dataPath)
     {
         DataPath = dataPath;
-        _configuration = new ConfigurationService(dataPath);
+        _configuration = new ConfigurationService();
     }
 
     public T? GetService<T>() where T : class

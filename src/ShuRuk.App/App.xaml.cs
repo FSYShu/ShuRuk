@@ -139,7 +139,7 @@ public partial class App : Application, IAppContext
 
             var databaseInitializer = new DatabaseInitializer(dbPath);
             services.AddSingleton(databaseInitializer);
-            services.AddSingleton<IConfigurationService>(new ConfigurationService(dbPath));
+            services.AddSingleton<IConfigurationService>(new ConfigurationService());
             services.AddSingleton<IEncryptionService>(new EncryptionService());
             services.AddSingleton(new AuditLogService(logsDir));
             services.AddSingleton(new SearchEngine(dbPath));

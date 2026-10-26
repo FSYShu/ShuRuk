@@ -176,6 +176,12 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
         FindParentModulePage()?.SwitchToDiscoverTab();
     }
 
+    // Recompute max columns on resize so centered grid stays page-width-bound / 尺寸变化时重算列数,使居中网格仍受页面宽度约束
+    private void InstalledGridView_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        GridViewLayoutHelper.UpdateMaxColumns(InstalledGridView, AppConstants.ModuleCardWidth);
+    }
+
     // Find hosting ModulePage by walking up visual tree / 向上遍历可视树查找承载的ModulePage
     private ModulePage? FindParentModulePage()
     {

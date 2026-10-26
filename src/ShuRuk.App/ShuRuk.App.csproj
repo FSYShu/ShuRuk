@@ -5,7 +5,10 @@
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <RootNamespace>ShuRuk.App</RootNamespace>
     <AssemblyName>ShuRuk</AssemblyName>
-    <Version>0.1.0</Version>
+    <VersionMajor>0</VersionMajor>
+    <VersionMinor>1</VersionMinor>
+    <VersionPatch>0</VersionPatch>
+    <Version>$(VersionMajor).$(VersionMinor).$(VersionPatch)</Version>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
     <UseWinUI>true</UseWinUI>
@@ -57,5 +60,36 @@
   <ItemGroup>
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- Sync manifest versions from csproj version components.
+       XmlPeek reads current version, XmlPoke writes only when different (avoids unnecessary file touch).
+       从csproj版本分量同步manifest版本：先读当前版本，仅当不同时写入(避免不必要的文件改动)。 -->
+  <Target Name="SyncManifestVersions" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <_ManifestVersion>$(Version).0</_ManifestVersion>
+    </PropertyGroup>
+    <XmlPeek
+      XmlInputPath="app.manifest"
+      Query="/asm1:assembly/asm1:assemblyIdentity/@version"
+      Result="_AppManifestVer"
+      Namespaces="&lt;Namespace Prefix='asm1' Uri='urn:schemas-microsoft-com:asm.v1' /&gt;" />
+    <XmlPeek
+      XmlInputPath="package.appxmanifest"
+      Query="/f:Package/f:Identity/@Version"
+      Result="_AppxManifestVer"
+      Namespaces="&lt;Namespace Prefix='f' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;" />
+    <XmlPoke
+      Condition="'@(_AppManifestVer)' != '$(_ManifestVersion)'"
+      XmlInputPath="app.manifest"
+      Query="/asm1:assembly/asm1:assemblyIdentity/@version"
+      Value="$(_ManifestVersion)"
+      Namespaces="&lt;Namespace Prefix='asm1' Uri='urn:schemas-microsoft-com:asm.v1' /&gt;" />
+    <XmlPoke
+      Condition="'@(_AppxManifestVer)' != '$(_ManifestVersion)'"
+      XmlInputPath="package.appxmanifest"
+      Query="/f:Package/f:Identity/@Version"
+      Value="$(_ManifestVersion)"
+      Namespaces="&lt;Namespace Prefix='f' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;" />
+  </Target>
 
 </Project>

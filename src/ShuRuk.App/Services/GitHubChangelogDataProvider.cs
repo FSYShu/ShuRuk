@@ -38,37 +38,8 @@ public sealed class GitHubChangelogDataProvider : IChangelogDataProvider
 
             foreach (var release in releases.EnumerateArray())
             {
-                var tag = release.GetProperty("tag_name").GetString();
-                var publishedAt = release.GetProperty("published_at").GetString();
-                var body = release.TryGetProperty("body", out var bodyProp) ? bodyProp.GetString() : "";
-                var isPrerelease = release.TryGetProperty("prerelease", out var preProp) && preProp.GetBoolean();
-
-                if (tag is null || publishedAt is null) continue;
-
-                // Apply section filter if specified / 应用章节过滤
-                if (!string.IsNullOrEmpty(sectionFilter))
-                {
-                    var filteredNotes = ExtractSection(body ?? "", sectionFilter);
-                    if (filteredNotes is null) continue;
-
-                    allEntries.Add(new ChangelogEntry
-                    {
-                        Version = tag,
-                        Date = DateTime.Parse(publishedAt).ToString("yyyy-MM-dd"),
-                        Notes = NormalizeMarkdown(filteredNotes),
-                        IsPrerelease = isPrerelease
-                    });
-                }
-                else
-                {
-                    allEntries.Add(new ChangelogEntry
-                    {
-                        Version = tag,
-                        Date = DateTime.Parse(publishedAt).ToString("yyyy-MM-dd"),
-                        Notes = NormalizeMarkdown(body ?? ""),
-                        IsPrerelease = isPrerelease
-                    });
-                }
+                var entry = BuildEntry(release, sectionFilter);
+                if (entry is not null) allEntries.Add(entry);
             }
 
             if (releases.GetArrayLength() < pageSize) break;
@@ -76,6 +47,77 @@ public sealed class GitHubChangelogDataProvider : IChangelogDataProvider
         }
 
         return allEntries;
+    }
+
+    // Fetch only entries newer than sinceTag for incremental loading / 增量加载:仅获取比sinceTag更新的条目
+    public async Task<List<ChangelogEntry>> GetNewEntriesAsync(string repoUrl, string? sectionFilter, string sinceTag, IProgress<string>? progress = null)
+    {
+        EnsureInitialized();
+
+        var (owner, repo) = ParseRepoUrl(repoUrl);
+        var newEntries = new List<ChangelogEntry>();
+        int page = 1;
+        const int pageSize = 100;
+
+        while (true)
+        {
+            progress?.Report($"Checking page {page} for new releases...");
+            var url = $"https://api.github.com/repos/{owner}/{repo}/releases?per_page={pageSize}&page={page}";
+            var response = await _httpClient.GetStringAsync(url);
+            var releases = JsonDocument.Parse(response).RootElement;
+
+            if (releases.GetArrayLength() == 0) break;
+
+            bool foundKnown = false;
+            foreach (var release in releases.EnumerateArray())
+            {
+                var tag = release.GetProperty("tag_name").GetString();
+                // Reached already-known release, stop / 遇到已知release,停止
+                if (tag == sinceTag) { foundKnown = true; break; }
+
+                var entry = BuildEntry(release, sectionFilter);
+                if (entry is not null) newEntries.Add(entry);
+            }
+
+            if (foundKnown) break;
+            if (releases.GetArrayLength() < pageSize) break;
+            page++;
+        }
+
+        return newEntries;
+    }
+
+    // Build a ChangelogEntry from a GitHub release JSON element, applying section filter / 从GitHub release JSON构建条目,应用章节过滤
+    private static ChangelogEntry? BuildEntry(System.Text.Json.JsonElement release, string? sectionFilter)
+    {
+        var tag = release.GetProperty("tag_name").GetString();
+        var publishedAt = release.GetProperty("published_at").GetString();
+        var body = release.TryGetProperty("body", out var bodyProp) ? bodyProp.GetString() : "";
+        var isPrerelease = release.TryGetProperty("prerelease", out var preProp) && preProp.GetBoolean();
+
+        if (tag is null || publishedAt is null) return null;
+
+        if (!string.IsNullOrEmpty(sectionFilter))
+        {
+            var filteredNotes = ExtractSection(body ?? "", sectionFilter);
+            if (filteredNotes is null) return null;
+
+            return new ChangelogEntry
+            {
+                Version = tag,
+                Date = DateTime.Parse(publishedAt).ToString("yyyy-MM-dd"),
+                Notes = NormalizeMarkdown(filteredNotes),
+                IsPrerelease = isPrerelease
+            };
+        }
+
+        return new ChangelogEntry
+        {
+            Version = tag,
+            Date = DateTime.Parse(publishedAt).ToString("yyyy-MM-dd"),
+            Notes = NormalizeMarkdown(body ?? ""),
+            IsPrerelease = isPrerelease
+        };
     }
 
     // Parse repo URL supporting "owner/repo" or full GitHub URL / 解析仓库地址，支持"owner/repo"或完整GitHub URL
