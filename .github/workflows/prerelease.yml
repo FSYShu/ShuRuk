@@ -7,6 +7,7 @@ on:
       - 'src/ShuRuk.Runtime/**'
       - 'src/ShuRuk.App/**'
       - 'src/ShuRuk.UninstallHelper/**'
+  workflow_dispatch:
 
 permissions:
   contents: write
