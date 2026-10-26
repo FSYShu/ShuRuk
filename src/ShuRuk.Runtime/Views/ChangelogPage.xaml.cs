@@ -461,6 +461,22 @@ public sealed partial class ChangelogPage : Page
         var entry = btn.DataContext as ChangelogEntry ?? btn.Tag as ChangelogEntry;
         if (entry is null) return;
         entry.IsExpanded = !entry.IsExpanded;
+        // Track last expanded entry for floating collapse button / 跟踪最近展开条目供浮动收起
+        if (entry.IsExpanded)
+        {
+            _lastExpandedEntry = entry;
+            _lastExpandedIndex = _displayItems.IndexOf(entry);
+            // Defer check: markdown render needs a moment / 延迟检测:markdown渲染需片刻
+            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            t.Tick += (_, _) => { t.Stop(); UpdateCollapseButton(); };
+            t.Start();
+        }
+        else
+        {
+            _lastExpandedEntry = null;
+            _lastExpandedIndex = -1;
+            CollapseFloatingButton.Visibility = Visibility.Collapsed;
+        }
     }
 
     private static void OnEntriesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -622,6 +638,7 @@ public sealed partial class ChangelogPage : Page
         {
             UpdateStickyVersionInfo();
             UpdateNavButtons();
+            UpdateCollapseButton();
         }
         if (sv.VerticalOffset >= sv.ScrollableHeight - 200 && _displayItems.Count < _allEntries.Count)
         {
@@ -631,6 +648,38 @@ public sealed partial class ChangelogPage : Page
 
     // Track current sticky entry index / 追踪当前sticky条目索引
     private int _stickyEntryIndex = -1;
+
+    // Last expanded entry for floating collapse button / 最近展开条目供浮动收起
+    private ChangelogEntry? _lastExpandedEntry;
+    private int _lastExpandedIndex = -1;
+
+    // Show floating collapse button when expanded card bottom is off-screen / 展开卡片底部不可见时显示浮动收起按钮
+    private void UpdateCollapseButton()
+    {
+        if (_lastExpandedEntry is null || !_lastExpandedEntry.IsExpanded || _lastExpandedIndex < 0 || _lastExpandedIndex >= _displayItems.Count)
+        {
+            CollapseFloatingButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var top = GetItemTop(_lastExpandedIndex);
+        if (top is null) { CollapseFloatingButton.Visibility = Visibility.Collapsed; return; }
+        try
+        {
+            var el = ChangelogRepeater.GetOrCreateElement(_lastExpandedIndex);
+            if (el is not FrameworkElement fe) { CollapseFloatingButton.Visibility = Visibility.Collapsed; return; }
+            double bottom = top.Value + fe.ActualHeight;
+            CollapseFloatingButton.Visibility = bottom > ChangelogScrollViewer.ViewportHeight ? Visibility.Visible : Visibility.Collapsed;
+        }
+        catch { CollapseFloatingButton.Visibility = Visibility.Collapsed; }
+    }
+
+    private void CollapseFloatingButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_lastExpandedEntry is not null) _lastExpandedEntry.IsExpanded = false;
+        _lastExpandedEntry = null;
+        _lastExpandedIndex = -1;
+        CollapseFloatingButton.Visibility = Visibility.Collapsed;
+    }
 
     // Sticky overlay: pin version info when card scrolls past top, push up by next / sticky覆盖层:卡片滚过顶部时固定版本信息,被下一项顶上去
     private void UpdateStickyVersionInfo()
