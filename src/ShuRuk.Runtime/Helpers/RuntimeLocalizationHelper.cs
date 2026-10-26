@@ -31,10 +31,10 @@ public static class RuntimeLocalizationHelper
         {
             var basePath = AppContext.BaseDirectory;
             // Prefer Runtime-specific resw to avoid App resw shadowing / 优先使用Runtime专用resw，避免App resw遮蔽
-            var reswPath = Path.Combine(basePath, "ShuRuk.Runtime", "Strings", lang, "Resources.resw");
+            var reswPath = Path.Combine(basePath, "ShuRuk.Runtime", "Strings", lang, "RuntimeResources.resw");
             if (!File.Exists(reswPath))
             {
-                reswPath = Path.Combine(basePath, "Strings", lang, "Resources.resw");
+                reswPath = Path.Combine(basePath, "Strings", lang, "RuntimeResources.resw");
                 if (!File.Exists(reswPath)) return;
             }
 

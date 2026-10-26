@@ -9,6 +9,36 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
+    <Page.Resources>
+        <DataTemplate x:Key="SegmentTemplate" x:DataType="local:ChangelogSegment">
+            <StackPanel Spacing="8">
+                <ctk:MarkdownTextBlock Text="{x:Bind MarkdownText, Mode=OneTime}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       UsePipeTables="True"
+                                       UseEmphasisExtras="True"
+                                       UseTaskLists="True"
+                                       UseAutoLinks="True"
+                                       UseSoftlineBreakAsHardlineBreak="True"
+                                       IsTextSelectionEnabled="True"
+                                       Visibility="{x:Bind TextVisibility, Mode=OneTime}"
+                                       Loaded="MarkdownTextBlock_Loaded" />
+                <Grid Visibility="{x:Bind ImageVisibility, Mode=OneWay}"
+                      HorizontalAlignment="Left">
+                    <Image Source="{x:Bind ImageSource, Mode=OneTime}"
+                           Stretch="Uniform"
+                           MaxWidth="{x:Bind ImageMaxWidth, Mode=OneWay}"
+                           ImageOpened="Image_ImageOpened"
+                           ImageFailed="Image_ImageFailed" />
+                    <ProgressRing IsActive="True"
+                                  Width="32" Height="32"
+                                  Margin="0,8"
+                                  HorizontalAlignment="Left"
+                                  Visibility="{x:Bind LoadingVisibility, Mode=OneWay}" />
+                </Grid>
+            </StackPanel>
+        </DataTemplate>
+    </Page.Resources>
+
     <Grid Padding="24,0,0,0">
         <ScrollViewer x:Name="ChangelogScrollViewer"
                       HorizontalScrollBarVisibility="Disabled"
@@ -61,33 +91,51 @@
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                 <Border Visibility="{x:Bind PrereleaseVisibility, Mode=OneTime}"
-                                        Background="#D4A04C"
+                                        Background="Transparent"
+                                        BorderBrush="#CB9422"
+                                        BorderThickness="1"
                                         CornerRadius="12"
                                         Padding="10,4"
                                         HorizontalAlignment="Left"
                                         Margin="0,2,0,0">
-                                    <TextBlock Text="pre-release"
+                                    <TextBlock Text="Pre-release"
                                                FontSize="11"
-                                               Foreground="White" />
+                                               FontWeight="SemiBold"
+                                               Foreground="#CB9422" />
                                 </Border>
                             </StackPanel>
 
-                            <!-- Card with only markdown / 卡片只含markdown -->
+                            <!-- Card with segments (text + image alternating), collapsible height / 卡片含文字图片交替段,可折叠高度 -->
                             <Grid Grid.Column="1"
                                   Padding="12,12"
                                   CornerRadius="6"
                                   Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                   BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                   BorderThickness="1">
-                                <ctk:MarkdownTextBlock Text="{x:Bind Notes, Mode=OneTime}"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                       UsePipeTables="True"
-                                                       UseEmphasisExtras="True"
-                                                       UseTaskLists="True"
-                                                       UseAutoLinks="True"
-                                                       UseSoftlineBreakAsHardlineBreak="True"
-                                                       IsTextSelectionEnabled="True"
-                                                       Loaded="MarkdownTextBlock_Loaded" />
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <ItemsRepeater Grid.Row="0"
+                                               ItemsSource="{x:Bind VisibleSegments, Mode=OneTime}"
+                                               ItemTemplate="{StaticResource SegmentTemplate}">
+                                    <ItemsRepeater.Layout>
+                                        <StackLayout Spacing="4" />
+                                    </ItemsRepeater.Layout>
+                                </ItemsRepeater>
+                                <Button Grid.Row="1"
+                                        Click="ExpandButton_Click"
+                                        Tag="{x:Bind Mode=OneTime}"
+                                        Visibility="{x:Bind ExpandButtonVisibility, Mode=OneWay}"
+                                        HorizontalAlignment="Center"
+                                        Padding="8,4"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="{x:Bind ExpandButtonText, Mode=OneWay}" />
+                                        <FontIcon Glyph="{x:Bind ExpandButtonGlyph, Mode=OneWay}" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
                             </Grid>
                         </Grid>
                     </DataTemplate>
@@ -97,23 +145,42 @@
         </ScrollViewer>
 
         <!-- Filter selector floating on top, hidden until data loaded / 过滤选择器,数据加载后显示 -->
-        <Border x:Name="FilterBorder"
-                VerticalAlignment="Top"
-                HorizontalAlignment="Right"
-                Margin="0,18,24,0"
-                CornerRadius="4"
-                Visibility="Collapsed"
-                Background="{ThemeResource SystemControlTransientBackgroundBrush}">
-            <DropDownButton x:Name="FilterButton"
-                            Content="{x:Bind FilterAllText}">
-                <DropDownButton.Flyout>
-                    <MenuFlyout Placement="BottomEdgeAlignedRight">
-                        <MenuFlyoutItem Text="{x:Bind FilterAllText}" Tag="all" Click="FilterMenuItem_Click" />
-                        <MenuFlyoutItem Text="{x:Bind FilterExcludePrereleaseText}" Tag="exclude-prerelease" Click="FilterMenuItem_Click" />
-                    </MenuFlyout>
-                </DropDownButton.Flyout>
-            </DropDownButton>
-        </Border>
+        <StackPanel VerticalAlignment="Top"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    Margin="0,18,24,0">
+            <Border x:Name="ImageToggleBorder"
+                    CornerRadius="4"
+                    Visibility="Collapsed"
+                    Background="{ThemeResource SystemControlTransientBackgroundBrush}">
+                <ToggleButton x:Name="ShowImagesToggle"
+                              IsChecked="True"
+                              Click="ShowImagesToggle_Click"
+                              Padding="8,5"
+                              Height="32"
+                              MinWidth="0">
+                    <Grid>
+                        <FontIcon x:Name="ShowImagesIcon" Glyph="&#xE8B9;" FontSize="14" />
+                        <ProgressRing x:Name="ShowImagesProgress" IsActive="False" Visibility="Collapsed" Width="14" Height="14" />
+                    </Grid>
+                </ToggleButton>
+            </Border>
+            <Border x:Name="FilterBorder"
+                    CornerRadius="4"
+                    Visibility="Collapsed"
+                    Background="{ThemeResource SystemControlTransientBackgroundBrush}">
+                <DropDownButton x:Name="FilterButton"
+                                Content="{x:Bind FilterAllText}">
+                    <DropDownButton.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <MenuFlyoutItem Text="{x:Bind FilterAllText}" Tag="all" Click="FilterMenuItem_Click" />
+                            <MenuFlyoutItem Text="{x:Bind FilterExcludePrereleaseText}" Tag="exclude-prerelease" Click="FilterMenuItem_Click" />
+                        </MenuFlyout>
+                    </DropDownButton.Flyout>
+                </DropDownButton>
+            </Border>
+        </StackPanel>
 
         <!-- Sticky version overlay / sticky版本覆盖层 -->
         <StackPanel x:Name="StickyVersionPanel"
@@ -147,15 +214,18 @@
                        Style="{StaticResource CaptionTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
             <Border x:Name="StickyPrereleaseBorder"
-                    Background="#D4A04C"
+                    Background="Transparent"
+                    BorderBrush="#CB9422"
+                    BorderThickness="1"
                     CornerRadius="12"
                     Padding="10,4"
                     HorizontalAlignment="Left"
                     Margin="0,2,0,0"
                     Visibility="Collapsed">
-                <TextBlock Text="pre-release"
+                <TextBlock Text="Pre-release"
                            FontSize="11"
-                           Foreground="White" />
+                           FontWeight="SemiBold"
+                           Foreground="#CB9422" />
             </Border>
         </StackPanel>
 

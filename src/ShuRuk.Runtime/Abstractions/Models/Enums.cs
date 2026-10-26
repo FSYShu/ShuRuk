@@ -77,3 +77,11 @@ public enum DownloadStatus
     Failed,
     Cancelled
 }
+// Sub-module page type: function page or settings-only page / 子模块页面类型：功能页或仅介绍设置页
+public enum SubModulePageType
+{
+    // Full function page with buttons / 全量功能页(含按钮跳转设置)
+    FunctionPage,
+    // Settings & about page only / 仅介绍设置页
+    SettingsOnlyPage
+}

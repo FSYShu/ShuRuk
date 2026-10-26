@@ -29,7 +29,7 @@ public class DatabaseInitializer
             await CreateDownloadTasksTableAsync(connection, cancellationToken);
             await CreateVirtualCanvasConfigsTableAsync(connection, cancellationToken);
             await CreateGestureConfigsTableAsync(connection, cancellationToken);
-            await CreateConfigurationsTableAsync(connection, cancellationToken);
+
             await CreatePasswordEntriesTableAsync(connection, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
@@ -190,19 +190,9 @@ public class DatabaseInitializer
             )");
     }
 
-    private static async Task CreateConfigurationsTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
-    {
-        await ExecuteNonQueryAsync(connection, cancellationToken, @"
-            CREATE TABLE IF NOT EXISTS configurations (
-                key TEXT NOT NULL,
-                module TEXT NOT NULL DEFAULT '',
-                value TEXT NOT NULL,
-                PRIMARY KEY (key, module)
-            )");
-    }
-
     // Note: password and totp_secret fields MUST be encrypted before storage
     // using DataProtectionService. Never persist plaintext sensitive values.
+    // 注意：password和totp_secret字段存储前必须用DataProtectionService加密，绝不持久化明文敏感值。
     private static async Task CreatePasswordEntriesTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteNonQueryAsync(connection, cancellationToken, @"

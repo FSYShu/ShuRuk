@@ -9,6 +9,5 @@
     <PackageVersion Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
     <PackageVersion Include="CommunityToolkit.Labs.WinUI.Controls.MarkdownTextBlock" Version="0.1.251217-build.2433" />
     <PackageVersion Include="CommunityToolkit.WinUI.Extensions" Version="8.2.251219" />
-    <PackageVersion Include="Shuruk.Runtime.Sdk" Version="0.2.0" />
   </ItemGroup>
 </Project>
