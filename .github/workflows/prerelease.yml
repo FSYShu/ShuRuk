@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-tags: true
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -46,6 +47,7 @@ jobs:
           echo "app=$app" >> $env:GITHUB_OUTPUT
           echo "uh=$uh" >> $env:GITHUB_OUTPUT
           echo "range=$range" >> $env:GITHUB_OUTPUT
+          exit 0
 
       # ── Runtime version (auto-increment by commit type) / Runtime版本(按commit类型自增) ──
       - name: Compute Runtime version
