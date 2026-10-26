@@ -14,8 +14,17 @@ permissions:
   packages: write
 
 jobs:
-  build:
+  # ── Detect changes, compute versions, bump csproj / 检测变更、计算版本、提升csproj ──
+  prepare:
     runs-on: windows-latest
+    outputs:
+      rt: ${{ steps.changes.outputs.rt }}
+      app: ${{ steps.changes.outputs.app }}
+      uh: ${{ steps.changes.outputs.uh }}
+      range: ${{ steps.changes.outputs.range }}
+      rtVer: ${{ steps.rt-ver.outputs.version }}
+      appVer: ${{ steps.app-ver.outputs.version }}
+      uhVer: ${{ steps.uh-ver.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,7 +35,6 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # ── Detect which projects changed / 检测各项目是否变更 ──
       - name: Detect changes
         id: changes
         env:
@@ -38,7 +46,8 @@ jobs:
             $releases = gh release list --limit 5 --json tagName,isPrerelease 2>$null | ConvertFrom-Json
             $lastTag = ($releases | Where-Object { $_.isPrerelease } | Select-Object -First 1).tagName
           } catch {}
-          $range = if ($lastTag) { "$lastTag..HEAD" } else { "HEAD~30..HEAD" }
+          $root = git rev-list --max-parents=0 HEAD 2>$null | Select-Object -Last 1
+          $range = if ($lastTag) { "$lastTag..HEAD" } elseif ($root) { "$root..HEAD" } else { "HEAD" }
           $changed = git diff --name-only $range 2>$null
           $rt = ($changed | Where-Object { $_ -like "src/ShuRuk.Runtime/*" }).Count -gt 0
           $app = ($changed | Where-Object { $_ -like "src/ShuRuk.App/*" }).Count -gt 0
@@ -50,7 +59,6 @@ jobs:
           echo "range=$range" >> $env:GITHUB_OUTPUT
           exit 0
 
-      # ── Runtime version (auto-increment by commit type) / Runtime版本(按commit类型自增) ──
       - name: Compute Runtime version
         id: rt-ver
         shell: pwsh
@@ -82,8 +90,6 @@ jobs:
           echo "nextMinor=$nMin" >> $env:GITHUB_OUTPUT
           echo "nextPatch=$nP" >> $env:GITHUB_OUTPUT
 
-
-      # ── App version (auto-increment by commit type) / App版本(按commit类型自增) ──
       - name: Compute App version
         id: app-ver
         shell: pwsh
@@ -115,8 +121,6 @@ jobs:
           echo "nextMinor=$nMin" >> $env:GITHUB_OUTPUT
           echo "nextPatch=$nP" >> $env:GITHUB_OUTPUT
 
-
-      # ── UninstallHelper version (auto-increment by commit type) / UH版本(按commit类型自增) ──
       - name: Compute UninstallHelper version
         id: uh-ver
         shell: pwsh
@@ -148,7 +152,6 @@ jobs:
           echo "nextMinor=$nMin" >> $env:GITHUB_OUTPUT
           echo "nextPatch=$nP" >> $env:GITHUB_OUTPUT
 
-      # ── Sync all csproj versions in one commit / 单次提交同步所有csproj版本 ──
       - name: Sync all csproj versions
         if: steps.changes.outputs.rt == 'True' || steps.changes.outputs.app == 'True' || steps.changes.outputs.uh == 'True'
         shell: pwsh
@@ -187,23 +190,35 @@ jobs:
           git commit -m "chore: bump versions ($($parts -join ', ')) [skip ci]"
           git push
 
-      # ── Pack Runtime nupkg / 打包Runtime nupkg ──
+  # ── Pack all artifacts / 打包所有产物 ──
+  build:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.rt == 'True' || needs.prepare.outputs.app == 'True' || needs.prepare.outputs.uh == 'True' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
       - name: Pack Runtime nupkg
-        if: steps.changes.outputs.rt == 'True'
+        if: needs.prepare.outputs.rt == 'True'
         shell: pwsh
         run: |
-          $ver = '${{ steps.rt-ver.outputs.version }}'
+          $ver = '${{ needs.prepare.outputs.rtVer }}'
           dotnet pack src/ShuRuk.Runtime/ShuRuk.Runtime.csproj -c Release -p:PackageVersion=$ver -o artifacts
 
-      # ── Pack Runtime MSIX framework package / 打包Runtime MSIX框架包 ──
       - name: Pack Runtime MSIX
-        if: steps.changes.outputs.rt == 'True'
+        if: needs.prepare.outputs.rt == 'True'
         env:
           MSIX_CERT_BASE64: ${{ secrets.MSIX_CERT_BASE64 }}
           MSIX_CERT_PASSWORD: ${{ secrets.MSIX_CERT_PASSWORD }}
         shell: pwsh
         run: |
-          $ver = '${{ steps.rt-ver.outputs.version }}'
+          $ver = '${{ needs.prepare.outputs.rtVer }}'
           $fourPart = "$ver.0"
           dotnet build src/ShuRuk.Runtime/ShuRuk.Runtime.csproj -c Release -p:PackageVersion=$ver
           $outDir = "src/ShuRuk.Runtime/bin/Release/net10.0-windows10.0.26100.0/win-x64"
@@ -232,17 +247,15 @@ jobs:
             Write-Host "No cert, MSIX unsigned / 无证书，MSIX未签名"
           }
 
-      # ── Pack UninstallHelper nupkg / 打包UninstallHelper nupkg ──
       - name: Pack UninstallHelper nupkg
-        if: steps.changes.outputs.uh == 'True'
+        if: needs.prepare.outputs.uh == 'True'
         shell: pwsh
         run: |
-          $ver = '${{ steps.uh-ver.outputs.version }}'
+          $ver = '${{ needs.prepare.outputs.uhVer }}'
           dotnet pack src/ShuRuk.UninstallHelper/ShuRuk.UninstallHelper.csproj -c Release -p:PackageVersion=$ver -o artifacts
 
-      # ── Pack App MSIX (conditional on cert secret) / 打包App MSIX(需证书secret) ──
       - name: Pack App MSIX
-        if: steps.changes.outputs.app == 'True'
+        if: needs.prepare.outputs.app == 'True'
         env:
           MSIX_CERT_BASE64: ${{ secrets.MSIX_CERT_BASE64 }}
           MSIX_CERT_PASSWORD: ${{ secrets.MSIX_CERT_PASSWORD }}
@@ -252,7 +265,7 @@ jobs:
             Write-Host "No MSIX_CERT_BASE64 secret, skipping App MSIX pack / 无证书secret，跳过App MSIX打包"
             exit 0
           }
-          $ver = '${{ steps.app-ver.outputs.version }}'
+          $ver = '${{ needs.prepare.outputs.appVer }}'
           $certPath = Join-Path $env:RUNNER_TEMP "shuruk_cert.pfx"
           [System.IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
           $securePwd = ConvertTo-SecureString $env:MSIX_CERT_PASSWORD -AsPlainText -Force
@@ -260,7 +273,30 @@ jobs:
           dotnet build src/ShuRuk.App/ShuRuk.App.csproj -c Release -p:Platform=x64 -p:AppxPackageSigningEnabled=True -p:PackageVersion=$ver
           Get-ChildItem -Path "src/ShuRuk.App/bin" -Recurse -Filter "*.msix" | Copy-Item -Destination artifacts -Force
 
-      # ── Generate release notes by project sections / 按项目章节生成更新日志 ──
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: artifacts/
+          if-no-files-found: ignore
+
+  # ── Generate notes, create release, publish nupkgs / 生成日志、创建发布、推送nupkg ──
+  release:
+    needs: [prepare, build]
+    if: ${{ needs.prepare.outputs.rt == 'True' || needs.prepare.outputs.app == 'True' || needs.prepare.outputs.uh == 'True' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: artifacts
+
       - name: Generate release notes
         id: notes
         env:
@@ -272,7 +308,8 @@ jobs:
             $releases = gh release list --limit 10 --json tagName,isPrerelease 2>$null | ConvertFrom-Json
             $lastTag = ($releases | Where-Object { $_.isPrerelease } | Select-Object -First 1).tagName
           } catch {}
-          $range = if ($lastTag) { "$lastTag..HEAD" } else { "HEAD~30..HEAD" }
+          $root = git rev-list --max-parents=0 HEAD 2>$null | Select-Object -Last 1
+          $range = if ($lastTag) { "$lastTag..HEAD" } elseif ($root) { "$root..HEAD" } else { "HEAD" }
           $commitData = @()
           $raw = git log $range --pretty=format:"%H|%s" --name-only
           $cur = $null
@@ -321,26 +358,17 @@ jobs:
           "body<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           $body | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          exit 0
 
-      # ── Compute composite release tag / 计算组合发布标签 ──
       - name: Compute release tag
         id: rel-tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
-          $appVer = '${{ steps.app-ver.outputs.version }}'
-          $rtVer = '${{ steps.rt-ver.outputs.version }}'
-          $uhVer = '${{ steps.uh-ver.outputs.version }}'
-          $lastTag = $null
-          try {
-            $releases = gh release list --limit 5 --json tagName,isPrerelease 2>$null | ConvertFrom-Json
-            $lastTag = ($releases | Where-Object { $_.isPrerelease } | Select-Object -First 1).tagName
-          } catch {}
-          $range = if ($lastTag) { "$lastTag..HEAD" } else { "HEAD~30..HEAD" }
-          $changed = git diff --name-only $range 2>$null
-          $rtChanged = $changed | Where-Object { $_ -like "src/ShuRuk.Runtime/*" }
-          $uhChanged = $changed | Where-Object { $_ -like "src/ShuRuk.UninstallHelper/*" }
+          $appVer = '${{ needs.prepare.outputs.appVer }}'
+          $rtVer = '${{ needs.prepare.outputs.rtVer }}'
+          $uhVer = '${{ needs.prepare.outputs.uhVer }}'
+          $rtChanged = '${{ needs.prepare.outputs.rt }}' -eq 'True'
+          $uhChanged = '${{ needs.prepare.outputs.uh }}' -eq 'True'
           $tag = "$appVer-Dev"
           if ($rtChanged -or $uhChanged) {
             $tag += " with"
@@ -350,8 +378,8 @@ jobs:
           }
           Write-Host "Release tag: $tag"
           echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          exit 0
 
-      # ── Create pre-release (MSIX only; nupkgs go to GitHub Packages) / 创建预发布(仅MSIX;nupkg发GitHub Packages) ──
       - name: Create pre-release
         uses: softprops/action-gh-release@v2
         with:
@@ -362,19 +390,18 @@ jobs:
           files: |
             artifacts/*.msix
 
-      # ── Publish nupkgs to GitHub Packages / 发布nupkg到GitHub Packages ──
       - name: Publish Runtime to GitHub Packages
-        if: steps.changes.outputs.rt == 'True'
+        if: needs.prepare.outputs.rt == 'True'
         shell: pwsh
         run: |
-          $ver = '${{ steps.rt-ver.outputs.version }}'
+          $ver = '${{ needs.prepare.outputs.rtVer }}'
           $source = "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
           dotnet nuget push "artifacts/Shuruk.Runtime.$ver.nupkg" --api-key ${{ secrets.GITHUB_TOKEN }} --source $source
 
       - name: Publish UninstallHelper to GitHub Packages
-        if: steps.changes.outputs.uh == 'True'
+        if: needs.prepare.outputs.uh == 'True'
         shell: pwsh
         run: |
-          $ver = '${{ steps.uh-ver.outputs.version }}'
+          $ver = '${{ needs.prepare.outputs.uhVer }}'
           $source = "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
           dotnet nuget push "artifacts/Shuruk.UninstallHelper.$ver.nupkg" --api-key ${{ secrets.GITHUB_TOKEN }} --source $source
