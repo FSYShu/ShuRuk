@@ -39,7 +39,3 @@ err.log
 
 # Signing certificates / 签名证书
 *.pfx
-
-# Modules / 业务模块（独立仓库，不纳入主仓库跟踪）
-# Business modules live in their own repos, ignored by host repo
-modules/
