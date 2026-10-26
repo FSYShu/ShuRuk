@@ -10,7 +10,7 @@ internal static class AppConstants
     // Application identity / 应用标识
     public const string AppName = "ShuRuk";
     public const string AppUserModelId = "ShuRuk";
-    public const string AppUserModelIdPackaged = "ShuRuk_e6tahm9t1221g!App";
+    public const string AppUserModelIdPackaged = "ShuRuk_e6tahm9t1221g!ShuRuk";
     public const string AppDataFolderName = "ShuRuk";
     public const string CrashLogFileName = "crash.log";
     public const string AppIconPath = "Assets/ShuRuk.ico";
@@ -92,6 +92,9 @@ internal static class AppConstants
     // Search debounce / 搜索防抖
     public const int SearchDebounceMs = 300;
 
+    // Module card layout / 模块卡片布局
+    public const double ModuleCardWidth = 268;
+
     // Animation durations / 动画持续时间
     public const int RestartInfoBarShowMs = 250;
     public const int RestartInfoBarHideMs = 200;
@@ -132,7 +135,7 @@ internal static class AppConstants
         public const string AppTheme = "AppTheme";
         public const string AppThemeModule = "ShuRuk.UI";
         public const string AppLanguage = "app.language";
-        public const string AppConfigModule = "ShuRuk.App";
+        public const string AppConfigModule = "ShuRuk";
         public const string MonitorSortBy = "MonitorSortBy";
         public const string MonitorSortDescending = "MonitorSortDescending";
         public const string TestModeEnabled = "TestModeEnabled";

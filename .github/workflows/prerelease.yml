@@ -226,9 +226,11 @@ jobs:
           New-Item -ItemType Directory -Path $staging -Force | Out-Null
           Copy-Item -Path "$outDir\*" -Destination $staging -Recurse -Force
           Copy-Item "src/ShuRuk.Runtime/Package.appxmanifest" "$staging\AppxManifest.xml" -Force
-          $manifest = Get-Content "$staging\AppxManifest.xml" -Raw
+          # Read/write with explicit UTF-8 no BOM to avoid XML declaration corruption / 显式UTF-8无BOM读写避免XML声明损坏
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+          $manifest = [System.IO.File]::ReadAllText("$staging\AppxManifest.xml", $utf8NoBom)
           $manifest = $manifest -replace 'Version="[\d.]+"', "Version=`"$fourPart`""
-          [System.IO.File]::WriteAllText("$staging\AppxManifest.xml", $manifest)
+          [System.IO.File]::WriteAllText("$staging\AppxManifest.xml", $manifest, $utf8NoBom)
           $assetsDir = Join-Path $staging "Assets"
           New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
           $png = [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGWMjW9IgAAAABJRU5ErkJggg==")

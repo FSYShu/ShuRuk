@@ -300,4 +300,10 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
             }
         }
     }
+
+    // Recompute max columns on resize so centered grid stays page-width-bound / 尺寸变化时重算列数,使居中网格仍受页面宽度约束
+    private void DiscoverGridView_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        GridViewLayoutHelper.UpdateMaxColumns(DiscoverGridView, AppConstants.ModuleCardWidth);
+    }
 }
