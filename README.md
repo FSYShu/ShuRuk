@@ -18,8 +18,9 @@ ShuRuk 与各模块均以独立 Git 仓库管理 / ShuRuk and each module are ma
 
 ```
 ShuRuk/                              # main repo (ShuRuk + Runtime + UninstallHelper)
-├── scripts/
-│   └── pack-runtime.ps1             # CI 打包 Runtime / CI pack Runtime nupkg + msix
+├── .github/
+│   └── workflows/
+│       └── prerelease.yml           # CI 自动打包发布 / CI auto pack & pre-release
 ├── src/
 │   ├── ShuRuk.App/                  # App → ShuRuk.exe (MSIX)
 │   │   ├── Assets/                  # 应用资源 / app assets
@@ -75,11 +76,13 @@ dotnet build ShuRuk.slnx
 
 ### Pack Runtime / 打包运行时
 
-```bash
-pwsh scripts/pack-runtime.ps1
-```
+Runtime 打包已由 GitHub Actions workflow（`.github/workflows/prerelease.yml`）自动处理：push 到 `dev` 分支时自动构建 nupkg + MSIX 并发布为 pre-release。/ Automated by GitHub Actions workflow on push to dev branch.
 
-Produces `ShuRuk.Runtime.<version>.nupkg` + `ShuRuk.Runtime.<version>.msix` for module consumption and distribution. / 产 NuGet 包 + MSIX 供模块引用与分发。
+手动本地构建（仅 dll）/ Manual local build (dll only):
+
+```bash
+dotnet build src/ShuRuk.Runtime/ShuRuk.Runtime.csproj -c Release
+```
 
 ### MSIX Packaged Build / MSIX 打包构建
 

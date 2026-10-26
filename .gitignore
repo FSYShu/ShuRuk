@@ -37,8 +37,8 @@ build_log*.txt
 *_err.log
 err.log
 
-# Temporary signing certificates / 临时签名证书
-*_TemporaryKey.pfx
+# Signing certificates / 签名证书
+*.pfx
 
 # Modules / 业务模块（独立仓库，不纳入主仓库跟踪）
 # Business modules live in their own repos, ignored by host repo
