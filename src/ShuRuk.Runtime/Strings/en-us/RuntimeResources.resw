@@ -1,70 +1,82 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
   <data name="RuntimeSettingsTheme.Header" xml:space="preserve">
-    <value>主题</value>
+    <value>Theme</value>
   </data>
   <data name="RuntimeSettingsTheme.Description" xml:space="preserve">
-    <value>选择应用外观</value>
+    <value>Choose app appearance</value>
   </data>
   <data name="RuntimeSettingsStartup.Header" xml:space="preserve">
-    <value>启动</value>
+    <value>Startup</value>
   </data>
   <data name="RuntimeSettingsStartup.Description" xml:space="preserve">
-    <value>开机自动启动</value>
+    <value>Start automatically on system login</value>
   </data>
   <data name="RuntimeSettingsAutoUpdate.Header" xml:space="preserve">
-    <value>自动更新</value>
+    <value>Auto Update</value>
   </data>
   <data name="RuntimeSettingsAutoUpdate.Description" xml:space="preserve">
-    <value>自动检查新版本</value>
+    <value>Automatically check for new versions</value>
   </data>
   <data name="RuntimeSettingsUpdateChannel.Header" xml:space="preserve">
-    <value>更新通道</value>
+    <value>Update Channel</value>
   </data>
   <data name="RuntimeSettingsUpdateChannel.Description" xml:space="preserve">
-    <value>选择更新来源</value>
+    <value>Choose update source</value>
   </data>
   <data name="RuntimeAboutTitle.Text" xml:space="preserve">
-    <value>关于</value>
+    <value>About</value>
   </data>
   <data name="RuntimeAboutVersion.Text" xml:space="preserve">
-    <value>版本： </value>
+    <value>Version: </value>
   </data>
   <data name="RuntimeAboutAuthor.Text" xml:space="preserve">
-    <value>作者： </value>
+    <value>Author: </value>
   </data>
   <data name="RuntimeAboutSettings.Text" xml:space="preserve">
-    <value>设置</value>
+    <value>Settings</value>
   </data>
   <data name="RuntimeHomeSubmodules.Text" xml:space="preserve">
-    <value>子模块</value>
+    <value>Submodules</value>
   </data>
   <data name="RuntimeHomeRecent.Text" xml:space="preserve">
-    <value>最近</value>
+    <value>Recent</value>
   </data>
   <data name="RuntimeChangelogEmptyTitle" xml:space="preserve">
-    <value>暂无更新日志</value>
+    <value>No changelog</value>
   </data>
   <data name="RuntimeChangelogEmptyDescription" xml:space="preserve">
-    <value>已是最新版本。</value>
+    <value>You're up to date.</value>
   </data>
   <data name="RuntimeChangelogLoading" xml:space="preserve">
-    <value>正在获取更新日志...</value>
+    <value>Fetching changelogs...</value>
   </data>
   <data name="RuntimeChangelogFilterAll" xml:space="preserve">
-    <value>全部版本</value>
+    <value>All</value>
   </data>
   <data name="RuntimeChangelogFilterExcludePrerelease" xml:space="preserve">
-    <value>发行版</value>
+    <value>Releases</value>
   </data>
   <data name="RuntimeChangelogPageTitle" xml:space="preserve">
-    <value>更新日志</value>
+    <value>Changelog</value>
   </data>
   <data name="RuntimeChangelogPrevVersion" xml:space="preserve">
-    <value>上一个版本</value>
+    <value>Previous version</value>
   </data>
   <data name="RuntimeChangelogNextVersion" xml:space="preserve">
-    <value>下一个版本</value>
+    <value>Next version</value>
+  </data>
+  <data name="RuntimeChangelogShowImages" xml:space="preserve">
+    <value>Show images</value>
+  </data>
+  <data name="RuntimeChangelogHideImages" xml:space="preserve">
+    <value>Hide images</value>
+  </data>
+  <data name="RuntimeChangelogExpand" xml:space="preserve">
+    <value>Expand</value>
+  </data>
+  <data name="RuntimeChangelogCollapse" xml:space="preserve">
+    <value>Collapse</value>
   </data>
   <data name="RuntimeMonitorHostProcess" xml:space="preserve">
     <value>ShuRuk.Runtime</value>
@@ -72,98 +84,98 @@
 
   <!-- SettingsPage -->
   <data name="String_SettingsPageTitle" xml:space="preserve">
-    <value>设置</value>
+    <value>Settings</value>
   </data>
   <data name="SettingsLanguageRestartTitle.Text" xml:space="preserve">
-    <value>需要重启</value>
+    <value>Restart Required</value>
   </data>
   <data name="SettingsLanguageRestartHint.Text" xml:space="preserve">
-    <value>重启应用以完全切换到新语言。</value>
+    <value>Restart the app to fully apply the new language.</value>
   </data>
   <data name="SettingsRestartButton.Content" xml:space="preserve">
-    <value>立即重启</value>
+    <value>Restart Now</value>
   </data>
   <data name="String_SettingsSectionLanguage" xml:space="preserve">
-    <value>常规</value>
+    <value>General</value>
   </data>
   <data name="String_SettingsLanguageHeader" xml:space="preserve">
-    <value>语言</value>
+    <value>Language</value>
   </data>
   <data name="String_SettingsLanguageDescription" xml:space="preserve">
-    <value>选择应用的显示语言，更改将在重启后生效。</value>
+    <value>Choose the display language for the app. Changes take effect after restart.</value>
   </data>
   <data name="String_SettingsThemeHeader" xml:space="preserve">
-    <value>主题</value>
+    <value>Theme</value>
   </data>
   <data name="String_SettingsThemeDescription" xml:space="preserve">
-    <value>选择应用的外观主题，更改将立即生效。</value>
+    <value>Choose the appearance theme for the app. Changes take effect immediately.</value>
   </data>
   <data name="String_SettingsTestModeHeader" xml:space="preserve">
-    <value>测试模式</value>
+    <value>Test Mode</value>
   </data>
   <data name="String_SettingsTestModeDescription" xml:space="preserve">
-    <value>启用测试模式以进行开发和调试。</value>
+    <value>Enable test mode for development and debugging.</value>
   </data>
   <data name="String_SettingsTestModeFillHeader" xml:space="preserve">
-    <value>测试数据模式</value>
+    <value>Test Data Mode</value>
   </data>
   <data name="String_SettingsTestModeFillDescription" xml:space="preserve">
-    <value>选择测试数据的显示方式。</value>
+    <value>Choose how test data is displayed.</value>
   </data>
   <data name="String_SettingsTestModeFillEmpty" xml:space="preserve">
-    <value>空状态</value>
+    <value>Empty State</value>
   </data>
   <data name="String_SettingsTestModeFillFull" xml:space="preserve">
-    <value>填充测试条目</value>
+    <value>Fill Test Entries</value>
   </data>
   <data name="String_SettingsChangelogRepoHeader" xml:space="preserve">
-    <value>更新日志仓库</value>
+    <value>Changelog Repository</value>
   </data>
   <data name="String_SettingsChangelogRepoDescription" xml:space="preserve">
-    <value>GitHub仓库，格式为owner/repo。</value>
+    <value>GitHub repository in owner/repo format.</value>
   </data>
   <data name="String_SettingsChangelogSectionHeader" xml:space="preserve">
-    <value>更新日志章节过滤</value>
+    <value>Changelog Section Filter</value>
   </data>
   <data name="String_SettingsChangelogSectionDescription" xml:space="preserve">
-    <value>按Markdown标题过滤版本，留空显示全部。</value>
+    <value>Filter by Markdown heading title. Empty shows all.</value>
   </data>
   <data name="String_LangFollowSystem" xml:space="preserve">
-    <value>跟随系统</value>
+    <value>Follow system</value>
   </data>
   <data name="String_ThemeFollowSystem" xml:space="preserve">
-    <value>跟随系统</value>
+    <value>Follow system</value>
   </data>
   <data name="String_ThemeLight" xml:space="preserve">
-    <value>浅色</value>
+    <value>Light</value>
   </data>
   <data name="String_ThemeDark" xml:space="preserve">
-    <value>深色</value>
+    <value>Dark</value>
   </data>
   <data name="String_SettingsSectionAbout" xml:space="preserve">
-    <value>关于</value>
+    <value>About</value>
   </data>
   <data name="String_SettingsAppVersionFormat" xml:space="preserve">
-    <value>版本 {0}</value>
+    <value>Version {0}</value>
   </data>
   <data name="String_SettingsSdkVersionHeader" xml:space="preserve">
     <value>Windows App SDK</value>
   </data>
   <data name="String_SettingsSdkVersionFormat" xml:space="preserve">
-    <value>版本 {0}</value>
+    <value>Version {0}</value>
   </data>
   <data name="String_SettingsToolkitVersionHeader" xml:space="preserve">
     <value>Windows Community Toolkit</value>
   </data>
   <data name="String_SettingsToolkitVersionFormat" xml:space="preserve">
-    <value>版本 {0}</value>
+    <value>Version {0}</value>
   </data>
 
   <!-- HomePage -->
   <data name="HomeWelcome.Title" xml:space="preserve">
-    <value>欢迎</value>
+    <value>Welcome</value>
   </data>
   <data name="HomeWelcome.Message" xml:space="preserve">
-    <value>管理模块、发现新工具，自定义您的 Windows 体验。</value>
+    <value>Manage modules, discover new tools, and customize your Windows experience.</value>
   </data>
 </root>

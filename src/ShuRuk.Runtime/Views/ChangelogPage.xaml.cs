@@ -2,12 +2,21 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
 using ShuRuk.Runtime.Abstractions;
+using ShuRuk.Runtime.Abstractions.Interfaces;
 using ShuRuk.Runtime.Helpers;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
+using System.ComponentModel;
 
 namespace ShuRuk.Runtime.Views;
 
@@ -64,6 +73,8 @@ public sealed partial class ChangelogPage : Page
         InitializeComponent();
         ChangelogRepeater.ItemsSource = _displayItems;
         StickyVersionText.SizeChanged += StickyVersionText_SizeChanged;
+        // Initial tooltip for image toggle / 图片切换初始提示
+        ToolTipService.SetToolTip(ShowImagesToggle, RuntimeLocalizationHelper.GetString("RuntimeChangelogHideImages"));
     }
 
     // Custom marquee: scroll text, pause at start and end / 自定义跑马灯:滚动文本,首尾停顿
@@ -152,96 +163,23 @@ public sealed partial class ChangelogPage : Page
     // Re-entrancy guard for markdown config / markdown配置重入保护
     private static readonly HashSet<CommunityToolkit.WinUI.Controls.MarkdownTextBlock> _configuring = [];
 
-    // Limit images to MarkdownTextBlock width / 限制图片宽度不超过MarkdownTextBlock
+    // Whether to show images in markdown / markdown中是否显示图片
+    private bool _showImages = true;
+
+    // Configure markdown theme on load / 加载时配置markdown主题
     private void MarkdownTextBlock_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is CommunityToolkit.WinUI.Controls.MarkdownTextBlock mtb)
         {
-            mtb.SizeChanged += MarkdownTextBlock_SizeChanged;
             mtb.ActualThemeChanged += (_, _) => ConfigureMarkdownTheme(mtb, forceRender: true);
             ConfigureMarkdownTheme(mtb, forceRender: true);
-            // Schedule image container height fix after render / 渲染后修正图片容器高度
-            ScheduleImageHeightFix(mtb);
         }
     }
 
-    // Fix image container heights after markdown render / markdown渲染后修正图片容器高度
-    // ImageMaxWidth scales image correctly but container keeps original height / ImageMaxWidth正确缩放图片但容器保留原始高度
-    private static void ScheduleImageHeightFix(CommunityToolkit.WinUI.Controls.MarkdownTextBlock mtb)
-    {
-        // Delay until after layout pass / 延迟到布局完成后
-        mtb.DispatcherQueue.TryEnqueue(() => FixImageContainerHeights(mtb));
-    }
 
-    private static void FixImageContainerHeights(DependencyObject root)
-    {
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
-        {
-            var child = VisualTreeHelper.GetChild(root, i);
-            if (child is Image img)
-            {
-                // Subscribe to ImageOpened if not already tagged / 订阅ImageOpened(未订阅时)
-                if (img.Tag is not true)
-                {
-                    img.Tag = true;
-                    img.ImageOpened += Image_ImageOpened;
-                    img.ImageFailed += Image_ImageOpened;
-                }
-                // If already loaded, fix immediately / 已加载则立即修正
-                if (img.ActualHeight > 0)
-                    FixSingleImageContainer(img);
-            }
-            FixImageContainerHeights(child);
-        }
-    }
-
-    // Set parent container Height to Auto so it shrinks to image / 父容器高度设为Auto使其收缩到图片
-    private static void Image_ImageOpened(object sender, RoutedEventArgs e)
-    {
-        if (sender is Image img)
-        {
-            FixSingleImageContainer(img);
-            // Force re-measure up to MarkdownTextBlock / 向上强制重新测量到MarkdownTextBlock
-            var p = VisualTreeHelper.GetParent(img);
-            while (p is not null)
-            {
-                if (p is CommunityToolkit.WinUI.Controls.MarkdownTextBlock mtb)
-                {
-                    mtb.InvalidateArrange();
-                    break;
-                }
-                p = VisualTreeHelper.GetParent(p);
-            }
-        }
-    }
-
-    private static void FixSingleImageContainer(Image img)
-    {
-        // Clear Image's own Height so it auto-sizes from MaxWidth / 清除Image自身Height使其按MaxWidth自动计算
-        if (!double.IsNaN(img.Height) && img.Height > 0)
-            img.Height = double.NaN;
-        if (img.MinHeight > 0)
-            img.MinHeight = 0;
-
-        // Walk up clearing fixed Height/MinHeight on containers / 向上清除容器的固定Height/MinHeight
-        var parent = VisualTreeHelper.GetParent(img);
-        while (parent is not null)
-        {
-            if (parent is FrameworkElement fe)
-            {
-                if (!double.IsNaN(fe.Height) && fe.Height > 0)
-                    fe.Height = double.NaN;
-                if (fe.MinHeight > 0)
-                    fe.MinHeight = 0;
-            }
-            // Stop at MarkdownTextBlock boundary / 到MarkdownTextBlock边界停止
-            if (parent is CommunityToolkit.WinUI.Controls.MarkdownTextBlock) break;
-            parent = VisualTreeHelper.GetParent(parent);
-        }
-    }
 
     // Apply theme-aware colors to markdown config / 应用主题感知颜色到markdown配置
-    private static void ConfigureMarkdownTheme(CommunityToolkit.WinUI.Controls.MarkdownTextBlock mtb, bool forceRender = false)
+    private void ConfigureMarkdownTheme(CommunityToolkit.WinUI.Controls.MarkdownTextBlock mtb, bool forceRender = false)
     {
         // Prevent re-entrant calls from SizeChanged feedback loop / 防止SizeChanged反馈循环重入
         if (_configuring.Contains(mtb)) return;
@@ -261,6 +199,8 @@ public sealed partial class ChangelogPage : Page
             themes.InlineCodeBackground = codeBg;
             themes.TableHeadingBackground = codeBg;
             themes.LinkForeground = linkFg;
+            // Limit inline markdown image width / 限制markdown内嵌图片宽度
+            themes.ImageMaxWidth = 800;
             // Heading foreground follows theme / 标题前景色跟随主题
             themes.H1Foreground = codeFg;
             themes.H2Foreground = codeFg;
@@ -268,9 +208,7 @@ public sealed partial class ChangelogPage : Page
             themes.H4Foreground = codeFg;
             themes.H5Foreground = codeFg;
             themes.H6Foreground = codeFg;
-            // Image max width keeps aspect ratio / 图片最大宽度保持宽高比
-            if (mtb.ActualWidth > 0)
-                themes.ImageMaxWidth = mtb.ActualWidth;
+
             // Assign back in case Themes is a value type / 赋回以防Themes是值类型
             mtb.Config.Themes = themes;
             // Force re-render only when theme changes, not on size change / 仅主题变化时强制重渲染,尺寸变化时不需要
@@ -281,8 +219,7 @@ public sealed partial class ChangelogPage : Page
                 {
                     mtb.Text = string.Empty;
                     mtb.Text = md;
-                    // Fix image container heights after re-render / 重渲染后修正图片容器高度
-                    ScheduleImageHeightFix(mtb);
+
                 }
             }
         }
@@ -292,17 +229,87 @@ public sealed partial class ChangelogPage : Page
         }
     }
 
-    private void MarkdownTextBlock_SizeChanged(object sender, SizeChangedEventArgs e)
+
+    // Cache directory under %LOCALAPPDATA%\ShuRuk\changelog_cache / %LOCALAPPDATA%\ShuRuk\changelog_cache下的缓存目录
+    private static readonly string CacheDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ShuRuk", "changelog_cache");
+    private static readonly string PrefsPath = Path.Combine(CacheDir, "prefs.json");
+    // JSON options: indented for debuggability / JSON选项:缩进便于调试
+    private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = false };
+
+    // Get cache file path for a repo+filter combination / 获取仓库+过滤组合的缓存文件路径
+    private static string GetCachePath(string repoUrl, string? sectionFilter)
     {
-        if (sender is not CommunityToolkit.WinUI.Controls.MarkdownTextBlock mtb) return;
-        if (mtb.ActualWidth <= 0) return;
-        // Only update ImageMaxWidth without re-render / 仅更新ImageMaxWidth不重渲染
-        var themes = mtb.Config.Themes;
-        themes.ImageMaxWidth = mtb.ActualWidth;
-        mtb.Config.Themes = themes;
-        // Check for newly rendered images / 检查新渲染的图片
-        FixImageContainerHeights(mtb);
+        var key = $"{repoUrl}|{sectionFilter ?? ""}";
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key)))[..16];
+        return Path.Combine(CacheDir, $"{hash}.json");
     }
+
+    // Load cached entries if repo+filter matches / 加载缓存条目(仅当仓库+过滤匹配)
+    private static async Task<ChangelogCacheData?> LoadCacheAsync(string repoUrl, string? sectionFilter)
+    {
+        try
+        {
+            var path = GetCachePath(repoUrl, sectionFilter);
+            if (!File.Exists(path)) return null;
+            var json = await File.ReadAllTextAsync(path);
+            var cache = JsonSerializer.Deserialize<ChangelogCacheData>(json, JsonOpts);
+            if (cache is null) return null;
+            if (cache.RepoUrl != repoUrl || cache.SectionFilter != sectionFilter) return null;
+            return cache;
+        }
+        catch { return null; }
+    }
+
+    // Save entries to cache file / 保存条目到缓存文件
+    private static async Task SaveCacheAsync(string repoUrl, string? sectionFilter, List<ChangelogEntry> entries)
+    {
+        try
+        {
+            Directory.CreateDirectory(CacheDir);
+            var cache = new ChangelogCacheData
+            {
+                RepoUrl = repoUrl,
+                SectionFilter = sectionFilter,
+                LastUpdated = DateTime.UtcNow,
+                LatestTag = entries.Count > 0 ? entries[0].Version : "",
+                Entries = entries
+            };
+            var path = GetCachePath(repoUrl, sectionFilter);
+            var json = JsonSerializer.Serialize(cache, JsonOpts);
+            await File.WriteAllTextAsync(path, json);
+        }
+        catch { }
+    }
+
+    // Load UI preferences (show images, filter tag) / 加载UI偏好(显示图片,过滤标签)
+    private static async Task<ChangelogPrefs> LoadPrefsAsync()
+    {
+        try
+        {
+            if (!File.Exists(PrefsPath)) return new ChangelogPrefs();
+            var json = await File.ReadAllTextAsync(PrefsPath);
+            return JsonSerializer.Deserialize<ChangelogPrefs>(json, JsonOpts) ?? new ChangelogPrefs();
+        }
+        catch { return new ChangelogPrefs(); }
+    }
+
+    // Save UI preferences / 保存UI偏好
+    private static async Task SavePrefsAsync(ChangelogPrefs prefs)
+    {
+        try
+        {
+            Directory.CreateDirectory(CacheDir);
+            var json = JsonSerializer.Serialize(prefs, JsonOpts);
+            await File.WriteAllTextAsync(PrefsPath, json);
+        }
+        catch { }
+    }
+
+    // Current repo+filter for cache key / 当前仓库+过滤(缓存键)
+    private string? _currentRepoUrl;
+    private string? _currentSectionFilter;
 
     // Fetch data on navigation via injected provider / 导航时通过注入的提供者获取数据
     protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -312,23 +319,54 @@ public sealed partial class ChangelogPage : Page
         // Apply localized empty state text / 应用本地化空状态文字
         EmptyTitle = RuntimeLocalizationHelper.GetString("RuntimeChangelogEmptyTitle");
         EmptyDescription = RuntimeLocalizationHelper.GetString("RuntimeChangelogEmptyDescription");
+        // Set static localized expand/collapse text for binding / 设置静态本地化展开收起文字供绑定
+        ChangelogEntry.ExpandText = RuntimeLocalizationHelper.GetString("RuntimeChangelogExpand");
+        ChangelogEntry.CollapseText = RuntimeLocalizationHelper.GetString("RuntimeChangelogCollapse");
 
         // Read navigation parameter / 读取导航参数
         var param = e.Parameter as ChangelogPageParameter;
         var repoUrl = param?.RepoUrl ?? "microsoft/PowerToys";
         var sectionFilter = param?.SectionFilter;
+        _currentRepoUrl = repoUrl;
+        _currentSectionFilter = sectionFilter;
+
+        // Restore UI preferences (image toggle, filter) / 恢复UI偏好(图片开关,过滤)
+        var prefs = await LoadPrefsAsync();
+        _showImages = prefs.ShowImages;
+        ShowImagesToggle.IsChecked = _showImages;
+        ToolTipService.SetToolTip(ShowImagesToggle,
+            RuntimeLocalizationHelper.GetString(_showImages ? "RuntimeChangelogHideImages" : "RuntimeChangelogShowImages"));
+        _filterTag = prefs.FilterTag;
+        FilterButton.Content = _filterTag == FilterTagExcludePrerelease ? FilterExcludePrereleaseText : FilterAllText;
 
         var provider = RuntimeServices.ChangelogDataProvider;
-        if (provider is not null && provider.IsAvailable)
+        if (provider is null || !provider.IsAvailable)
         {
+            Entries = [];
+            return;
+        }
+
+        // Try cache first: show immediately then check for new releases / 先尝试缓存:立即显示再检查新release
+        var cache = await LoadCacheAsync(repoUrl, sectionFilter);
+        if (cache is not null && cache.Entries.Count > 0)
+        {
+            // Show cached data without loading overlay / 无加载遮罩直接显示缓存数据
+            Entries = cache.Entries;
+            IsLoading = false;
+            // Background incremental check for new releases / 后台增量检测新release
+            _ = CheckForNewReleasesAsync(provider, repoUrl, sectionFilter, cache.LatestTag);
+        }
+        else
+        {
+            // No cache: full load with loading overlay / 无缓存:全量加载带遮罩
             IsLoading = true;
             LoadingText = RuntimeLocalizationHelper.GetString("RuntimeChangelogLoading");
-
             try
             {
                 var entries = await provider.GetEntriesAsync(repoUrl, sectionFilter);
                 IsLoading = false;
                 Entries = entries;
+                await SaveCacheAsync(repoUrl, sectionFilter, entries);
             }
             catch (Exception ex)
             {
@@ -342,10 +380,87 @@ public sealed partial class ChangelogPage : Page
                 }];
             }
         }
-        else
+    }
+
+    // Background incremental check: fetch only entries newer than cached latest tag / 后台增量检测:仅获取比缓存最新tag更新的条目
+    private async Task CheckForNewReleasesAsync(IChangelogDataProvider provider, string repoUrl, string? sectionFilter, string knownLatestTag)
+    {
+        try
         {
-            Entries = [];
+            var newEntries = await provider.GetNewEntriesAsync(repoUrl, sectionFilter, knownLatestTag);
+            if (newEntries.Count == 0) return;
+
+            // Marshal to UI thread to update collections / 切换到UI线程更新集合
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                // Parse segments for new entries / 为新条目解析段
+                foreach (var entry in newEntries)
+                {
+                    entry.Segments = ChangelogSegment.Parse(entry.Notes);
+                    entry.InitializeVisibleSegments();
+                }
+
+                // Prepend to source (newest first), respecting current filter / 前置到源(最新在前),尊重当前过滤
+                for (int i = newEntries.Count - 1; i >= 0; i--)
+                {
+                    var entry = newEntries[i];
+                    _sourceEntries.Insert(0, entry);
+                    if (_filterTag == FilterTagAll || !entry.IsPrerelease)
+                    {
+                        _allEntries.Insert(0, entry);
+                        _displayItems.Insert(0, entry);
+                    }
+                }
+
+                // Ensure filter controls visible / 确保过滤控件可见
+                if (_sourceEntries.Count > 0)
+                {
+                    FilterBorder.Visibility = Visibility.Visible;
+                    ImageToggleBorder.Visibility = Visibility.Visible;
+                    NavButtonsPanel.Visibility = Visibility.Visible;
+                }
+                UpdateNavButtons();
+                UpdateEmptyState();
+            });
+
+            // Update cache with merged list / 用合并后的列表更新缓存
+            await SaveCacheAsync(repoUrl, sectionFilter, _sourceEntries.ToList());
         }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Changelog incremental check failed: {ex}");
+        }
+    }
+
+
+
+
+    // Find ProgressRing sibling in same Grid / 在同一Grid中查找ProgressRing
+    private static ProgressRing? FindLoadingRing(Image img)
+    {
+        if (img.Parent is not Grid grid) return null;
+        foreach (var child in grid.Children)
+            if (child is ProgressRing ring) return ring;
+        return null;
+    }
+
+    // Image loaded: MaxWidth handled by data-layer binding / 图片加载完成:MaxWidth由数据层绑定处理
+    private void Image_ImageOpened(object sender, RoutedEventArgs e)
+    {
+    }
+
+    // Image failed: no action (LoadingVisibility handled by data layer) / 图片加载失败:无需操作(LoadingVisibility由数据层处理)
+    private void Image_ImageFailed(object sender, ExceptionRoutedEventArgs e)
+    {
+    }
+
+    // Toggle card expand/collapse via ObservableCollection incremental update / 通过ObservableCollection增量更新切换展开折叠
+    private void ExpandButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn) return;
+        var entry = btn.DataContext as ChangelogEntry ?? btn.Tag as ChangelogEntry;
+        if (entry is null) return;
+        entry.IsExpanded = !entry.IsExpanded;
     }
 
     private static void OnEntriesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -355,11 +470,21 @@ public sealed partial class ChangelogPage : Page
             // Store source entries then apply filter / 存储原始条目后应用过滤
             page._sourceEntries.Clear();
             page._sourceEntries.AddRange(page.Entries ?? []);
+            // Parse segments for each entry / 为每个条目解析段
+            foreach (var entry in page._sourceEntries)
+            {
+                entry.Segments = ChangelogSegment.Parse(entry.Notes);
+                entry.InitializeVisibleSegments();
+            }
             page.ApplyFilter();
             // Show filter and play appear animation / 显示过滤按钮并播放出现动画
             if (page._sourceEntries.Count > 0)
             {
                 page.FilterBorder.Visibility = Visibility.Visible;
+                // Sync DropDownButton content with restored filter tag / 同步DropDownButton显示与恢复的过滤标签
+                page.FilterButton.Content = page._filterTag == FilterTagExcludePrerelease
+                    ? page.FilterExcludePrereleaseText : page.FilterAllText;
+                page.ImageToggleBorder.Visibility = Visibility.Visible;
                 page.NavButtonsPanel.Visibility = Visibility.Visible;
             }
             else
@@ -400,31 +525,81 @@ public sealed partial class ChangelogPage : Page
         sb.Begin();
     }
 
+    // Filter tag constants / 过滤标签常量
+    private const string FilterTagAll = "all";
+    private const string FilterTagExcludePrerelease = "exclude-prerelease";
     // Current filter tag / 当前过滤标签
-    private string _filterTag = "all";
+    private string _filterTag = FilterTagAll;
 
     // Filter by tag (exclude pre-release if chosen) / 按标签过滤
     private void ApplyFilter()
     {
+        var excludePrerelease = _filterTag == FilterTagExcludePrerelease;
         _allEntries.Clear();
-        if (_filterTag == "exclude-prerelease")
-            _allEntries.AddRange(_sourceEntries.Where(x => !x.IsPrerelease));
-        else
-            _allEntries.AddRange(_sourceEntries);
+        // Inline filter avoids LINQ iterator allocation / 内联过滤避免LINQ迭代器分配
+        foreach (var entry in _sourceEntries)
+            if (!excludePrerelease || !entry.IsPrerelease)
+                _allEntries.Add(entry);
         _displayItems.Clear();
         LoadMore();
         UpdateEmptyState();
     }
 
-    private void FilterMenuItem_Click(object sender, RoutedEventArgs e)
+    private async void FilterMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not MenuFlyoutItem item) return;
-        _filterTag = item.Tag?.ToString() ?? "all";
+        _filterTag = item.Tag?.ToString() ?? FilterTagAll;
         FilterButton.Content = item.Text;
+        // Persist preference / 持久化偏好
+        await SavePrefsAsync(new ChangelogPrefs { ShowImages = _showImages, FilterTag = _filterTag });
         // Ignore during init before source data loaded / 初始化时源数据未加载则忽略
         if (_sourceEntries.Count == 0) return;
         ApplyFilter();
     }
+
+    // Toggle image visibility in all markdown blocks / 切换所有markdown块的图片可见性
+    private async void ShowImagesToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _showImages = ShowImagesToggle.IsChecked == true;
+        // Update tooltip to reflect current state / 更新提示反映当前状态
+        ToolTipService.SetToolTip(ShowImagesToggle,
+            RuntimeLocalizationHelper.GetString(_showImages ? "RuntimeChangelogHideImages" : "RuntimeChangelogShowImages"));
+        // Persist preference / 持久化偏好
+        await SavePrefsAsync(new ChangelogPrefs { ShowImages = _showImages, FilterTag = _filterTag });
+
+        // Show progress indicator, disable button during update / 更新期间显示进度指示并禁用按钮
+        ShowImagesIcon.Visibility = Visibility.Collapsed;
+        ShowImagesProgress.Visibility = Visibility.Visible;
+        ShowImagesProgress.IsActive = true;
+        ShowImagesToggle.IsEnabled = false;
+
+        await UpdateAllImageVisibilityAsync();
+
+        // Restore button state / 恢复按钮状态
+        ShowImagesProgress.IsActive = false;
+        ShowImagesProgress.Visibility = Visibility.Collapsed;
+        ShowImagesIcon.Visibility = Visibility.Visible;
+        ShowImagesToggle.IsEnabled = true;
+    }
+
+    // Batch size for incremental visibility update / 增量可见性更新的批大小
+    private const int ImageBatchSize = 5;
+
+    // Update image visibility via data binding / 通过数据绑定更新图片可见性
+    private async Task UpdateAllImageVisibilityAsync()
+    {
+        var visibility = _showImages ? Visibility.Visible : Visibility.Collapsed;
+        for (int i = 0; i < _displayItems.Count; i += ImageBatchSize)
+        {
+            int end = Math.Min(i + ImageBatchSize, _displayItems.Count);
+            for (int j = i; j < end; j++)
+                foreach (var seg in _displayItems[j].Segments)
+                    if (seg.IsImage) seg.ImageVisibility = visibility;
+            // Yield to UI thread between batches / 批间让出UI线程
+            await Task.Yield();
+        }
+    }
+
 
     private void LoadMore()
     {
@@ -754,15 +929,310 @@ public sealed partial class ChangelogPage : Page
 /// <summary>
 /// Changelog entry data / 更新日志条目数据
 /// </summary>
-public sealed class ChangelogEntry
+public sealed class ChangelogEntry : INotifyPropertyChanged
 {
+    // Collapsed card max content height / 折叠态卡片内容最大高度
+    public const double CollapsedMaxHeight = 1000;
+    // Max visible segments when collapsed / 折叠时最大可见段数
+    private const int CollapsedSegmentLimit = 6;
+    // Estimate threshold: notes longer than this likely overflow / 估算阈值:notes超过此长度可能溢出
+    private const int OverflowNoteLength = 1200;
+    private const int OverflowSegmentCount = 6;
+
     public string Version { get; set; } = string.Empty;
     public string Date { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
     public bool IsPrerelease { get; set; }
+    // Parsed segments (text + image alternating), runtime only not serialized / 解析后的段(文字与图片交替),运行时 only 不序列化
+    [JsonIgnore]
+    public List<ChangelogSegment> Segments { get; set; } = [];
     // Visibility for XAML binding / 供XAML绑定的可见性
     public Visibility PrereleaseVisibility => IsPrerelease ? Visibility.Visible : Visibility.Collapsed;
+
+    // Expand/collapse state, persisted per session only / 展开折叠状态,仅会话内保持
+    private bool _isExpanded;
+    [JsonIgnore]
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded != value)
+            {
+                _isExpanded = value;
+                UpdateVisibleSegments();
+                RaisePropertyChanged(nameof(IsExpanded));
+                RaisePropertyChanged(nameof(ExpandButtonGlyph));
+                RaisePropertyChanged(nameof(ExpandButtonText));
+                RaisePropertyChanged(nameof(FadeOverlayVisibility));
+            }
+        }
+    }
+
+    // Observable segments for incremental add/remove (no container rebuild, preserves scroll) / 可观察段用于增量增删(不重建容器,保持滚动)
+    [JsonIgnore]
+    public ObservableCollection<ChangelogSegment> VisibleSegments { get; } = [];
+
+    // Initialize VisibleSegments from Segments based on expand state / 根据展开状态从Segments初始化VisibleSegments
+    public void InitializeVisibleSegments()
+    {
+        VisibleSegments.Clear();
+        int count = _isExpanded ? Segments.Count : Math.Min(Segments.Count, CollapsedSegmentLimit);
+        for (int i = 0; i < count; i++)
+            VisibleSegments.Add(Segments[i]);
+    }
+
+    // Incrementally add/remove segments on expand/collapse toggle / 展开/收起时增量增删段
+    private void UpdateVisibleSegments()
+    {
+        if (_isExpanded)
+        {
+            // Add missing segments when expanding / 展开时添加缺失段
+            for (int i = VisibleSegments.Count; i < Segments.Count; i++)
+                VisibleSegments.Add(Segments[i]);
+        }
+        else
+        {
+            // Remove excess segments when collapsing / 收起时移除多余段
+            while (VisibleSegments.Count > CollapsedSegmentLimit)
+                VisibleSegments.RemoveAt(VisibleSegments.Count - 1);
+        }
+    }
+
+    // Chevron glyph: down when collapsed, up when expanded / 折叠向下,展开向上
+    [JsonIgnore]
+    public string ExpandButtonGlyph => _isExpanded ? "\uE70E" : "\uE70D";
+
+    // Localized expand/collapse text, set statically by page / 本地化展开收起文字,由页面静态设置
+    public static string ExpandText { get; set; } = "Expand";
+    public static string CollapseText { get; set; } = "Collapse";
+    [JsonIgnore]
+    public string ExpandButtonText => _isExpanded ? CollapseText : ExpandText;
+
+    // Estimate whether content overflows collapsed height / 估算内容是否超出折叠高度
+    [JsonIgnore]
+    public bool HasOverflow => Notes.Length > OverflowNoteLength || Segments.Count > OverflowSegmentCount;
+    [JsonIgnore]
+    public Visibility ExpandButtonVisibility => HasOverflow ? Visibility.Visible : Visibility.Collapsed;
+    // Fade gradient overlay: only when collapsed and has overflow / 渐变遮罩:仅折叠且有溢出时显示
+    [JsonIgnore]
+    public Visibility FadeOverlayVisibility => !_isExpanded && HasOverflow ? Visibility.Visible : Visibility.Collapsed;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private void RaisePropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
+
+/// <summary>
+/// A segment of changelog content: either markdown text or an image / 更新日志内容段:markdown文字或图片
+/// </summary>
+public sealed class ChangelogSegment : INotifyPropertyChanged
+{
+    // Markdown text (empty for image segments) / markdown文字(图片段为空)
+    public string MarkdownText { get; set; } = string.Empty;
+    // Image URL (empty for text segments) / 图片URL(文字段为空)
+    public string ImageUrl { get; set; } = string.Empty;
+    // Image alt text / 图片替代文字
+    public string AltText { get; set; } = string.Empty;
+    public bool IsImage => !string.IsNullOrEmpty(ImageUrl);
+
+    // Text segment visibility (always visible for text, collapsed for image) / 文字段可见性(文字段可见,图片段隐藏)
+    public Visibility TextVisibility => IsImage ? Visibility.Collapsed : Visibility.Visible;
+    // Image segment visibility (controlled by toggle, collapsed for text) / 图片段可见性(由toggle控制,文字段隐藏)
+    private Visibility _imageVisibility = Visibility.Visible;
+    public Visibility ImageVisibility
+    {
+        get => IsImage ? _imageVisibility : Visibility.Collapsed;
+        set
+        {
+            if (_imageVisibility != value)
+            {
+                _imageVisibility = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ImageVisibility)));
+            }
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    // Image loaded state for loading placeholder / 图片加载状态(用于加载占位)
+    private bool _isImageLoaded;
+    public bool IsImageLoaded
+    {
+        get => _isImageLoaded;
+        set
+        {
+            if (_isImageLoaded != value)
+            {
+                _isImageLoaded = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsImageLoaded)));
+                // Update visibility directly instead of computed properties / 直接更新可见性而非计算属性
+                LoadingVisibility = IsImage && !value ? Visibility.Visible : Visibility.Collapsed;
+                ImageLoadedVisibility = IsImage && value ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+    }
+    // Loading placeholder visibility (backing field for reliable x:Bind) / 加载占位可见性( backing field 确保 x:Bind 可靠)
+    private Visibility _loadingVisibility = Visibility.Visible;
+    public Visibility LoadingVisibility
+    {
+        get => _loadingVisibility;
+        private set
+        {
+            if (_loadingVisibility != value)
+            {
+                _loadingVisibility = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LoadingVisibility)));
+            }
+        }
+    }
+    // Loaded image visibility (backing field for reliable x:Bind) / 已加载图片可见性( backing field 确保 x:Bind 可靠)
+    private Visibility _imageLoadedVisibility = Visibility.Collapsed;
+    public Visibility ImageLoadedVisibility
+    {
+        get => _imageLoadedVisibility;
+        private set
+        {
+            if (_imageLoadedVisibility != value)
+            {
+                _imageLoadedVisibility = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ImageLoadedVisibility)));
+            }
+        }
+    }
+
+    // Max image width: small images use natural width, large capped / 图片最大宽度:小图用自然宽度,大图限制
+    public const double MaxImageWidth = 800;
+    private double _imageMaxWidth = MaxImageWidth;
+    public double ImageMaxWidth
+    {
+        get => _imageMaxWidth;
+        set
+        {
+            if (Math.Abs(_imageMaxWidth - value) > 0.5)
+            {
+                _imageMaxWidth = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ImageMaxWidth)));
+            }
+        }
+    }
+
+    // Cached BitmapImage for binding (avoids string-to-Uri conversion crash) / 缓存的BitmapImage(避免string转Uri崩溃)
+    private ImageSource? _imageSource;
+    // Bitmap loaded flag set by BitmapImage.ImageOpened (data layer, survives recycle) / 位图加载标记(数据层,回收后保留)
+    private bool _bitmapLoaded;
+    public bool BitmapLoaded => _bitmapLoaded;
+    public ImageSource? ImageSource
+    {
+        get
+        {
+            if (_imageSource is not null) return _imageSource;
+            if (string.IsNullOrEmpty(ImageUrl)) return null;
+            var url = NormalizeImageUrl(ImageUrl);
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            {
+                System.Diagnostics.Debug.WriteLine($"[Changelog] Invalid image URL: {url}");
+                return null;
+            }
+            var bi = new BitmapImage(uri);
+            bi.ImageOpened += (s, e) =>
+            {
+                _bitmapLoaded = true;
+                LoadingVisibility = Visibility.Collapsed;
+                // Cap MaxWidth at natural width for small images / 小图片MaxWidth设为自然宽度避免放大
+                if (bi.PixelWidth > 0)
+                    ImageMaxWidth = Math.Min(MaxImageWidth, bi.PixelWidth);
+            };
+            bi.ImageFailed += (s, e) =>
+            {
+                _bitmapLoaded = true;
+                LoadingVisibility = Visibility.Collapsed;
+                System.Diagnostics.Debug.WriteLine($"[Changelog] Image load failed: {url}");
+            };
+            _imageSource = bi;
+            return _imageSource;
+        }
+    }
+
+    // Normalize relative image URLs to absolute (GitHub user-attachments etc.) / 补全相对图片URL为绝对路径
+    private static string NormalizeImageUrl(string url)
+    {
+        // Decode common HTML entities in URL / 解码URL中的常见HTML实体
+        url = url.Replace("&amp;", "&", StringComparison.OrdinalIgnoreCase);
+        // Fix backslashes to forward slashes / 反斜杠转正斜杠
+        url = url.Replace('\\', '/');
+        if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return url;
+        if (url.StartsWith('/'))
+            return "https://github.com" + url;
+        return "https://github.com/" + url;
+    }
+
+    // Regex to match markdown images: ![alt](url) / 匹配markdown图片的正则
+    private static readonly Regex ImageRegex = new(@"!\[([^\]]*)\]\(([^)]+)\)", RegexOptions.Compiled);
+    // Regex to match <img> tags: <img src="url"> / 匹配img标签的正则
+    private static readonly Regex ImgTagRegex = new(@"<img\s[^>]*?src\s*=\s*[""']([^""']+)[""'][^>]*?/?>", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Parse markdown into alternating text/image segments / 将markdown解析为文字图片交替段
+    public static List<ChangelogSegment> Parse(string markdown)
+    {
+        var segments = new List<ChangelogSegment>();
+        if (string.IsNullOrEmpty(markdown)) return segments;
+        // Convert <img> tags to markdown image syntax for unified parsing / 统一转换img标签为markdown图片语法
+        markdown = ImgTagRegex.Replace(markdown, m => $"![]({m.Groups[1].Value})");
+        int lastEnd = 0;
+        foreach (Match m in ImageRegex.Matches(markdown))
+        {
+            // Text before image / 图片前的文字
+            if (m.Index > lastEnd)
+            {
+                var text = markdown[lastEnd..m.Index];
+                if (!string.IsNullOrWhiteSpace(text))
+                    segments.Add(new ChangelogSegment { MarkdownText = text.Trim() });
+            }
+            // Image segment / 图片段
+            segments.Add(new ChangelogSegment
+            {
+                ImageUrl = m.Groups[2].Value.Trim(),
+                AltText = m.Groups[1].Value.Trim()
+            });
+            lastEnd = m.Index + m.Length;
+        }
+        // Remaining text / 剩余文字
+        if (lastEnd < markdown.Length)
+        {
+            var text = markdown[lastEnd..];
+            if (!string.IsNullOrWhiteSpace(text))
+                segments.Add(new ChangelogSegment { MarkdownText = text.Trim() });
+        }
+        // Fallback: no segments parsed, use raw markdown / 无段时用原始markdown
+        if (segments.Count == 0 && !string.IsNullOrWhiteSpace(markdown))
+            segments.Add(new ChangelogSegment { MarkdownText = markdown.Trim() });
+        return segments;
+    }
+}
+
+/// <summary>
+/// Persisted changelog cache for a repo+filter combination / 仓库+过滤组合的持久化更新日志缓存
+/// </summary>
+public sealed class ChangelogCacheData
+{
+    public string RepoUrl { get; set; } = string.Empty;
+    public string? SectionFilter { get; set; }
+    public DateTime LastUpdated { get; set; }
+    public string LatestTag { get; set; } = string.Empty;
+    public List<ChangelogEntry> Entries { get; set; } = [];
+}
+
+/// <summary>
+/// Persisted UI preferences for changelog page / 更新日志页持久化UI偏好
+/// </summary>
+public sealed class ChangelogPrefs
+{
+    public bool ShowImages { get; set; } = true;
+    public string FilterTag { get; set; } = "all";
+}
+
 /// <summary>
 /// Navigation parameter for ChangelogPage / 更新日志页导航参数
 /// </summary>

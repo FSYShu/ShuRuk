@@ -12,17 +12,31 @@
     <UseWinUI>true</UseWinUI>
     <WinUISDKReferences>false</WinUISDKReferences>
     <GenerateLibraryLayout>true</GenerateLibraryLayout>
-    <GenerateProjectPriFile>false</GenerateProjectPriFile>
-    <PriIndexName></PriIndexName>
+    <!-- PRI generation enabled: resw renamed to RuntimeResources.resw (no MSIX path conflict
+         with App's Resources.resw), resource keys all use Runtime prefix (no key collision).
+         PRI生成已启用：resw改名为RuntimeResources.resw(与App的Resources.resw无MSIX路径冲突)，资源键全用Runtime前缀(无键冲突)。 -->
+    <GenerateProjectPriFile>true</GenerateProjectPriFile>
+    <DefaultResourceLanguage>en-US</DefaultResourceLanguage>
 
     <!-- Pack as NuGet for module SDK consumption / 打包为NuGet供模块SDK引用 -->
     <IsPackable>true</IsPackable>
-    <PackageId>Shuruk.Runtime.Sdk</PackageId>
-    <Version>0.2.0</Version>
-    <Authors>ShuRuk</Authors>
+    <PackageId>Shuruk.Runtime</PackageId>
+    <!-- Version components: change these three to bump version / 版本分量：改这三个数字即可升版本 -->
+    <VersionMajor>0</VersionMajor>
+    <VersionMinor>1</VersionMinor>
+    <VersionPatch>0</VersionPatch>
+    <Version>$(VersionMajor).$(VersionMinor).$(VersionPatch)</Version>
+    <Authors>FSYShu</Authors>
     <Description>ShuRuk common runtime: abstractions, module SDK, shared pages/controls / 公共运行时底座与通用页面组件</Description>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <!-- TODO: add MSIX framework package output for runtime install / 待增加MSIX框架包输出供运行时安装 -->
+
+    <!-- MSIX framework package: enabled when WindowsPackageType=MSIX passed (via GitHub Actions workflow).
+         Framework packages are installed once and shared by all modules.
+         MSIX框架包：通过GitHub Actions workflow传入WindowsPackageType=MSIX时启用，安装一份所有模块共用。 -->
+    <EnableMsixTooling Condition="'$(WindowsPackageType)' == 'MSIX'">true</EnableMsixTooling>
+    <AppxManifest Condition="'$(WindowsPackageType)' == 'MSIX'">Package.appxmanifest</AppxManifest>
+    <AppxPackageSigningEnabled Condition="'$(WindowsPackageType)' == 'MSIX'">True</AppxPackageSigningEnabled>
+    <GenerateAppxFile Condition="'$(WindowsPackageType)' == 'MSIX'">True</GenerateAppxFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -40,4 +54,32 @@
   <ItemGroup>
     <None Include="Strings\**\*.resw" CopyToOutputDirectory="PreserveNewest" Link="ShuRuk.Runtime\Strings\%(RecursiveDir)%(FileName)%(Extension)" />
   </ItemGroup>
+
+  <!-- Inject .resw into NuGet pack for RuntimeLocalizationHelper file-based access.
+       注入.resw到NuGet包供RuntimeLocalizationHelper基于文件访问。 -->
+  <Target Name="IncludeReswInPack" BeforeTargets="GenerateNuspec">
+    <ItemGroup>
+      <_PackageFiles Include="$(OutputPath)ShuRuk.Runtime\Strings\**\*.resw"
+                     PackagePath="lib\$(TargetFramework)\ShuRuk.Runtime\Strings\%(RecursiveDir)%(FileName)%(Extension)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Sync framework package manifest version from csproj version components (MSIX mode only).
+       同步框架包清单版本(仅MSIX模式)：先读当前版本，仅当不同时写入。 -->
+  <Target Name="SyncManifestVersion" BeforeTargets="BeforeBuild" Condition="'$(WindowsPackageType)' == 'MSIX'">
+    <PropertyGroup>
+      <_ManifestVersion>$(Version).0</_ManifestVersion>
+    </PropertyGroup>
+    <XmlPeek
+      XmlInputPath="Package.appxmanifest"
+      Query="/f:Package/f:Identity/@Version"
+      ResultName="_AppxManifestVer"
+      Namespaces="&lt;Namespace Prefix='f' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;" />
+    <XmlPoke
+      Condition="'@(_AppxManifestVer)' != '$(_ManifestVersion)'"
+      XmlInputPath="Package.appxmanifest"
+      Query="/f:Package/f:Identity/@Version"
+      Value="$(_ManifestVersion)"
+      Namespaces="&lt;Namespace Prefix='f' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;" />
+  </Target>
 </Project>
