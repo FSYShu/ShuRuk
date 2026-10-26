@@ -1,0 +1,220 @@
+<Page
+    x:Class="ShuRuk.Runtime.Views.ChangelogPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:ShuRuk.Runtime.Views"
+    xmlns:ctk="using:CommunityToolkit.WinUI.Controls"
+
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Padding="24,0,0,0">
+        <ScrollViewer x:Name="ChangelogScrollViewer"
+                      HorizontalScrollBarVisibility="Disabled"
+                      HorizontalScrollMode="Disabled"
+                      VerticalScrollBarVisibility="Visible"
+                      ViewChanged="ChangelogScrollViewer_ViewChanged">
+            <Grid x:Name="ContentPanel" Margin="0,16,24,0" Opacity="0">
+                <Grid.RenderTransform>
+                    <TranslateTransform Y="20" />
+                </Grid.RenderTransform>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Page title / 页标题 -->
+                <TextBlock Grid.Row="0"
+                           Text="{x:Bind PageTitleText}"
+                           Style="{StaticResource TitleTextBlockStyle}"
+                           Margin="0,0,0,16" />
+
+                <ItemsRepeater Grid.Row="1" x:Name="ChangelogRepeater">
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="local:ChangelogEntry">
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Version info outside card / 版本信息在卡片外左侧 -->
+                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,8,16,0">
+                                <Grid Width="100" Height="24" HorizontalAlignment="Left">
+                                    <Grid.Clip>
+                                        <RectangleGeometry Rect="0,0,100,24" />
+                                    </Grid.Clip>
+                                    <Canvas>
+                                        <TextBlock Text="{x:Bind Version, Mode=OneTime}"
+                                                   FontSize="16"
+                                                   FontWeight="Bold"
+                                                   Canvas.Top="1"
+                                                   Loaded="VersionText_Loaded">
+                                            <TextBlock.RenderTransform>
+                                                <TranslateTransform X="0" />
+                                            </TextBlock.RenderTransform>
+                                        </TextBlock>
+                                    </Canvas>
+                                </Grid>
+                                <TextBlock Text="{x:Bind Date, Mode=OneTime}"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                <Border Visibility="{x:Bind PrereleaseVisibility, Mode=OneTime}"
+                                        Background="#D4A04C"
+                                        CornerRadius="12"
+                                        Padding="10,4"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,2,0,0">
+                                    <TextBlock Text="pre-release"
+                                               FontSize="11"
+                                               Foreground="White" />
+                                </Border>
+                            </StackPanel>
+
+                            <!-- Card with only markdown / 卡片只含markdown -->
+                            <Grid Grid.Column="1"
+                                  Padding="12,12"
+                                  CornerRadius="6"
+                                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                  BorderThickness="1">
+                                <ctk:MarkdownTextBlock Text="{x:Bind Notes, Mode=OneTime}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       UsePipeTables="True"
+                                                       UseEmphasisExtras="True"
+                                                       UseTaskLists="True"
+                                                       UseAutoLinks="True"
+                                                       UseSoftlineBreakAsHardlineBreak="True"
+                                                       IsTextSelectionEnabled="True"
+                                                       Loaded="MarkdownTextBlock_Loaded" />
+                            </Grid>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- Filter selector floating on top, hidden until data loaded / 过滤选择器,数据加载后显示 -->
+        <Border x:Name="FilterBorder"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Right"
+                Margin="0,18,24,0"
+                CornerRadius="4"
+                Visibility="Collapsed"
+                Background="{ThemeResource SystemControlTransientBackgroundBrush}">
+            <DropDownButton x:Name="FilterButton"
+                            Content="{x:Bind FilterAllText}">
+                <DropDownButton.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                        <MenuFlyoutItem Text="{x:Bind FilterAllText}" Tag="all" Click="FilterMenuItem_Click" />
+                        <MenuFlyoutItem Text="{x:Bind FilterExcludePrereleaseText}" Tag="exclude-prerelease" Click="FilterMenuItem_Click" />
+                    </MenuFlyout>
+                </DropDownButton.Flyout>
+            </DropDownButton>
+        </Border>
+
+        <!-- Sticky version overlay / sticky版本覆盖层 -->
+        <StackPanel x:Name="StickyVersionPanel"
+                    Visibility="Collapsed"
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Left"
+                    Width="100"
+                    Margin="0,8,16,0"
+                    Canvas.ZIndex="10"
+                    Spacing="2"
+                    Background="Transparent">
+            <StackPanel.RenderTransform>
+                <TranslateTransform Y="0" />
+            </StackPanel.RenderTransform>
+            <Grid Width="100" Height="24" HorizontalAlignment="Left">
+                <Grid.Clip>
+                    <RectangleGeometry Rect="0,0,84,24" />
+                </Grid.Clip>
+                <Canvas>
+                    <TextBlock x:Name="StickyVersionText"
+                               FontSize="16"
+                               FontWeight="Bold"
+                               Canvas.Top="1">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform X="0" />
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                </Canvas>
+            </Grid>
+            <TextBlock x:Name="StickyDateText"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+            <Border x:Name="StickyPrereleaseBorder"
+                    Background="#D4A04C"
+                    CornerRadius="12"
+                    Padding="10,4"
+                    HorizontalAlignment="Left"
+                    Margin="0,2,0,0"
+                    Visibility="Collapsed">
+                <TextBlock Text="pre-release"
+                           FontSize="11"
+                           Foreground="White" />
+            </Border>
+        </StackPanel>
+
+        <!-- Empty state / 空状态 -->
+        <StackPanel x:Name="EmptyState"
+                    Visibility="Collapsed"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Spacing="8">
+            <FontIcon Glyph="&#xECC5;"
+                      FontSize="48"
+                      Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                      HorizontalAlignment="Center"
+                      Margin="0,0,0,16" />
+            <TextBlock Text="{x:Bind EmptyTitle, Mode=OneTime}"
+                       Style="{StaticResource SubtitleTextBlockStyle}"
+                       HorizontalAlignment="Center"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBlock Text="{x:Bind EmptyDescription, Mode=OneTime}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                       TextWrapping="Wrap"
+                       OpticalMarginAlignment="TrimSideBearings" />
+        </StackPanel>
+
+        <!-- Loading overlay / 加载遮罩 -->
+        <Grid x:Name="LoadingOverlay" Visibility="Collapsed" Background="Transparent">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                <ProgressRing IsActive="True" Width="64" Height="64" />
+                <TextBlock x:Name="LoadingTextBlock" HorizontalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" OpticalMarginAlignment="TrimSideBearings" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Version quick nav buttons / 版本快速导航按钮 -->
+        <Border x:Name="NavButtonsPanel"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Left"
+                Margin="0,0,0,12"
+                CornerRadius="6"
+                Padding="2"
+                Visibility="Collapsed"
+                Background="{ThemeResource SystemControlTransientBackgroundBrush}">
+            <StackPanel Orientation="Vertical" Spacing="2">
+                <Button x:Name="PrevVersionButton"
+                        Click="PrevVersionButton_Click"
+                        Width="36" Height="36"
+                        Padding="0"
+                        ToolTipService.ToolTip="{x:Bind PrevVersionText}">
+                    <FontIcon Glyph="&#xE70E;" FontSize="14" />
+                </Button>
+                <Button x:Name="NextVersionButton"
+                        Click="NextVersionButton_Click"
+                        Width="36" Height="36"
+                        Padding="0"
+                        ToolTipService.ToolTip="{x:Bind NextVersionText}">
+                    <FontIcon Glyph="&#xE70D;" FontSize="14" />
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>

@@ -58,14 +58,6 @@
     <value>Changelog</value>
   </data>
 
-  <!-- HomePage -->
-  <data name="HomeWelcome.Title" xml:space="preserve">
-    <value>Welcome</value>
-  </data>
-  <data name="HomeWelcome.Message" xml:space="preserve">
-    <value>Manage modules, discover new tools, and customize your Windows experience.</value>
-  </data>
-
 
   <!-- ModuleListPage -->
   <data name="ModulePageInstalledTab.Text" xml:space="preserve">
@@ -90,7 +82,7 @@
   </data>
 
 
-  <!-- DiscoverPage -->
+  <!-- ModuleDiscoverPage -->
   <data name="DiscoverSortRating.Content" xml:space="preserve">
     <value>Rating</value>
   </data>
@@ -131,6 +123,9 @@
   <data name="String_DiscoverDialogInstallPrimary" xml:space="preserve">
     <value>Install</value>
   </data>
+  <data name="String_DiscoverLoading" xml:space="preserve">
+    <value>Loading modules…</value>
+  </data>
   <data name="String_DiscoverDialogCancel" xml:space="preserve">
     <value>Cancel</value>
   </data>
@@ -170,79 +165,25 @@ This module will be installed from:
     <value>External module '{0}' and its data will be permanently deleted.</value>
   </data>
 
-  <!-- InstalledPage empty state -->
-  <data name="InstalledPageEmptyTitle.Text" xml:space="preserve">
+  <!-- ModuleInstalledPage empty state -->
+  <data name="ModuleInstalledPageEmptyTitle.Text" xml:space="preserve">
     <value>No modules installed</value>
   </data>
-  <data name="InstalledPageEmptyDescription.Text" xml:space="preserve">
+  <data name="ModuleInstalledPageEmptyDescription.Text" xml:space="preserve">
     <value>Discover and install modules to get started.</value>
   </data>
-  <data name="InstalledPageEmptyDiscoverButton.Content" xml:space="preserve">
+  <data name="ModuleInstalledPageEmptyDiscoverButton.Content" xml:space="preserve">
     <value>Browse modules</value>
   </data>
 
-  <!-- DiscoverPage empty state -->
-  <data name="DiscoverPageEmptyTitle.Text" xml:space="preserve">
+  <!-- ModuleDiscoverPage empty state -->
+  <data name="ModuleDiscoverPageEmptyTitle.Text" xml:space="preserve">
     <value>No modules found</value>
   </data>
-  <data name="DiscoverPageEmptyDescription.Text" xml:space="preserve">
+  <data name="ModuleDiscoverPageEmptyDescription.Text" xml:space="preserve">
     <value>Try adjusting your search or check back later.</value>
   </data>
 
-  <!-- SettingsPage -->
-
-  <data name="SettingsLanguageRestartTitle.Text" xml:space="preserve">
-    <value>Restart Required</value>
-  </data>
-  <data name="SettingsLanguageRestartHint.Text" xml:space="preserve">
-    <value>Restart the app to fully apply the new language.</value>
-  </data>
-  <data name="SettingsRestartButton.Content" xml:space="preserve">
-    <value>Restart Now</value>
-  </data>
-  <data name="String_SettingsSectionLanguage" xml:space="preserve">
-    <value>General</value>
-  </data>
-  <data name="String_SettingsLanguageHeader" xml:space="preserve">
-    <value>Language</value>
-  </data>
-  <data name="String_SettingsLanguageDescription" xml:space="preserve">
-    <value>Choose the display language for the app. Changes take effect after restart.</value>
-  </data>
-  <data name="String_SettingsThemeHeader" xml:space="preserve">
-    <value>Theme</value>
-  </data>
-  <data name="String_SettingsThemeDescription" xml:space="preserve">
-    <value>Choose the appearance theme for the app. Changes take effect immediately.</value>
-  </data>
-  <data name="String_SettingsTestModeHeader" xml:space="preserve">
-    <value>Test Mode</value>
-  </data>
-  <data name="String_SettingsTestModeDescription" xml:space="preserve">
-    <value>Enable test mode for development and debugging.</value>
-  </data>
-
-  <!-- Language display names (code-behind) -->
-  <data name="String_LangFollowSystem" xml:space="preserve">
-    <value>Follow system</value>
-  </data>
-  <data name="String_ThemeFollowSystem" xml:space="preserve">
-    <value>Follow system</value>
-  </data>
-  <data name="String_ThemeLight" xml:space="preserve">
-    <value>Light</value>
-  </data>
-  <data name="String_ThemeDark" xml:space="preserve">
-    <value>Dark</value>
-  </data>
-
-  <!-- About section -->
-  <data name="String_SettingsSectionAbout" xml:space="preserve">
-    <value>About</value>
-  </data>
-  <data name="String_SettingsAppVersionFormat" xml:space="preserve">
-    <value>Version {0}</value>
-  </data>
 
   <!-- MonitorPage -->
   <data name="String_MonitorHeaderName" xml:space="preserve">
@@ -295,6 +236,7 @@ This module will be installed from:
   </data>
 
 
+
   <!-- NavigationView built-in strings -->
   <data name="String_NavSettings" xml:space="preserve">
     <value>Settings</value>
@@ -333,6 +275,18 @@ This module will be installed from:
   </data>
   <data name="String_ChangelogEmpty" xml:space="preserve">
     <value>No changelog available</value>
+  </data>
+  <data name="String_ChangelogEmptyTitle" xml:space="preserve">
+    <value>No Changelog</value>
+  </data>
+  <data name="String_ChangelogEmptyDescription" xml:space="preserve">
+    <value>There are no changelog entries to display.</value>
+  </data>
+  <data name="String_MonitorEmptyTitle" xml:space="preserve">
+    <value>No Processes</value>
+  </data>
+  <data name="String_MonitorEmptyDescription" xml:space="preserve">
+    <value>There are no running processes to display.</value>
   </data>
   <data name="String_NavBack" xml:space="preserve">
     <value>Back</value>

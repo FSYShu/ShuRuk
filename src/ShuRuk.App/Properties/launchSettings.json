@@ -1,16 +1,9 @@
 {
   "profiles": {
-    "ShuRuk (Unpackaged)": {
-      "commandName": "Project",
-      "compatibleTargetFramework": "true"
-    },
+
     "ShuRuk (Packaged)": {
       "commandName": "MsixPackage",
       "compatibleTargetFramework": "true"
-    },
-    "WSL": {
-      "commandName": "WSL2",
-      "distributionName": ""
     }
   }
 }

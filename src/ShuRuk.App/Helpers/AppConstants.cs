@@ -13,7 +13,17 @@ internal static class AppConstants
     public const string AppUserModelIdPackaged = "ShuRuk_e6tahm9t1221g!App";
     public const string AppDataFolderName = "ShuRuk";
     public const string CrashLogFileName = "crash.log";
+    public const string AppIconPath = "Assets/ShuRuk.ico";
+
+    // HTTP client / HTTP客户端
+    public const int HttpTimeoutSeconds = 30;
     public const string DefaultAppVersion = "0.0.0";
+
+    // File and folder names / 文件与文件夹名
+    public const string DbFileName = "shuruk.db";
+    public const string LogsFolderName = "logs";
+    public const string ModulesFolderName = "modules";
+    public const string CacheFolderName = "cache";
 
     // Window sizing / 窗口尺寸
     public const int DefaultWindowWidth = 1200;
@@ -25,6 +35,15 @@ internal static class AppConstants
     // Title bar / 标题栏
     public const int TitleBarButtonSize = 40;
     public const int LayoutRetryLimit = 5;
+
+    // Title bar button color alpha values / 标题栏按钮颜色透明度
+    public const byte TitleBarHoverBgAlpha = 40;
+    public const byte TitleBarPressedBgAlpha = 60;
+    public const byte TitleBarInactiveFgAlpha = 150;
+
+    // Nav item icon glyphs / 导航条目图标字形
+    public const string ModuleIconGlyph = "\uE739";
+    public const string SubModuleLightIconGlyph = "\uE7A7";
 
     // DWM dark mode attribute ids / DWM 暗色模式属性 ID
     public const int DwmwaUseImmersiveDarkMode20 = 20;
@@ -117,6 +136,10 @@ internal static class AppConstants
         public const string MonitorSortBy = "MonitorSortBy";
         public const string MonitorSortDescending = "MonitorSortDescending";
         public const string TestModeEnabled = "TestModeEnabled";
+        public const string TestModeFillData = "TestModeFillData";
+        public const string ChangelogRepoUrl = "ChangelogRepoUrl";
+        public const string ChangelogSectionFilter = "ChangelogSectionFilter";
+
     }
 
     // Monitor sort columns / 监控页排序列
@@ -126,5 +149,13 @@ internal static class AppConstants
         public const string Pid = "Pid";
         public const string Cpu = "Cpu";
         public const string Memory = "Memory";
+    }
+
+    // Discover sort options / 发现页排序选项
+    public static class DiscoverSort
+    {
+        public const string Rating = "rating";
+        public const string Downloads = "downloads";
+        public const string Updated = "updated";
     }
 }

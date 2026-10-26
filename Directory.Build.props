@@ -2,16 +2,5 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <NoWarn>$(NoWarn);NU1903</NoWarn>
-    <MrtCorePriGenEnabled Condition="'$(MSBuildProjectName)' == 'ShuRuk.UI'">false</MrtCorePriGenEnabled>
   </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectFile Include="modules\**\*.csproj" />
-  </ItemGroup>
-
-  <Target Name="IncludeModuleProjects" BeforeTargets="CollectProjectReferences">
-    <ItemGroup>
-      <ProjectReference Include="@(ProjectFile)" />
-    </ItemGroup>
-  </Target>
 </Project>

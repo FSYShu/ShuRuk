@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="RuntimeSettingsTheme.Header" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="RuntimeSettingsTheme.Description" xml:space="preserve">
+    <value>Choose app appearance</value>
+  </data>
+  <data name="RuntimeSettingsStartup.Header" xml:space="preserve">
+    <value>Startup</value>
+  </data>
+  <data name="RuntimeSettingsStartup.Description" xml:space="preserve">
+    <value>Start automatically on system login</value>
+  </data>
+  <data name="RuntimeSettingsAutoUpdate.Header" xml:space="preserve">
+    <value>Auto Update</value>
+  </data>
+  <data name="RuntimeSettingsAutoUpdate.Description" xml:space="preserve">
+    <value>Automatically check for new versions</value>
+  </data>
+  <data name="RuntimeSettingsUpdateChannel.Header" xml:space="preserve">
+    <value>Update Channel</value>
+  </data>
+  <data name="RuntimeSettingsUpdateChannel.Description" xml:space="preserve">
+    <value>Choose update source</value>
+  </data>
+  <data name="RuntimeAboutTitle.Text" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="RuntimeAboutVersion.Text" xml:space="preserve">
+    <value>Version: </value>
+  </data>
+  <data name="RuntimeAboutAuthor.Text" xml:space="preserve">
+    <value>Author: </value>
+  </data>
+  <data name="RuntimeAboutSettings.Text" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="RuntimeHomeSubmodules.Text" xml:space="preserve">
+    <value>Submodules</value>
+  </data>
+  <data name="RuntimeHomeRecent.Text" xml:space="preserve">
+    <value>Recent</value>
+  </data>
+  <data name="RuntimeChangelogEmptyTitle" xml:space="preserve">
+    <value>No changelog</value>
+  </data>
+  <data name="RuntimeChangelogEmptyDescription" xml:space="preserve">
+    <value>You're up to date.</value>
+  </data>
+  <data name="RuntimeChangelogLoading" xml:space="preserve">
+    <value>Fetching changelogs...</value>
+  </data>
+  <data name="RuntimeChangelogFilterAll" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="RuntimeChangelogFilterExcludePrerelease" xml:space="preserve">
+    <value>Releases</value>
+  </data>
+  <data name="RuntimeChangelogPageTitle" xml:space="preserve">
+    <value>Changelog</value>
+  </data>
+  <data name="RuntimeChangelogPrevVersion" xml:space="preserve">
+    <value>Previous version</value>
+  </data>
+  <data name="RuntimeChangelogNextVersion" xml:space="preserve">
+    <value>Next version</value>
+  </data>
+  <data name="RuntimeMonitorHostProcess" xml:space="preserve">
+    <value>ShuRuk.Runtime</value>
+  </data>
+
+  <!-- SettingsPage -->
+  <data name="String_SettingsPageTitle" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="SettingsLanguageRestartTitle.Text" xml:space="preserve">
+    <value>Restart Required</value>
+  </data>
+  <data name="SettingsLanguageRestartHint.Text" xml:space="preserve">
+    <value>Restart the app to fully apply the new language.</value>
+  </data>
+  <data name="SettingsRestartButton.Content" xml:space="preserve">
+    <value>Restart Now</value>
+  </data>
+  <data name="String_SettingsSectionLanguage" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="String_SettingsLanguageHeader" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="String_SettingsLanguageDescription" xml:space="preserve">
+    <value>Choose the display language for the app. Changes take effect after restart.</value>
+  </data>
+  <data name="String_SettingsThemeHeader" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="String_SettingsThemeDescription" xml:space="preserve">
+    <value>Choose the appearance theme for the app. Changes take effect immediately.</value>
+  </data>
+  <data name="String_SettingsTestModeHeader" xml:space="preserve">
+    <value>Test Mode</value>
+  </data>
+  <data name="String_SettingsTestModeDescription" xml:space="preserve">
+    <value>Enable test mode for development and debugging.</value>
+  </data>
+  <data name="String_SettingsTestModeFillHeader" xml:space="preserve">
+    <value>Test Data Mode</value>
+  </data>
+  <data name="String_SettingsTestModeFillDescription" xml:space="preserve">
+    <value>Choose how test data is displayed.</value>
+  </data>
+  <data name="String_SettingsTestModeFillEmpty" xml:space="preserve">
+    <value>Empty State</value>
+  </data>
+  <data name="String_SettingsTestModeFillFull" xml:space="preserve">
+    <value>Fill Test Entries</value>
+  </data>
+  <data name="String_SettingsChangelogRepoHeader" xml:space="preserve">
+    <value>Changelog Repository</value>
+  </data>
+  <data name="String_SettingsChangelogRepoDescription" xml:space="preserve">
+    <value>GitHub repository in owner/repo format.</value>
+  </data>
+  <data name="String_SettingsChangelogSectionHeader" xml:space="preserve">
+    <value>Changelog Section Filter</value>
+  </data>
+  <data name="String_SettingsChangelogSectionDescription" xml:space="preserve">
+    <value>Filter by Markdown heading title. Empty shows all.</value>
+  </data>
+  <data name="String_LangFollowSystem" xml:space="preserve">
+    <value>Follow system</value>
+  </data>
+  <data name="String_ThemeFollowSystem" xml:space="preserve">
+    <value>Follow system</value>
+  </data>
+  <data name="String_ThemeLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="String_ThemeDark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="String_SettingsSectionAbout" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="String_SettingsAppVersionFormat" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="String_SettingsSdkVersionHeader" xml:space="preserve">
+    <value>Windows App SDK</value>
+  </data>
+  <data name="String_SettingsSdkVersionFormat" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="String_SettingsToolkitVersionHeader" xml:space="preserve">
+    <value>Windows Community Toolkit</value>
+  </data>
+  <data name="String_SettingsToolkitVersionFormat" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+
+  <!-- HomePage -->
+  <data name="HomeWelcome.Title" xml:space="preserve">
+    <value>Welcome</value>
+  </data>
+  <data name="HomeWelcome.Message" xml:space="preserve">
+    <value>Manage modules, discover new tools, and customize your Windows experience.</value>
+  </data>
+</root>

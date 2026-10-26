@@ -2,13 +2,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using ShuRuk.App.Helpers;
-using ShuRuk.Contracts.Interfaces;
-using ShuRuk.Contracts.Services;
-using System.Runtime.InteropServices;
-
 using ShuRuk.App.Services;
-using ShuRuk.Infrastructure.Data;
-using ShuRuk.Infrastructure.Services;
+using ShuRuk.Runtime.Abstractions.Interfaces;
+using ShuRuk.Runtime.Abstractions.Services;
+using ShuRuk.Runtime.Abstractions;
+using System.Runtime.InteropServices;
 using WinRT.Interop;
 
 
@@ -30,7 +28,13 @@ public partial class App : Application, IAppContext
     string IAppContext.AppSubtitle => _mainWindow?.AppSubtitleText ?? "";
     string IAppContext.AppVersion => GetAppVersion();
 
-    private static string GetAppVersion()
+    // Cached app version from assembly / 缓存的应用版本(从程序集获取)
+    private static readonly string _appVersion = InitializeAppVersion();
+
+    // Get app version from assembly (cached) / 从程序集获取应用版本(已缓存)
+    private static string GetAppVersion() => _appVersion;
+
+    private static string InitializeAppVersion()
     {
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         return version is not null
@@ -39,13 +43,22 @@ public partial class App : Application, IAppContext
     }
     public static IAppContext AppContextInstance { get; private set; } = null!;
 
+    // Constructor: wire crash logging and init XAML / 构造函数:挂载崩溃日志并初始化XAML
     public App()
     {
+        // AppDomain-level crash logging / AppDomain级崩溃日志
+        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+                CrashLogger.LogCrashSimple("AppDomain.UnhandledException", ex);
+        };
+
         this.UnhandledException += OnUnhandledException;
 
         InitializeComponent();
     }
 
+    // Log unhandled exceptions without suppressing them / 记录未处理异常但不吞掉
     private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
         CrashLogger.LogCrash("UnhandledException", e.Exception);
@@ -53,7 +66,64 @@ public partial class App : Application, IAppContext
         // instead of keeping it alive in an inconsistent state / 不吞掉异常
     }
 
+    // App launched: register services, init, create window / 应用启动:注册服务、初始化、创建窗口
     protected override void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        if (!TryRegisterServices())
+            return;
+
+        TryInitializeServices();
+        RegisterRuntimeServices();
+        RegisterAppRefCount();
+        CreateMainWindow();
+        _mainWindow?.PopulateModuleNavItems();
+        Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().Activated += OnAppActivated;
+    }
+
+    // Register app in runtime refcount, reconcile on each launch / 注册引用计数，每次启动兜底对账
+    private void RegisterAppRefCount()
+    {
+        try
+        {
+            var packageFullName = RuntimePreflightService.GetCurrentPackageFullName();
+            if (packageFullName is null) return;
+            var registry = new GlobalRegistry();
+            registry.ReconcileInstalledApps(new[] { packageFullName });
+            registry.RegisterAppInstall(packageFullName);
+        }
+        catch (Exception ex) { CrashLogger.LogCrash("RefCount", ex); }
+    }
+
+    // Ensure services and window are initialized (shared by OnLaunched and OnAppActivated) / 确保服务和窗口已初始化(OnLaunched和OnAppActivated共用)
+    private bool EnsureInitialized()
+    {
+        if (_mainWindow is not null) return true;
+        if (!TryRegisterServices()) return false;
+        TryInitializeServices();
+        RegisterRuntimeServices();
+        RegisterAppRefCount();
+        CreateMainWindow();
+        return true;
+    }
+
+    // Handle protocol activation: shuruk://module/{id} or shuruk://submodule/{id} / 处理协议唤起
+    private void OnAppActivated(object? sender, Microsoft.Windows.AppLifecycle.AppActivationArguments args)
+    {
+        if (args.Kind != Microsoft.Windows.AppLifecycle.ExtendedActivationKind.Protocol) return;
+        try
+        {
+            var protocolArgs = args.Data as Windows.ApplicationModel.Activation.IProtocolActivatedEventArgs;
+            var uri = protocolArgs?.Uri;
+            if (uri is null) return;
+
+            if (!EnsureInitialized()) return;
+            _mainWindow?.HandleProtocolActivation(uri);
+        }
+        catch (Exception ex) { CrashLogger.LogCrash("OnActivated", ex); }
+    }
+
+    // Register all DI services / 注册所有DI服务
+    private bool TryRegisterServices()
     {
         try
         {
@@ -62,10 +132,10 @@ public partial class App : Application, IAppContext
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppConstants.AppDataFolderName);
             Directory.CreateDirectory(appDataPath);
 
-            var dbPath = Path.Combine(appDataPath, "shuruk.db");
-            var logsDir = Path.Combine(appDataPath, "logs");
-            var modulesPath = Path.Combine(AppContext.BaseDirectory, "modules");
-            var cachePath = Path.Combine(appDataPath, "cache");
+            var dbPath = Path.Combine(appDataPath, AppConstants.DbFileName);
+            var logsDir = Path.Combine(appDataPath, AppConstants.LogsFolderName);
+            var modulesPath = Path.Combine(AppContext.BaseDirectory, AppConstants.ModulesFolderName);
+            var cachePath = Path.Combine(appDataPath, AppConstants.CacheFolderName);
 
             var databaseInitializer = new DatabaseInitializer(dbPath);
             services.AddSingleton(databaseInitializer);
@@ -77,7 +147,7 @@ public partial class App : Application, IAppContext
             services.AddSingleton<IModuleDiscoveryService>(sp =>
             {
                 var manager = sp.GetRequiredService<IModuleManager>();
-                var http = new HttpClient();
+                var http = new HttpClient { Timeout = TimeSpan.FromSeconds(AppConstants.HttpTimeoutSeconds) };
                 http.DefaultRequestHeaders.Add("User-Agent", $"{AppConstants.AppName}/{GetAppVersion()}");
                 return new ModuleDiscoveryService(http, manager, modulesPath, cachePath);
             });
@@ -94,38 +164,68 @@ public partial class App : Application, IAppContext
             Services = services.BuildServiceProvider();
             AppContextInstance = this;
             AppContextAccessor.Current = this;
-
-            // Run async init on background thread to avoid STA deadlock
-            // 在后台线程运行异步初始化以避免STA死锁
-            Task.Run(async () =>
-            {
-                try
-                {
-                    var languageService = Services.GetRequiredService<LanguageService>();
-                    await languageService.LoadAsync();
-
-                    var themeService = Services.GetRequiredService<ThemeService>();
-                    await themeService.InitializeAsync();
-
-                    var moduleManager = Services.GetRequiredService<IModuleManager>();
-                    await moduleManager.InitializeAsync();
-                }
-                catch (Exception ex)
-                {
-                    CrashLogger.LogCrash("OnLaunched async init", ex);
-                }
-            }).GetAwaiter().GetResult();
+            return true;
         }
         catch (Exception ex)
         {
             CrashLogger.LogCrash("OnLaunched services", ex);
-            return;
+            return false;
         }
+    }
 
+    // Run async init on background thread to avoid STA deadlock
+    // 在后台线程运行异步初始化以避免STA死锁
+    private void TryInitializeServices()
+    {
+        Task.Run(async () =>
+        {
+            try
+            {
+                var languageService = Services.GetRequiredService<LanguageService>();
+                await languageService.LoadAsync();
+
+                var themeService = Services.GetRequiredService<ThemeService>();
+                await themeService.InitializeAsync();
+
+                // Initialize test mode from config / 从配置初始化测试模式
+                var testModeService = Services.GetRequiredService<ITestModeService>();
+                await testModeService.InitializeAsync();
+
+                var moduleManager = Services.GetRequiredService<IModuleManager>();
+                await moduleManager.InitializeAsync();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogCrash("OnLaunched async init", ex);
+            }
+        }).GetAwaiter().GetResult();
+    }
+
+    // Register Runtime service providers based on app state / 根据应用状态注册Runtime服务提供者
+    private void RegisterRuntimeServices()
+    {
         try
         {
-            _window = new MainWindow();
-            _mainWindow = _window as MainWindow;
+            var testModeService = Services.GetRequiredService<ITestModeService>();
+            RuntimeServices.TestModeService = testModeService;
+            RuntimeServices.LanguageService = Services.GetRequiredService<LanguageService>();
+            RuntimeServices.ThemeService = Services.GetRequiredService<ThemeService>();
+            RuntimeServices.AppContext = this;
+
+            RuntimeServices.ChangelogDataProvider = testModeService.IsEnabled && testModeService.IsFillDataEnabled
+                ? new GitHubChangelogDataProvider()
+                : null;
+        }
+        catch (Exception ex) { CrashLogger.LogCrash("RegisterRuntimeServices", ex); }
+    }
+
+    // Create and activate main window with icon / 创建并激活主窗口并加载图标
+    private void CreateMainWindow()
+    {
+        try
+        {
+            _mainWindow = new MainWindow();
+            _window = _mainWindow;
             MainWindowStatic = _window;
             _window.Activate();
             LoadAppIcon(_window);
@@ -136,6 +236,7 @@ public partial class App : Application, IAppContext
         }
     }
 
+    // Apply theme by name to main window / 按名称应用主题到主窗口
     public void ApplyTheme(string theme)
     {
         var elementTheme = theme switch
@@ -147,6 +248,7 @@ public partial class App : Application, IAppContext
         _mainWindow?.ApplyTheme(elementTheme);
     }
 
+    // Restart app: close window, relaunch process, exit / 重启应用:关闭窗口、重新启动进程、退出
     public void Restart()
     {
         CloseMainWindow();
@@ -163,6 +265,7 @@ public partial class App : Application, IAppContext
         Environment.Exit(0);
     }
 
+    // Close main window if open / 关闭主窗口(若存在)
     public void CloseMainWindow()
     {
         _mainWindow?.Close();
@@ -173,10 +276,10 @@ public partial class App : Application, IAppContext
     {
         try
         {
-            window.AppWindow.SetIcon("Assets/ShuRuk.ico");
-            SetWindowAppUserModelProperties(window, "Assets/ShuRuk.ico");
+            window.AppWindow.SetIcon(AppConstants.AppIconPath);
+            SetWindowAppUserModelProperties(window, AppConstants.AppIconPath);
         }
-        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"LoadAppIcon: {ex}"); }
+        catch (Exception ex) { CrashLogger.LogCrash("LoadAppIcon", ex); }
     }
     // Set System.AppUserModel.ID and Icon for unified Task Manager display
     // 为窗口设置System.AppUserModel.ID和Icon以统一任务管理器显示
@@ -220,7 +323,7 @@ public partial class App : Application, IAppContext
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"SetWindowAppUserModelProperties: {ex}");
+            CrashLogger.LogCrash("SetWindowAppUserModelProperties", ex);
         }
     }
 
@@ -241,6 +344,7 @@ public partial class App : Application, IAppContext
         public ushort wReserved3;
         public IntPtr pwszVal;
 
+        // Create PROPVARIANT from string (VT_LPWSTR) / 从字符串创建PROPVARIANT
         public static PROPVARIANT FromString(string value)
         {
             var pv = new PROPVARIANT();
@@ -249,6 +353,7 @@ public partial class App : Application, IAppContext
             return pv;
         }
 
+        // Free allocated unmanaged memory / 释放分配的非托管内存
         public void Dispose()
         {
             if (vt == (ushort)VarEnum.VT_LPWSTR && pwszVal != IntPtr.Zero)

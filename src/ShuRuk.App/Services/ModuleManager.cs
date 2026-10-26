@@ -2,11 +2,9 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using ShuRuk.Contracts.Enums;
-using ShuRuk.Contracts.Interfaces;
-using ShuRuk.Contracts.Models;
-using ShuRuk.Infrastructure.Data;
-using ShuRuk.Runtime;
+using ShuRuk.Runtime.Abstractions.Interfaces;
+using ShuRuk.Runtime.Abstractions.Models;
+using ShuRuk.Runtime.Abstractions.Services;
 
 namespace ShuRuk.App.Services;
 
@@ -47,6 +45,38 @@ public class ModuleManager : IModuleManager
     {
         await _dbInitializer.InitializeAsync(cancellationToken);
         await DiscoverBuiltInModulesAsync(cancellationToken);
+        DiscoverRegisteredModules();
+    }
+
+    // Discover modules from global registry (Path B pre-installed) / 从全局注册表发现已装模块（路径B预装）
+    private void DiscoverRegisteredModules()
+    {
+        using var registry = new GlobalRegistry();
+        foreach (var m in registry.GetModules())
+        {
+            if (_modules.ContainsKey(m.Id)) continue;
+            var manifest = new ModuleManifest
+            {
+                Name = m.Id,
+                DisplayName = m.DisplayName,
+                Version = m.Version,
+                Description = string.Empty,
+                Entry = m.Entry,
+                Permissions = m.Permissions.ToArray(),
+                Source = ModuleSource.External,
+                Kind = m.Kind.Equals("atomicService", StringComparison.OrdinalIgnoreCase) ? ModuleKind.AtomicService : ModuleKind.Module,
+                SubmodulePath = m.InstallPath,
+                Signature = string.IsNullOrEmpty(m.Signature) ? null : m.Signature
+            };
+            _modules[m.Id] = new ModuleInfo
+            {
+                Manifest = manifest,
+                State = ModuleState.Discovered,
+                Source = ModuleSource.External,
+                SubmodulePath = m.InstallPath
+            };
+            TransitionState(m.Id, ModuleState.Discovered, ModuleState.Validated);
+        }
     }
 
     public Task RegisterModuleAsync(ModuleManifest manifest, string moduleDir, CancellationToken cancellationToken = default)
@@ -337,10 +367,12 @@ public class ModuleManager : IModuleManager
 internal class DefaultModuleContext : IModuleContext
 {
     private readonly Dictionary<Type, object> _services = new();
+    private readonly ConfigurationService _configuration;
 
     public DefaultModuleContext(string dataPath)
     {
         DataPath = dataPath;
+        _configuration = new ConfigurationService(dataPath);
     }
 
     public T? GetService<T>() where T : class
@@ -350,7 +382,7 @@ internal class DefaultModuleContext : IModuleContext
 
     public string DataPath { get; }
 
-    public IConfigurationService Configuration => throw new NotImplementedException();
+    public IConfigurationService Configuration => _configuration;
 
     public void RegisterSettingsPage(object page) { }
 }

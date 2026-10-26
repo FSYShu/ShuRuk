@@ -10,9 +10,11 @@ public sealed partial class SegmentedProgressBar : UserControl
 {
     private const double MinSegmentFraction = 0.02;
     private const double AnimationDurationMs = 200;
+    private const double AnimationSkipThreshold = 0.5;
 
     private readonly Dictionary<int, Rectangle> _segmentRects = [];
 
+    // Constructor: initialize component / 构造函数:初始化组件
     public SegmentedProgressBar()
     {
         InitializeComponent();
@@ -36,16 +38,19 @@ public sealed partial class SegmentedProgressBar : UserControl
         set => SetValue(MaximumProperty, value);
     }
 
+    // Property changed callback: re-render segments / 属性变更回调:重新渲染段
     private static void OnSegmentsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         ((SegmentedProgressBar)d).RenderSegments();
     }
 
+    // Track size changed: re-render segments / 轨道尺寸变化:重新渲染段
     private void TrackBorder_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         RenderSegments();
     }
 
+    // Compute segment fractions with min clamp and overflow normalization / 计算段比例,含最小值钳制和溢出归一化
     private static double[] ComputeEffectiveFractions(IList<ProgressSegment> segments, double maximum)
     {
         var fractions = new double[segments.Count];
@@ -69,6 +74,7 @@ public sealed partial class SegmentedProgressBar : UserControl
         return fractions;
     }
 
+    // Render all segments: compute layout, update, remove stale / 渲染所有段:计算布局、更新、移除过期
     private void RenderSegments()
     {
         var segments = Segments;
@@ -79,10 +85,21 @@ public sealed partial class SegmentedProgressBar : UserControl
         }
 
         var trackWidth = TrackBorder.ActualWidth;
-        if (trackWidth <= 0) return;
+        if (trackWidth <= 0)
+        {
+            AnimateOutAll();
+            return;
+        }
 
+        var (targetWidths, targetOffsets) = ComputeTargetLayout(segments, trackWidth);
+        UpdateExistingSegments(segments, targetWidths, targetOffsets);
+        RemoveStaleSegments(segments.Count);
+    }
+
+    // Compute target widths and offsets from fractions / 从比例计算目标宽度和偏移
+    private (double[] widths, double[] offsets) ComputeTargetLayout(IList<ProgressSegment> segments, double trackWidth)
+    {
         var fractions = ComputeEffectiveFractions(segments, Maximum);
-
         var targetWidths = new double[segments.Count];
         var targetOffsets = new double[segments.Count];
         var offset = 0.0;
@@ -94,17 +111,20 @@ public sealed partial class SegmentedProgressBar : UserControl
             offset += targetWidths[i];
         }
 
-        var currentKeys = new HashSet<int>(_segmentRects.Keys);
+        return (targetWidths, targetOffsets);
+    }
 
+    // Update or create segment rectangles to match targets / 更新或创建段矩形以匹配目标
+    private void UpdateExistingSegments(IList<ProgressSegment> segments, double[] targetWidths, double[] targetOffsets)
+    {
+        var trackHeight = TrackBorder.ActualHeight;
         for (int i = 0; i < segments.Count; i++)
         {
-
             if (_segmentRects.TryGetValue(i, out var rect))
             {
                 rect.Fill = segments[i].Brush;
                 AnimateProperty(rect, "Width", targetWidths[i]);
                 AnimateProperty(rect, "(Canvas.Left)", targetOffsets[i]);
-                currentKeys.Remove(i);
             }
             else
             {
@@ -112,7 +132,7 @@ public sealed partial class SegmentedProgressBar : UserControl
                 {
                     Fill = segments[i].Brush,
                     Width = 0,
-                    Height = TrackBorder.ActualHeight,
+                    Height = trackHeight,
                 };
                 Canvas.SetLeft(rect, targetOffsets[i]);
                 SegmentsCanvas.Children.Add(rect);
@@ -120,8 +140,13 @@ public sealed partial class SegmentedProgressBar : UserControl
                 AnimateProperty(rect, "Width", targetWidths[i]);
             }
         }
+    }
 
-        foreach (var key in currentKeys)
+    // Animate out and remove segments beyond active count / 动画移除超出活跃数量的段
+    private void RemoveStaleSegments(int activeCount)
+    {
+        var staleKeys = _segmentRects.Keys.Where(k => k >= activeCount).ToList();
+        foreach (var key in staleKeys)
         {
             if (_segmentRects.TryGetValue(key, out var rect))
             {
@@ -136,6 +161,7 @@ public sealed partial class SegmentedProgressBar : UserControl
         }
     }
 
+    // Animate all segments out and clear dictionary / 动画移除所有段并清空字典
     private void AnimateOutAll()
     {
         if (_segmentRects.Count == 0) return;
@@ -152,18 +178,19 @@ public sealed partial class SegmentedProgressBar : UserControl
         _segmentRects.Clear();
     }
 
+    // Animate a property to target value, skip if delta is small / 动画属性到目标值,差值过小则跳过
     private void AnimateProperty(DependencyObject target, string propertyPath, double toValue, Action? onComplete = null)
     {
-        double currentValue = propertyPath == "Width"
+        double currentValue = string.Equals(propertyPath, "Width", StringComparison.Ordinal)
             ? ((FrameworkElement)target).Width
             : Canvas.GetLeft((UIElement)target);
 
         if (double.IsNaN(currentValue))
             currentValue = 0;
 
-        if (Math.Abs(currentValue - toValue) < 0.5)
+        if (Math.Abs(currentValue - toValue) < AnimationSkipThreshold)
         {
-            if (propertyPath == "Width")
+            if (string.Equals(propertyPath, "Width", StringComparison.Ordinal))
                 ((FrameworkElement)target).Width = toValue;
             else
                 Canvas.SetLeft((UIElement)target, toValue);
