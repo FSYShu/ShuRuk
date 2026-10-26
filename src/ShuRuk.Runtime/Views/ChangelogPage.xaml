@@ -128,8 +128,10 @@
                                         Tag="{x:Bind Mode=OneTime}"
                                         Visibility="{x:Bind ExpandButtonVisibility, Mode=OneWay}"
                                         HorizontalAlignment="Center"
+                                        Margin="0,16,0,0"
                                         Padding="8,4"
-                                        Background="Transparent"
+                                        CornerRadius="6"
+                                        Background="{ThemeResource SystemControlTransientBackgroundBrush}"
                                         BorderThickness="0">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <TextBlock Text="{x:Bind ExpandButtonText, Mode=OneWay}" />
@@ -286,5 +288,23 @@
                 </Button>
             </StackPanel>
         </Border>
+
+        <!-- Floating collapse button when expanded card bottom is off-screen / 展开卡片底部不可见时浮动收起按钮 -->
+        <Button x:Name="CollapseFloatingButton"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Center"
+                Margin="76,0,0,12"
+                Padding="8,4"
+                CornerRadius="6"
+                Background="{ThemeResource SystemControlTransientBackgroundBrush}"
+                BorderThickness="0"
+                Click="CollapseFloatingButton_Click"
+                Visibility="Collapsed"
+                ToolTipService.ToolTip="收起当前展开的卡片">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <TextBlock Text="收起" />
+                <FontIcon Glyph="&#xE70E;" FontSize="12" />
+            </StackPanel>
+        </Button>
     </Grid>
 </Page>

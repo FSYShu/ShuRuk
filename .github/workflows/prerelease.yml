@@ -22,6 +22,7 @@ jobs:
       app: ${{ steps.changes.outputs.app }}
       uh: ${{ steps.changes.outputs.uh }}
       range: ${{ steps.changes.outputs.range }}
+      hasRelease: ${{ steps.changes.outputs.hasRelease }}
       rtVer: ${{ steps.rt-ver.outputs.version }}
       appVer: ${{ steps.app-ver.outputs.version }}
       uhVer: ${{ steps.uh-ver.outputs.version }}
@@ -57,6 +58,8 @@ jobs:
           echo "app=$app" >> $env:GITHUB_OUTPUT
           echo "uh=$uh" >> $env:GITHUB_OUTPUT
           echo "range=$range" >> $env:GITHUB_OUTPUT
+          $hasRelease = if ($lastTag) { 'True' } else { 'False' }
+          echo "hasRelease=$hasRelease" >> $env:GITHUB_OUTPUT
           exit 0
 
       - name: Compute Runtime version
@@ -68,8 +71,9 @@ jobs:
           $minor = [int](dotnet msbuild $proj -getProperty:VersionMinor)
           $patch = [int](dotnet msbuild $proj -getProperty:VersionPatch)
           $rtChanged = '${{ steps.changes.outputs.rt }}' -eq 'True'
+          $hasRelease = '${{ steps.changes.outputs.hasRelease }}' -eq 'True'
           $nM = $major; $nMin = $minor; $nP = $patch
-          if ($rtChanged) {
+          if ($rtChanged -and $hasRelease) {
             $range = '${{ steps.changes.outputs.range }}'
             $msgs = git log $range --pretty=format:"%s" -- "src/ShuRuk.Runtime/"
             $level = "patch"
@@ -99,8 +103,9 @@ jobs:
           $minor = [int](dotnet msbuild $proj -getProperty:VersionMinor)
           $patch = [int](dotnet msbuild $proj -getProperty:VersionPatch)
           $appChanged = '${{ steps.changes.outputs.app }}' -eq 'True'
+          $hasRelease = '${{ steps.changes.outputs.hasRelease }}' -eq 'True'
           $nM = $major; $nMin = $minor; $nP = $patch
-          if ($appChanged) {
+          if ($appChanged -and $hasRelease) {
             $range = '${{ steps.changes.outputs.range }}'
             $msgs = git log $range --pretty=format:"%s" -- "src/ShuRuk.App/"
             $level = "patch"
@@ -130,8 +135,9 @@ jobs:
           $minor = [int](dotnet msbuild $proj -getProperty:VersionMinor)
           $patch = [int](dotnet msbuild $proj -getProperty:VersionPatch)
           $uhChanged = '${{ steps.changes.outputs.uh }}' -eq 'True'
+          $hasRelease = '${{ steps.changes.outputs.hasRelease }}' -eq 'True'
           $nM = $major; $nMin = $minor; $nP = $patch
-          if ($uhChanged) {
+          if ($uhChanged -and $hasRelease) {
             $range = '${{ steps.changes.outputs.range }}'
             $msgs = git log $range --pretty=format:"%s" -- "src/ShuRuk.UninstallHelper/"
             $level = "patch"
@@ -229,7 +235,7 @@ jobs:
           # Read/write with explicit UTF-8 no BOM to avoid XML declaration corruption / 显式UTF-8无BOM读写避免XML声明损坏
           $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
           $manifest = [System.IO.File]::ReadAllText("$staging\AppxManifest.xml", $utf8NoBom)
-          $manifest = $manifest -replace 'Version="[\d.]+"', "Version=`"$fourPart`""
+          $manifest = $manifest -creplace 'Version="[\d.]+"', "Version=`"$fourPart`""
           [System.IO.File]::WriteAllText("$staging\AppxManifest.xml", $manifest, $utf8NoBom)
           $assetsDir = Join-Path $staging "Assets"
           New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
