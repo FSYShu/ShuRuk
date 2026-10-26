@@ -5,7 +5,10 @@
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <RootNamespace>ShuRuk.UninstallHelper</RootNamespace>
     <AssemblyName>ShuRukUninstallHelper</AssemblyName>
-    <Version>0.1.0</Version>
+    <VersionMajor>1</VersionMajor>
+    <VersionMinor>0</VersionMinor>
+    <VersionPatch>0</VersionPatch>
+    <Version>$(VersionMajor).$(VersionMinor).$(VersionPatch)</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -15,5 +18,13 @@
     <Authors>ShuRuk</Authors>
     <Description>ShuRuk uninstall helper: registry refcount and runtime cleanup / 卸载辅助程序</Description>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+
+    <!-- Single-file trimmed publish (non-self-contained): ~50-150KB exe embedded into MSIX.
+         Only active during dotnet publish, not dotnet build (avoids IL Linker at build time).
+         裁剪单文件非自包含发布：约50-150KB exe嵌入MSIX。仅publish时生效，避免build时加载IL Linker。 -->
+    <PublishSingleFile Condition="'$(IsPublishing)' == 'true'">true</PublishSingleFile>
+    <PublishTrimmed Condition="'$(IsPublishing)' == 'true'">true</PublishTrimmed>
+    <EnableCompressionInSingleFile Condition="'$(IsPublishing)' == 'true'">true</EnableCompressionInSingleFile>
+    <SelfContained Condition="'$(IsPublishing)' == 'true'">false</SelfContained>
   </PropertyGroup>
 </Project>

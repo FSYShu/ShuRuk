@@ -18,7 +18,10 @@ internal static class Program
     {
         try
         {
-            var packageFullName = GetCurrentPackageFullName();
+            // Prefer package full name from args (passed by windows.uninstallAction),
+            // fall back to Package.Current for direct invocation.
+            // 优先从args解析包全名(windows.uninstallAction传入)，回退到Package.Current供直接调用。
+            var packageFullName = ParsePackageFullNameFromArgs(args) ?? GetCurrentPackageFullName();
             if (packageFullName is null)
             {
                 // Not running in packaged context, nothing to do
@@ -34,6 +37,21 @@ internal static class Program
             // 吞掉所有异常以永不阻断卸载
         }
         return 0;
+    }
+
+    // Parse package full name from command-line args / 从命令行参数解析包全名
+    private static string? ParsePackageFullNameFromArgs(string[] args)
+    {
+        // windows.uninstallAction passes package full name as first argument.
+        // Filter out empty/whitespace and obvious non-package-name values.
+        // windows.uninstallAction以包全名作为首个参数，过滤空值与非包名文本。
+        if (args is { Length: > 0 })
+        {
+            var candidate = args[0].Trim();
+            if (!string.IsNullOrWhiteSpace(candidate) && candidate.Contains('_'))
+                return candidate;
+        }
+        return null;
     }
 
     // Get current MSIX package full name / 获取当前MSIX包全名
