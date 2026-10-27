@@ -39,3 +39,8 @@ err.log
 
 # Signing certificates / 签名证书
 *.pfx
+*.cer
+
+# MSIX build artifacts / MSIX构建产物
+BundleArtifacts/
+AppPackages/

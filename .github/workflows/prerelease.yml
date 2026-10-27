@@ -337,14 +337,20 @@ jobs:
             [System.IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
             $securePwd = ConvertTo-SecureString $env:MSIX_CERT_PASSWORD -AsPlainText -Force
             $importedCert = Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePwd
-
             $thumbprint = $importedCert.Thumbprint
+            Write-Host "Cert thumbprint: $thumbprint / 证书指纹"
           } else {
             $signEnabled = "False"
             Write-Host "No cert, building unsigned App MSIX / 无证书，构建未签名App MSIX"
           }
-          dotnet build src/ShuRuk.App/ShuRuk.App.csproj -c Release -p:Platform=x64 -p:AppxPackageSigningEnabled=$signEnabled -p:PackageCertificateThumbprint=$thumbprint -p:Version=$ver
-          Get-ChildItem -Path "src/ShuRuk.App/bin" -Recurse -Include "*.msix","*.appxbundle" | Copy-Item -Destination artifacts -Force
+          dotnet build src/ShuRuk.App/ShuRuk.App.csproj -c Release -r win-x64 -p:Platform=x64 -p:AppxPackageSigningEnabled=$signEnabled -p:PackageCertificateThumbprint=$thumbprint -p:Version=$ver -p:GenerateAppxPackageOnBuild=true -p:AppxBundle=Never
+          $msixFiles = Get-ChildItem -Path "src/ShuRuk.App/bin" -Recurse -Include "*.msix","*.appxbundle" 2>$null
+          if (-not $msixFiles) {
+            Write-Host "ERROR: No MSIX generated, listing bin / 未生成MSIX,列出bin目录:"
+            Get-ChildItem -Path "src/ShuRuk.App/bin/x64/Release" -Recurse -File | Select-Object -First 30 | ForEach-Object { Write-Host "  $_" }
+            throw "App MSIX not generated / App MSIX未生成"
+          }
+          $msixFiles | Copy-Item -Destination artifacts -Force
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
