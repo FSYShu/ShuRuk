@@ -76,7 +76,7 @@ dotnet build ShuRuk.slnx
 
 ### Pack Runtime / 打包运行时
 
-Runtime 打包已由 GitHub Actions workflow（`.github/workflows/prerelease.yml`）自动处理：push 到 `dev` 分支时自动构建 nupkg + MSIX 并发布为 pre-release。/ Automated by GitHub Actions workflow on push to dev branch.
+Runtime 打包已由 GitHub Actions workflow（`.github/workflows/prerelease.yml`）自动处理：push 到 `dev` 分支时（含源码或 workflow 文件变更）自动构建 nupkg + MSIX 并发布为 pre-release。版本自增从 release tag 解析已发布版本，遍历历史 tag 补全缺失组件。/ Automated by GitHub Actions on push to dev (source or workflow changes). Version bump parses published versions from release tags, searching historical tags to fill missing components.
 
 手动本地构建（仅 dll）/ Manual local build (dll only):
 
