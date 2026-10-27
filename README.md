@@ -76,7 +76,7 @@ dotnet build ShuRuk.slnx
 
 ### Pack Runtime / 打包运行时
 
-Runtime 打包已由 GitHub Actions workflow（`.github/workflows/prerelease.yml`）自动处理：push 到 `dev` 分支时（含源码或 workflow 文件变更）自动构建 nupkg + MSIX 并发布为 pre-release。版本自增从 release tag 解析已发布版本，遍历历史 tag 补全缺失组件。Runtime MSIX 用 `signtool /f` 直接证书文件签名，App MSIX 用 `dotnet build` + `PackageCertificateThumbprint`（仅导入 My 存储区）。/ Automated by GitHub Actions on push to dev (source or workflow changes). Version bump parses published versions from release tags, searching historical tags to fill missing components. Runtime MSIX signed via signtool /f with cert file; App MSIX via dotnet build with thumbprint (My store only).
+Runtime 打包已由 GitHub Actions workflow（`.github/workflows/prerelease.yml`）自动处理：push 到 `dev` 分支时（含源码或 workflow 文件变更）自动构建 nupkg + MSIX 并发布为 pre-release。版本自增从 release tag 解析已发布版本，遍历历史 tag 补全缺失组件。Runtime MSIX 用 `signtool /f` 直接证书文件签名，App MSIX 用 `dotnet build` + `GenerateAppxPackageOnBuild` + `AppxBundle=Never` 生成单个 msix（仅导入 My 存储区）。/ Automated by GitHub Actions on push to dev (source or workflow changes). Version bump parses published versions from release tags, searching historical tags to fill missing components. Runtime MSIX signed via signtool /f; App MSIX via dotnet build with GenerateAppxPackageOnBuild + AppxBundle=Never (My store only).
 
 手动本地构建（仅 dll）/ Manual local build (dll only):
 
