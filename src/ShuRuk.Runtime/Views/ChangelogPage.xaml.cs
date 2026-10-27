@@ -72,93 +72,11 @@ public sealed partial class ChangelogPage : Page
     {
         InitializeComponent();
         ChangelogRepeater.ItemsSource = _displayItems;
-        StickyVersionText.SizeChanged += StickyVersionText_SizeChanged;
+
         // Initial tooltip for image toggle / 图片切换初始提示
         ToolTipService.SetToolTip(ShowImagesToggle, RuntimeLocalizationHelper.GetString("RuntimeChangelogHideImages"));
     }
 
-    // Custom marquee: scroll text, pause at start and end / 自定义跑马灯:滚动文本,首尾停顿
-    private void VersionText_Loaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is not TextBlock tb) return;
-        if (tb.RenderTransform is not TranslateTransform tt) return;
-        tb.SizeChanged += VersionText_SizeChanged;
-        // Immediate check in case SizeChanged already fired / 立即检查以防SizeChanged已触发
-        UpdateMarquee(tb);
-    }
-
-    private void VersionText_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (sender is not TextBlock tb) return;
-        UpdateMarquee(tb);
-    }
-
-    private void UpdateMarquee(TextBlock tb)
-    {
-        if (tb.RenderTransform is not TranslateTransform tt) return;
-        if (string.IsNullOrEmpty(tb.Text)) return;
-        // Use ActualWidth, fallback to detached probe / 用ActualWidth,后备为独立探测
-        double textWidth = tb.ActualWidth;
-        if (textWidth <= 0)
-        {
-            var probe = new TextBlock { Text = tb.Text, FontSize = tb.FontSize, FontWeight = tb.FontWeight };
-            probe.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
-            textWidth = probe.DesiredSize.Width;
-        }
-        if (textWidth <= 0) return; // Not laid out yet / 尚未布局
-        const double containerWidth = 100;
-
-        if (textWidth <= containerWidth)
-        {
-            // Text fits, stop marquee if running / 文本适配,停止跑马灯
-            if (tb.Tag is Storyboard sb)
-            {
-                sb.Stop();
-                tt.X = 0;
-                tb.Tag = null;
-            }
-            return;
-        }
-
-        // Text exceeds container, start if not running / 文本超出容器,未运行则启动
-        if (tb.Tag is not null) return;
-        tb.Tag = StartMarquee(tt, textWidth);
-    }
-
-    private static Storyboard StartMarquee(TranslateTransform tt, double textWidth)
-    {
-        const double containerWidth = 100;
-        // Min offset 25 so short text still scrolls visibly / 最小偏移25让短文本也明显滚动
-        double offset = Math.Max(textWidth - containerWidth, 30);
-        double scrollTime = offset / 30; // 30px per second / 每秒30像素
-        double pauseTime = 2;
-        double t = 0;
-
-        var anim = new DoubleAnimationUsingKeyFrames
-        {
-            RepeatBehavior = RepeatBehavior.Forever,
-            Duration = TimeSpan.FromSeconds(pauseTime * 2 + scrollTime * 2)
-        };
-
-        // Pause at start -> scroll left -> pause at end -> scroll back / 开头停顿→左滚→末尾停顿→滚回
-        anim.KeyFrames.Add(new LinearDoubleKeyFrame { Value = 0, KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(t)) });
-        t += pauseTime;
-        anim.KeyFrames.Add(new LinearDoubleKeyFrame { Value = 0, KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(t)) });
-        t += scrollTime;
-        anim.KeyFrames.Add(new LinearDoubleKeyFrame { Value = -offset, KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(t)) });
-        t += pauseTime;
-        anim.KeyFrames.Add(new LinearDoubleKeyFrame { Value = -offset, KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(t)) });
-        t += scrollTime;
-        anim.KeyFrames.Add(new LinearDoubleKeyFrame { Value = 0, KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(t)) });
-
-        Storyboard.SetTarget(anim, tt);
-        Storyboard.SetTargetProperty(anim, "X");
-
-        var sb = new Storyboard();
-        sb.Children.Add(anim);
-        sb.Begin();
-        return sb;
-    }
 
     // Re-entrancy guard for markdown config / markdown配置重入保护
     private static readonly HashSet<CommunityToolkit.WinUI.Controls.MarkdownTextBlock> _configuring = [];
@@ -738,14 +656,6 @@ public sealed partial class ChangelogPage : Page
     // Show sticky panel with entry and push-up offset / 显示sticky面板
     private void ShowSticky(ChangelogEntry entry, double firstVisibleTop)
     {
-        // Stop previous marquee if running / 停止旧跑马灯
-        if (StickyVersionText.Tag is Storyboard oldSb)
-        {
-            oldSb.Stop();
-            if (StickyVersionText.RenderTransform is TranslateTransform oldTt) oldTt.X = 0;
-            StickyVersionText.Tag = null;
-        }
-
         StickyVersionText.Text = entry.Version;
         StickyDateText.Text = entry.Date;
         StickyPrereleaseBorder.Visibility = entry.IsPrerelease ? Visibility.Visible : Visibility.Collapsed;
@@ -756,7 +666,7 @@ public sealed partial class ChangelogPage : Page
 
         // Start marquee after layout pass / 布局后启动跑马灯
         StickyVersionText.UpdateLayout();
-        UpdateMarquee(StickyVersionText);
+        StickyVersionText.Refresh();
     }
 
     // Update push-up offset only, without resetting marquee / 仅更新顶上去偏移,不重置跑马灯
@@ -946,11 +856,6 @@ public sealed partial class ChangelogPage : Page
         return null;
     }
 
-    // Update marquee on size change / 尺寸变化时更新跑马灯
-    private void StickyVersionText_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (sender is TextBlock tb) UpdateMarquee(tb);
-    }
 
     private void UpdateEmptyState()
     {
@@ -1097,6 +1002,9 @@ public sealed class ChangelogSegment : INotifyPropertyChanged
             {
                 _imageVisibility = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ImageVisibility)));
+                // Notify ImageSource to reload unloaded images when switching to visible / 切换为可见时通知ImageSource重新加载未加载图片
+                if (value == Visibility.Visible && IsImage)
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ImageSource)));
             }
         }
     }
@@ -1186,7 +1094,9 @@ public sealed class ChangelogSegment : INotifyPropertyChanged
             bi.ImageOpened += (s, e) =>
             {
                 _bitmapLoaded = true;
-                LoadingVisibility = Visibility.Collapsed;
+                // IsImageLoaded=true sets LoadingVisibility=Collapsed and ImageLoadedVisibility=Visible
+                // IsImageLoaded=true会设置LoadingVisibility=Collapsed和ImageLoadedVisibility=Visible
+                IsImageLoaded = true;
                 // Cap MaxWidth at natural width for small images / 小图片MaxWidth设为自然宽度避免放大
                 if (bi.PixelWidth > 0)
                     ImageMaxWidth = Math.Min(MaxImageWidth, bi.PixelWidth);

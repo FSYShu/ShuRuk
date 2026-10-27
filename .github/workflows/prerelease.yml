@@ -378,21 +378,25 @@ jobs:
           $rtChanged = '${{ needs.prepare.outputs.rt }}' -eq 'True'
           $uhChanged = '${{ needs.prepare.outputs.uh }}' -eq 'True'
           $tag = "$appVer-Dev"
+          if ($rtChanged) { $tag += "+Runtime-$rtVer-Dev" }
+          if ($uhChanged) { $tag += "+UninstallHelper-$uhVer-Dev" }
+          $name = "$appVer-Dev"
           if ($rtChanged -or $uhChanged) {
-            $tag += " with"
-            if ($rtChanged) { $tag += " Runtime $rtVer-Dev" }
-            if ($rtChanged -and $uhChanged) { $tag += " and" }
-            if ($uhChanged) { $tag += " UninstallHelper $uhVer-Dev" }
+            $name += " with"
+            if ($rtChanged) { $name += " Runtime $rtVer-Dev" }
+            if ($rtChanged -and $uhChanged) { $name += " and" }
+            if ($uhChanged) { $name += " UninstallHelper $uhVer-Dev" }
           }
           Write-Host "Release tag: $tag"
           echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "name=$name" >> $env:GITHUB_OUTPUT
           exit 0
 
       - name: Create pre-release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.rel-tag.outputs.tag }}
-          name: ${{ steps.rel-tag.outputs.tag }}
+          name: ${{ steps.rel-tag.outputs.name }}
           prerelease: true
           body: ${{ steps.notes.outputs.body }}
           files: |
