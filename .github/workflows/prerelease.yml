@@ -308,11 +308,9 @@ jobs:
           if ($env:MSIX_CERT_BASE64) {
             $certPath = Join-Path $env:RUNNER_TEMP "rt_cert.pfx"
             [System.IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
-            $securePwd = ConvertTo-SecureString $env:MSIX_CERT_PASSWORD -AsPlainText -Force
-            Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePwd
-            Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\Root -Password $securePwd
             $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-            & $signtool sign /fd SHA256 /a "artifacts\Shuruk.Runtime.$ver.msix"
+            & $signtool sign /fd SHA256 /f $certPath /p $env:MSIX_CERT_PASSWORD "artifacts\Shuruk.Runtime.$ver.msix"
+            if ($LASTEXITCODE -ne 0) { throw "signtool sign failed / 签名失败" }
           } else {
             Write-Host "No cert, MSIX unsigned / 无证书，MSIX未签名"
           }
@@ -339,7 +337,7 @@ jobs:
             [System.IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
             $securePwd = ConvertTo-SecureString $env:MSIX_CERT_PASSWORD -AsPlainText -Force
             $importedCert = Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePwd
-            Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\Root -Password $securePwd
+
             $thumbprint = $importedCert.Thumbprint
           } else {
             $signEnabled = "False"
