@@ -24,6 +24,7 @@ public class DiscoverCardViewModel
 
     // Extended display properties / 扩展显示属性
     public string Version { get; init; } = string.Empty;
+    public string Author { get; init; } = string.Empty;
     public string LastUpdatedText { get; init; } = string.Empty;
     public string CategoryText { get; init; } = string.Empty;
     public bool IsInstalled { get; init; }
@@ -156,6 +157,7 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
             RatingText = $"{e.Rating:F1}",
             Entry = e,
             Version = e.Version,
+            Author = e.Author ?? string.Empty,
             LastUpdatedText = e.UpdatedAt.ToString("yyyy-MM-dd"),
             CategoryText = e.Category ?? string.Empty,
             IsInstalled = e.Installed

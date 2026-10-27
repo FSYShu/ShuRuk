@@ -36,7 +36,7 @@ public sealed partial class ModuleDetailPage : Page
             _card = card;
 
             // Header / 头部
-            ModuleIcon.Glyph = card.SourceIconGlyph;
+
             ModuleDescription.Text = card.DisplayName;
 
             // Info card / 信息卡片

@@ -12,16 +12,10 @@
 
             <!-- Header: icon + module name / 头部：图标+模块名 -->
             <StackPanel Orientation="Horizontal" Spacing="16">
-                <Border Width="48" Height="48" CornerRadius="8"
-                        Background="{ThemeResource AccentFillColorDefaultBrush}"
-                        VerticalAlignment="Center">
-                    <FontIcon x:Name="ModuleIcon"
-                              Glyph="&#xE896;"
-                              FontSize="22"
-                              Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
-                              HorizontalAlignment="Center"
-                              VerticalAlignment="Center" />
-                </Border>
+                <Image x:Name="ModuleIcon"
+                       Source="ms-appx:///Assets/ShuRuk.ico"
+                       Width="48" Height="48"
+                       VerticalAlignment="Center" />
                 <TextBlock
                     x:Name="ModuleDescription"
                     Style="{StaticResource TitleTextBlockStyle}"
@@ -118,7 +112,7 @@
                 <SelectorBarItem x:Name="ModuleDetailIntroTab" x:Uid="ModuleDetailIntroTab"
                                  IsSelected="True">
                     <SelectorBarItem.Icon>
-                        <FontIcon Glyph="&#xE7C3;" />
+                        <FontIcon Glyph="&#xE946;" />
                     </SelectorBarItem.Icon>
                 </SelectorBarItem>
                 <SelectorBarItem x:Name="ModuleDetailChangelogTab" x:Uid="ModuleDetailChangelogTab">

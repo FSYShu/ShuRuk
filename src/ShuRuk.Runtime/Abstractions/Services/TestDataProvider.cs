@@ -63,20 +63,20 @@ public static class TestDataProvider
     {
         return
         [
-            new TestModuleInfo("TestModule1", "测试模块 1", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.BuiltIn, ModuleState.Running),
-            new TestModuleInfo("TestModule2", "测试模块 2", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.BuiltIn, ModuleState.Running),
-            new TestModuleInfo("TestModule3", "测试模块 3", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.External, ModuleState.Running),
-            new TestModuleInfo("TestModule4", "测试模块 4", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.External, ModuleState.Installed),
-            new TestModuleInfo("TestModule5", "测试模块 5", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.BuiltIn, ModuleState.Running),
-            new TestModuleInfo("TestModule6", "测试模块 6", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.External, ModuleState.Paused),
-            new TestModuleInfo("TestModule7", "测试模块 7", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.BuiltIn, ModuleState.Running),
-            new TestModuleInfo("TestModule8", "测试模块 8", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.BuiltIn, ModuleState.Running),
-            new TestModuleInfo("TestModule9", "测试模块 9", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.External, ModuleState.Paused),
-            new TestModuleInfo("TestModule10", "测试模块 10", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.External, ModuleState.Running),
-            new TestModuleInfo("TestModule11", "测试模块 11", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.BuiltIn, ModuleState.Loaded),
-            new TestModuleInfo("TestModule12", "测试模块 12", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.BuiltIn, ModuleState.Running),
-            new TestModuleInfo("TestModule13", "测试模块 13", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.External, ModuleState.Installed),
-            new TestModuleInfo("TestModule14", "测试模块 14", "测试用模拟模块，非实际存在", "1.0.0", ModuleSource.BuiltIn, ModuleState.Loaded)
+            new TestModuleInfo("TestModule1", "测试模块 1", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.BuiltIn, ModuleState.Running),
+            new TestModuleInfo("TestModule2", "测试模块 2", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.BuiltIn, ModuleState.Running),
+            new TestModuleInfo("TestModule3", "测试模块 3", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.External, ModuleState.Running),
+            new TestModuleInfo("TestModule4", "测试模块 4", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.External, ModuleState.Installed),
+            new TestModuleInfo("TestModule5", "测试模块 5", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.BuiltIn, ModuleState.Running),
+            new TestModuleInfo("TestModule6", "测试模块 6", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.External, ModuleState.Paused),
+            new TestModuleInfo("TestModule7", "测试模块 7", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.BuiltIn, ModuleState.Running),
+            new TestModuleInfo("TestModule8", "测试模块 8", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.BuiltIn, ModuleState.Running),
+            new TestModuleInfo("TestModule9", "测试模块 9", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.External, ModuleState.Paused),
+            new TestModuleInfo("TestModule10", "测试模块 10", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.External, ModuleState.Running),
+            new TestModuleInfo("TestModule11", "测试模块 11", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.BuiltIn, ModuleState.Loaded),
+            new TestModuleInfo("TestModule12", "测试模块 12", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.BuiltIn, ModuleState.Running),
+            new TestModuleInfo("TestModule13", "测试模块 13", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.External, ModuleState.Installed),
+            new TestModuleInfo("TestModule14", "测试模块 14", "测试用模拟模块，非实际存在", "1.0.0", "测试作者", ModuleSource.BuiltIn, ModuleState.Loaded)
         ];
     }
 
@@ -127,6 +127,7 @@ public static class TestDataProvider
                 $"测试模块 {i}",
                 "测试用模拟模块，非实际存在",
                 "1.0.0",
+                $"作者{i}",
                 sources[i % sources.Length],
                 states[i % states.Length]));
         }
@@ -148,6 +149,7 @@ public static class TestDataProvider
                 DisplayName = $"测试发现模块 {i}",
                 Description = "测试用模拟模块，非实际存在",
                 Version = "1.0.0",
+                Author = $"作者{i}",
                 Repository = $"test-repo-{i}",
                 Source = sources[i % sources.Length],
                 Category = "Test",
@@ -163,4 +165,4 @@ public static class TestDataProvider
 }
 
 // Test module info for module page display / 测试模块信息用于模块页展示
-public record TestModuleInfo(string Name, string DisplayName, string Description, string Version, ModuleSource Source, ModuleState State);
+public record TestModuleInfo(string Name, string DisplayName, string Description, string Version, string Author, ModuleSource Source, ModuleState State);
