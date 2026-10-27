@@ -130,7 +130,8 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
                 StateText = info.State.ToString(),
                 Source = info.Source,
                 State = info.State,
-                Version = info.Version
+                Version = info.Version,
+                Author = info.Author
             });
         }
     }

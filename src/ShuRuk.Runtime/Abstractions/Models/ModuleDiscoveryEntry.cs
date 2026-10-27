@@ -8,6 +8,7 @@ public class ModuleDiscoveryEntry
     public required string DisplayName { get; init; }
     public string? Description { get; init; }
     public required string Version { get; init; }
+    public string? Author { get; init; }
     public required string Repository { get; init; }
     public ModuleSource Source { get; init; }
     public string? Category { get; init; }
