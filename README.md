@@ -37,7 +37,7 @@ ShuRuk/                              # main repo (ShuRuk + Runtime + UninstallHe
 │   ├── ShuRuk.Runtime/              # Runtime → dll + nupkg + msix
 │   │   ├── Abstractions/            # 公共基类、工具类 / shared base & utilities
 │   │   ├── Contracts/               # WinRT 导出接口 / WinRT exported interfaces (IModuleExtensionInfo)
-│   │   ├── Controls/                # 通用页面自定义组件 / common UI controls
+│   │   ├── Controls/                # 通用控件 / common controls (MarqueeText, SubModuleOverviewCard)
 │   │   ├── Views/                   # 通用页面 / common pages (home, settings, changelog)
 │   │   └── ShuRuk.Runtime.csproj    # 打包输出 nupkg + msix
 │   └── ShuRuk.UninstallHelper/      # 卸载辅助程序 / uninstall helper (ref-count + runtime cleanup)

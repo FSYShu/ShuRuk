@@ -125,7 +125,7 @@ public static class TestDataProvider
             list.Add(new TestModuleInfo(
                 $"TestModule{i}",
                 $"测试模块 {i}",
-                "测试用模拟模块，非实际存在",
+                $"测试用模拟模块 {i}，非实际存在，仅用于演示跑马灯滚动效果的加长描述文本，包含模块功能简介和注意事项",
                 "1.0.0",
                 $"作者{i}",
                 sources[i % sources.Length],
@@ -147,7 +147,7 @@ public static class TestDataProvider
             {
                 Name = $"TestDiscover{i}",
                 DisplayName = $"测试发现模块 {i}",
-                Description = "测试用模拟模块，非实际存在",
+                Description = $"测试用模拟模块 {i}，非实际存在，仅用于演示跑马灯滚动效果的加长描述文本，包含模块功能简介和注意事项",
                 Version = "1.0.0",
                 Author = $"作者{i}",
                 Repository = $"test-repo-{i}",
