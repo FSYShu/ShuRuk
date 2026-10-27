@@ -20,7 +20,7 @@
 
     <!-- Pack as NuGet for module SDK consumption / 打包为NuGet供模块SDK引用 -->
     <IsPackable>true</IsPackable>
-    <PackageId>Shuruk.Runtime</PackageId>
+    <PackageId>ShuRuk.Runtime</PackageId>
     <!-- Version components: change these three to bump version / 版本分量：改这三个数字即可升版本 -->
     <VersionMajor>0</VersionMajor>
     <VersionMinor>1</VersionMinor>

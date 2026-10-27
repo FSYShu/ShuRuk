@@ -14,7 +14,7 @@
 
     <!-- Pack as NuGet for module consumption / 打包为NuGet供模块引用 -->
     <IsPackable>true</IsPackable>
-    <PackageId>Shuruk.UninstallHelper</PackageId>
+    <PackageId>ShuRuk.UninstallHelper</PackageId>
     <Authors>ShuRuk</Authors>
     <Description>ShuRuk uninstall helper: registry refcount and runtime cleanup / 卸载辅助程序</Description>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>

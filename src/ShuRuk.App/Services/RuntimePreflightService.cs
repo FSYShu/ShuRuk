@@ -7,7 +7,7 @@ namespace ShuRuk.App.Services;
 public sealed class RuntimePreflightService
 {
     // Runtime package family name / 运行时包族名
-    private const string RuntimePackageFamily = "Shuruk.Runtime_8wekyb3d8bbwe";
+    private const string RuntimePackageFamily = "ShuRuk.Runtime_8wekyb3d8bbwe";
     private static readonly Version MinRuntimeVersion = new(0, 2, 0);
 
     // Check if runtime is installed and version meets requirement / 检查运行时是否已安装且版本满足
