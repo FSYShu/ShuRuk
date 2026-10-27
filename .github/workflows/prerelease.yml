@@ -7,6 +7,7 @@ on:
       - 'src/ShuRuk.Runtime/**'
       - 'src/ShuRuk.App/**'
       - 'src/ShuRuk.UninstallHelper/**'
+      - '.github/workflows/prerelease.yml'
   workflow_dispatch:
 
 permissions:
@@ -44,7 +45,7 @@ jobs:
         run: |
           $lastTag = $null
           try {
-            $releases = gh release list --limit 5 --json tagName,isPrerelease 2>$null | ConvertFrom-Json
+            $releases = gh release list --limit 20 --json tagName,isPrerelease 2>$null | ConvertFrom-Json
             $lastTag = ($releases | Where-Object { $_.isPrerelease } | Select-Object -First 1).tagName
           } catch {}
           $root = git rev-list --max-parents=0 HEAD 2>$null | Select-Object -Last 1
@@ -60,6 +61,21 @@ jobs:
           echo "range=$range" >> $env:GITHUB_OUTPUT
           $hasRelease = if ($lastTag) { 'True' } else { 'False' }
           echo "hasRelease=$hasRelease" >> $env:GITHUB_OUTPUT
+          # Parse published versions from release tags (search all prereleases until all found) / 遍历所有prerelease的tag解析已发布版本,直到三者都找到或遍历完
+          $rtPubVer = ""; $appPubVer = ""; $uhPubVer = ""
+          if ($releases) {
+            $preRels = $releases | Where-Object { $_.isPrerelease }
+            foreach ($rel in $preRels) {
+              if ($rtPubVer -and $appPubVer -and $uhPubVer) { break }
+              $tag = $rel.tagName
+              if (-not $appPubVer -and $tag -match '^([\d.]+)-Dev') { $appPubVer = $Matches[1] }
+              if (-not $rtPubVer -and $tag -match 'Runtime-([\d.]+)-Dev') { $rtPubVer = $Matches[1] }
+              if (-not $uhPubVer -and $tag -match 'UninstallHelper-([\d.]+)-Dev') { $uhPubVer = $Matches[1] }
+            }
+          }
+          echo "rtPubVer=$rtPubVer" >> $env:GITHUB_OUTPUT
+          echo "appPubVer=$appPubVer" >> $env:GITHUB_OUTPUT
+          echo "uhPubVer=$uhPubVer" >> $env:GITHUB_OUTPUT
           exit 0
 
       - name: Compute Runtime version
@@ -74,19 +90,34 @@ jobs:
           $hasRelease = '${{ steps.changes.outputs.hasRelease }}' -eq 'True'
           $nM = $major; $nMin = $minor; $nP = $patch
           if ($rtChanged -and $hasRelease) {
-            $range = '${{ steps.changes.outputs.range }}'
-            $msgs = git log $range --pretty=format:"%s" -- "src/ShuRuk.Runtime/"
-            $level = "patch"
-            foreach ($m in $msgs) {
-              if ($m -match "BREAKING CHANGE|^[a-z]+(\(.+\))?!:") { $level = "major"; break }
-              if ($m -match "^(feat|feature)(\(.+\))?:") { $level = "minor" }
+            # Compare csproj version with published version from release assets / 比较csproj版本与release assets中的已发布版本
+            $pubVer = '${{ steps.changes.outputs.rtPubVer }}'
+            $skipInc = $false
+            if ($pubVer) {
+              $p = $pubVer.Split('.')
+              if (($major -gt [int]$p[0]) -or ($major -eq [int]$p[0] -and $minor -gt [int]$p[1]) -or ($major -eq [int]$p[0] -and $minor -eq [int]$p[1] -and $patch -gt [int]$p[2])) {
+                $skipInc = $true
+                Write-Host "Runtime: csproj $major.$minor.$patch > published $pubVer, skip auto-increment / csproj版本>已发布,跳过自增"
+              }
+            } else {
+              $skipInc = $true
+              Write-Host "Runtime: never published, skip auto-increment / 从未发布,跳过自增"
             }
-            switch ($level) {
-              "major" { $nM = $major + 1; $nMin = 0; $nP = 0 }
-              "minor" { $nMin = $minor + 1; $nP = 0 }
-              "patch" { $nP = $patch + 1 }
+            if (-not $skipInc) {
+              $range = '${{ steps.changes.outputs.range }}'
+              $msgs = git log $range --pretty=format:"%s" -- "src/ShuRuk.Runtime/"
+              $level = "patch"
+              foreach ($m in $msgs) {
+                if ($m -match "BREAKING CHANGE|^[a-z]+(\(.+\))?!:") { $level = "major"; break }
+                if ($m -match "^(feat|feature)(\(.+\))?:") { $level = "minor" }
+              }
+              switch ($level) {
+                "major" { $nM = $major + 1; $nMin = 0; $nP = 0 }
+                "minor" { $nMin = $minor + 1; $nP = 0 }
+                "patch" { $nP = $patch + 1 }
+              }
+              Write-Host "Runtime: $major.$minor.$patch -> $nM.$nMin.$nP (level: $level)"
             }
-            Write-Host "Runtime: $major.$minor.$patch -> $nM.$nMin.$nP (level: $level)"
           }
           $version = "$nM.$nMin.$nP"
           echo "version=$version" >> $env:GITHUB_OUTPUT
@@ -106,19 +137,34 @@ jobs:
           $hasRelease = '${{ steps.changes.outputs.hasRelease }}' -eq 'True'
           $nM = $major; $nMin = $minor; $nP = $patch
           if ($appChanged -and $hasRelease) {
-            $range = '${{ steps.changes.outputs.range }}'
-            $msgs = git log $range --pretty=format:"%s" -- "src/ShuRuk.App/"
-            $level = "patch"
-            foreach ($m in $msgs) {
-              if ($m -match "BREAKING CHANGE|^[a-z]+(\(.+\))?!:") { $level = "major"; break }
-              if ($m -match "^(feat|feature)(\(.+\))?:") { $level = "minor" }
+            # Parse published version from release assets / 从release assets解析已发布版本
+            $pubVer = '${{ steps.changes.outputs.appPubVer }}'
+            $skipInc = $false
+            if ($pubVer) {
+              $p = $pubVer.Split('.')
+              if (($major -gt [int]$p[0]) -or ($major -eq [int]$p[0] -and $minor -gt [int]$p[1]) -or ($major -eq [int]$p[0] -and $minor -eq [int]$p[1] -and $patch -gt [int]$p[2])) {
+                $skipInc = $true
+                Write-Host "App: csproj $major.$minor.$patch > published $pubVer, skip auto-increment / csproj版本>已发布,跳过自增"
+              }
+            } else {
+              $skipInc = $true
+              Write-Host "App: never published, skip auto-increment / 从未发布,跳过自增"
             }
-            switch ($level) {
-              "major" { $nM = $major + 1; $nMin = 0; $nP = 0 }
-              "minor" { $nMin = $minor + 1; $nP = 0 }
-              "patch" { $nP = $patch + 1 }
+            if (-not $skipInc) {
+              $range = '${{ steps.changes.outputs.range }}'
+              $msgs = git log $range --pretty=format:"%s" -- "src/ShuRuk.App/"
+              $level = "patch"
+              foreach ($m in $msgs) {
+                if ($m -match "BREAKING CHANGE|^[a-z]+(\(.+\))?!:") { $level = "major"; break }
+                if ($m -match "^(feat|feature)(\(.+\))?:") { $level = "minor" }
+              }
+              switch ($level) {
+                "major" { $nM = $major + 1; $nMin = 0; $nP = 0 }
+                "minor" { $nMin = $minor + 1; $nP = 0 }
+                "patch" { $nP = $patch + 1 }
+              }
+              Write-Host "App: $major.$minor.$patch -> $nM.$nMin.$nP (level: $level)"
             }
-            Write-Host "App: $major.$minor.$patch -> $nM.$nMin.$nP (level: $level)"
           }
           $version = "$nM.$nMin.$nP"
           echo "version=$version" >> $env:GITHUB_OUTPUT
@@ -138,19 +184,34 @@ jobs:
           $hasRelease = '${{ steps.changes.outputs.hasRelease }}' -eq 'True'
           $nM = $major; $nMin = $minor; $nP = $patch
           if ($uhChanged -and $hasRelease) {
-            $range = '${{ steps.changes.outputs.range }}'
-            $msgs = git log $range --pretty=format:"%s" -- "src/ShuRuk.UninstallHelper/"
-            $level = "patch"
-            foreach ($m in $msgs) {
-              if ($m -match "BREAKING CHANGE|^[a-z]+(\(.+\))?!:") { $level = "major"; break }
-              if ($m -match "^(feat|feature)(\(.+\))?:") { $level = "minor" }
+            # Parse published version from release assets / 从release assets解析已发布版本
+            $pubVer = '${{ steps.changes.outputs.uhPubVer }}'
+            $skipInc = $false
+            if ($pubVer) {
+              $p = $pubVer.Split('.')
+              if (($major -gt [int]$p[0]) -or ($major -eq [int]$p[0] -and $minor -gt [int]$p[1]) -or ($major -eq [int]$p[0] -and $minor -eq [int]$p[1] -and $patch -gt [int]$p[2])) {
+                $skipInc = $true
+                Write-Host "UH: csproj $major.$minor.$patch > published $pubVer, skip auto-increment / csproj版本>已发布,跳过自增"
+              }
+            } else {
+              $skipInc = $true
+              Write-Host "UH: never published, skip auto-increment / 从未发布,跳过自增"
             }
-            switch ($level) {
-              "major" { $nM = $major + 1; $nMin = 0; $nP = 0 }
-              "minor" { $nMin = $minor + 1; $nP = 0 }
-              "patch" { $nP = $patch + 1 }
+            if (-not $skipInc) {
+              $range = '${{ steps.changes.outputs.range }}'
+              $msgs = git log $range --pretty=format:"%s" -- "src/ShuRuk.UninstallHelper/"
+              $level = "patch"
+              foreach ($m in $msgs) {
+                if ($m -match "BREAKING CHANGE|^[a-z]+(\(.+\))?!:") { $level = "major"; break }
+                if ($m -match "^(feat|feature)(\(.+\))?:") { $level = "minor" }
+              }
+              switch ($level) {
+                "major" { $nM = $major + 1; $nMin = 0; $nP = 0 }
+                "minor" { $nMin = $minor + 1; $nP = 0 }
+                "patch" { $nP = $patch + 1 }
+              }
+              Write-Host "UninstallHelper: $major.$minor.$patch -> $nM.$nMin.$nP (level: $level)"
             }
-            Write-Host "UninstallHelper: $major.$minor.$patch -> $nM.$nMin.$nP (level: $level)"
           }
           $version = "$nM.$nMin.$nP"
           echo "version=$version" >> $env:GITHUB_OUTPUT
@@ -249,6 +310,7 @@ jobs:
             [System.IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
             $securePwd = ConvertTo-SecureString $env:MSIX_CERT_PASSWORD -AsPlainText -Force
             Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePwd
+            Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\Root -Password $securePwd
             $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
             & $signtool sign /fd SHA256 /a "artifacts\Shuruk.Runtime.$ver.msix"
           } else {
@@ -269,17 +331,22 @@ jobs:
           MSIX_CERT_PASSWORD: ${{ secrets.MSIX_CERT_PASSWORD }}
         shell: pwsh
         run: |
-          if (-not $env:MSIX_CERT_BASE64) {
-            Write-Host "No MSIX_CERT_BASE64 secret, skipping App MSIX pack / 无证书secret，跳过App MSIX打包"
-            exit 0
-          }
           $ver = '${{ needs.prepare.outputs.appVer }}'
-          $certPath = Join-Path $env:RUNNER_TEMP "shuruk_cert.pfx"
-          [System.IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
-          $securePwd = ConvertTo-SecureString $env:MSIX_CERT_PASSWORD -AsPlainText -Force
-          $importedCert = Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePwd
-          dotnet build src/ShuRuk.App/ShuRuk.App.csproj -c Release -p:Platform=x64 -p:AppxPackageSigningEnabled=True -p:PackageCertificateThumbprint=$($importedCert.Thumbprint) -p:PackageVersion=$ver
-          Get-ChildItem -Path "src/ShuRuk.App/bin" -Recurse -Filter "*.msix" | Copy-Item -Destination artifacts -Force
+          $signEnabled = "True"
+          $thumbprint = ""
+          if ($env:MSIX_CERT_BASE64) {
+            $certPath = Join-Path $env:RUNNER_TEMP "shuruk_cert.pfx"
+            [System.IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
+            $securePwd = ConvertTo-SecureString $env:MSIX_CERT_PASSWORD -AsPlainText -Force
+            $importedCert = Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePwd
+            Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\Root -Password $securePwd
+            $thumbprint = $importedCert.Thumbprint
+          } else {
+            $signEnabled = "False"
+            Write-Host "No cert, building unsigned App MSIX / 无证书，构建未签名App MSIX"
+          }
+          dotnet build src/ShuRuk.App/ShuRuk.App.csproj -c Release -p:Platform=x64 -p:AppxPackageSigningEnabled=$signEnabled -p:PackageCertificateThumbprint=$thumbprint -p:Version=$ver
+          Get-ChildItem -Path "src/ShuRuk.App/bin" -Recurse -Include "*.msix","*.appxbundle" | Copy-Item -Destination artifacts -Force
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -401,6 +468,7 @@ jobs:
           body: ${{ steps.notes.outputs.body }}
           files: |
             artifacts/*.msix
+            artifacts/*.appxbundle
 
       - name: Publish Runtime to GitHub Packages
         if: needs.prepare.outputs.rt == 'True'
