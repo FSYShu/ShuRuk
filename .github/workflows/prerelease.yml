@@ -303,13 +303,13 @@ jobs:
           $png = [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGWMjW9IgAAAABJRU5ErkJggg==")
           [System.IO.File]::WriteAllBytes("$assetsDir\StoreLogo.png", $png)
           $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makeappx.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-          & $makeappx pack /d $staging /p "artifacts\Shuruk.Runtime.$ver.msix" /o
+          & $makeappx pack /d $staging /p "artifacts\ShuRuk.Runtime.$ver.msix" /o
           if ($LASTEXITCODE -ne 0) { throw "makeappx pack failed" }
           if ($env:MSIX_CERT_BASE64) {
             $certPath = Join-Path $env:RUNNER_TEMP "rt_cert.pfx"
             [System.IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
             $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-            & $signtool sign /fd SHA256 /f $certPath /p $env:MSIX_CERT_PASSWORD "artifacts\Shuruk.Runtime.$ver.msix"
+            & $signtool sign /fd SHA256 /f $certPath /p $env:MSIX_CERT_PASSWORD "artifacts\ShuRuk.Runtime.$ver.msix"
             if ($LASTEXITCODE -ne 0) { throw "signtool sign failed / 签名失败" }
           } else {
             Write-Host "No cert, MSIX unsigned / 无证书，MSIX未签名"
@@ -480,7 +480,7 @@ jobs:
         run: |
           $ver = '${{ needs.prepare.outputs.rtVer }}'
           $source = "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-          dotnet nuget push "artifacts/Shuruk.Runtime.$ver.nupkg" --api-key ${{ secrets.GITHUB_TOKEN }} --source $source
+          dotnet nuget push "artifacts/ShuRuk.Runtime.$ver.nupkg" --api-key ${{ secrets.GITHUB_TOKEN }} --source $source
 
       - name: Publish UninstallHelper to GitHub Packages
         if: needs.prepare.outputs.uh == 'True'
@@ -488,4 +488,4 @@ jobs:
         run: |
           $ver = '${{ needs.prepare.outputs.uhVer }}'
           $source = "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-          dotnet nuget push "artifacts/Shuruk.UninstallHelper.$ver.nupkg" --api-key ${{ secrets.GITHUB_TOKEN }} --source $source
+          dotnet nuget push "artifacts/ShuRuk.UninstallHelper.$ver.nupkg" --api-key ${{ secrets.GITHUB_TOKEN }} --source $source

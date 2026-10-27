@@ -9,7 +9,7 @@
   IgnorableNamespaces="uap">
 
   <Identity
-    Name="Shuruk.Runtime"
+    Name="ShuRuk.Runtime"
     Publisher="CN=FSYShu"
     Version="0.1.0.0" />
 

@@ -12,7 +12,7 @@ internal static class Program
     private const string RuntimeRegKey = @"Software\ShuRuk\Runtime";
     private const string RefCountValue = "RefCount";
     private const string InstalledAppsValue = "InstalledApps";
-    private const string RuntimePackageFamily = "Shuruk.Runtime_8wekyb3d8bbwe";
+    private const string RuntimePackageFamily = "ShuRuk.Runtime_8wekyb3d8bbwe";
 
     private static int Main(string[] args)
     {
