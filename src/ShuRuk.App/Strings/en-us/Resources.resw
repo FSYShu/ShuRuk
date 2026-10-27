@@ -118,6 +118,27 @@
   <data name="ModuleDetailReinstallButton.Content" xml:space="preserve">
     <value>Re-enable</value>
   </data>
+  <data name="ModuleDetailIdLabel.Text" xml:space="preserve">
+    <value>ID</value>
+  </data>
+  <data name="ModuleDetailAuthorLabel.Text" xml:space="preserve">
+    <value>Author</value>
+  </data>
+  <data name="ModuleDetailDescriptionLabel.Text" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="ModuleDetailIntroTab.Text" xml:space="preserve">
+    <value>Introduction</value>
+  </data>
+  <data name="ModuleDetailChangelogTab.Text" xml:space="preserve">
+    <value>Changelog</value>
+  </data>
+  <data name="ModuleDetailInstallButton.Content" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="ModuleDetailUpdateButton.Content" xml:space="preserve">
+    <value>Update</value>
+  </data>
 
   <!-- Code-behind strings (loaded via LocalizationHelper) -->
   <data name="String_DiscoverDialogInstallPrimary" xml:space="preserve">
@@ -163,6 +184,21 @@ This module will be installed from:
   </data>
   <data name="String_ModuleDetailDialogExternalContentFormat" xml:space="preserve">
     <value>External module '{0}' and its data will be permanently deleted.</value>
+  </data>
+  <data name="String_ModuleDetailAuthorUnknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="String_ModuleDetailIntroPlaceholder" xml:space="preserve">
+    <value>Introduction content will be loaded from the GitHub repository README.</value>
+  </data>
+  <data name="String_ModuleDetailChangelogPlaceholder" xml:space="preserve">
+    <value>Changelog will be loaded from GitHub Release.</value>
+  </data>
+  <data name="String_ModuleDetailNotImplementedTitle" xml:space="preserve">
+    <value>Coming Soon</value>
+  </data>
+  <data name="String_ModuleDetailNotImplementedContent" xml:space="preserve">
+    <value>This feature is not yet implemented.</value>
   </data>
 
   <!-- ModuleInstalledPage empty state -->

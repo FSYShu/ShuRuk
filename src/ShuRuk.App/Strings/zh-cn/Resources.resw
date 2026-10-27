@@ -118,6 +118,27 @@
   <data name="ModuleDetailReinstallButton.Content" xml:space="preserve">
     <value>重新启用</value>
   </data>
+  <data name="ModuleDetailIdLabel.Text" xml:space="preserve">
+    <value>ID</value>
+  </data>
+  <data name="ModuleDetailAuthorLabel.Text" xml:space="preserve">
+    <value>作者</value>
+  </data>
+  <data name="ModuleDetailDescriptionLabel.Text" xml:space="preserve">
+    <value>简介</value>
+  </data>
+  <data name="ModuleDetailIntroTab.Text" xml:space="preserve">
+    <value>介绍</value>
+  </data>
+  <data name="ModuleDetailChangelogTab.Text" xml:space="preserve">
+    <value>更新记录</value>
+  </data>
+  <data name="ModuleDetailInstallButton.Content" xml:space="preserve">
+    <value>安装</value>
+  </data>
+  <data name="ModuleDetailUpdateButton.Content" xml:space="preserve">
+    <value>更新</value>
+  </data>
 
   <!-- Code-behind strings (loaded via LocalizationHelper) -->
   <data name="String_DiscoverDialogInstallPrimary" xml:space="preserve">
@@ -163,6 +184,21 @@
   </data>
   <data name="String_ModuleDetailDialogExternalContentFormat" xml:space="preserve">
     <value>外部模块「{0}」及其数据将被永久删除。</value>
+  </data>
+  <data name="String_ModuleDetailAuthorUnknown" xml:space="preserve">
+    <value>未知</value>
+  </data>
+  <data name="String_ModuleDetailIntroPlaceholder" xml:space="preserve">
+    <value>介绍内容将从 GitHub 仓库 README 加载。</value>
+  </data>
+  <data name="String_ModuleDetailChangelogPlaceholder" xml:space="preserve">
+    <value>更新记录将从 GitHub Release 加载。</value>
+  </data>
+  <data name="String_ModuleDetailNotImplementedTitle" xml:space="preserve">
+    <value>功能开发中</value>
+  </data>
+  <data name="String_ModuleDetailNotImplementedContent" xml:space="preserve">
+    <value>此功能尚未实现。</value>
   </data>
 
   <!-- ModuleInstalledPage empty state -->

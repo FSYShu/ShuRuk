@@ -15,7 +15,8 @@
                 <Border Width="48" Height="48" CornerRadius="8"
                         Background="{ThemeResource AccentFillColorDefaultBrush}"
                         VerticalAlignment="Center">
-                    <FontIcon Glyph="&#xE896;"
+                    <FontIcon x:Name="ModuleIcon"
+                              Glyph="&#xE896;"
                               FontSize="22"
                               Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
                               HorizontalAlignment="Center"
@@ -32,13 +33,13 @@
                     OpticalMarginAlignment="TrimSideBearings" />
             </StackPanel>
 
-            <!-- Info card / 信息卡片 -->
+            <!-- Info card: ID / Author / Version / Source / State / Description / 信息卡片 -->
             <Border CornerRadius="8"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     Padding="20">
-                <Grid ColumnSpacing="16" RowSpacing="16">
+                <Grid ColumnSpacing="16" RowSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="100" />
                         <ColumnDefinition Width="*" />
@@ -47,73 +48,123 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock x:Name="ModuleDetailVersionLabel" x:Uid="ModuleDetailVersionLabel"
+                    <TextBlock x:Name="ModuleDetailIdLabel" x:Uid="ModuleDetailIdLabel"
                                Grid.Column="0" Grid.Row="0"
-                               Text="Version"
+                               Text="ID"
                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                Style="{StaticResource BodyTextBlockStyle}" />
                     <TextBlock Grid.Column="1" Grid.Row="0"
+                               x:Name="ModuleId"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock x:Name="ModuleDetailAuthorLabel" x:Uid="ModuleDetailAuthorLabel"
+                               Grid.Column="0" Grid.Row="1"
+                               Text="Author"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                               Style="{StaticResource BodyTextBlockStyle}" />
+                    <TextBlock Grid.Column="1" Grid.Row="1"
+                               x:Name="ModuleAuthor"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock x:Name="ModuleDetailVersionLabel" x:Uid="ModuleDetailVersionLabel"
+                               Grid.Column="0" Grid.Row="2"
+                               Text="Version"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                               Style="{StaticResource BodyTextBlockStyle}" />
+                    <TextBlock Grid.Column="1" Grid.Row="2"
                                x:Name="ModuleVersion"
                                Style="{StaticResource BodyTextBlockStyle}" />
 
                     <TextBlock x:Name="ModuleDetailSourceLabel" x:Uid="ModuleDetailSourceLabel"
-                               Grid.Column="0" Grid.Row="1"
+                               Grid.Column="0" Grid.Row="3"
                                Text="Source"
                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                Style="{StaticResource BodyTextBlockStyle}" />
-                    <TextBlock Grid.Column="1" Grid.Row="1"
-                               x:Name="ModuleSource"
+                    <TextBlock Grid.Column="1" Grid.Row="3"
+                               x:Name="ModuleSourceValue"
                                Style="{StaticResource BodyTextBlockStyle}" />
 
                     <TextBlock x:Name="ModuleDetailStateLabel" x:Uid="ModuleDetailStateLabel"
-                               Grid.Column="0" Grid.Row="2"
+                               Grid.Column="0" Grid.Row="4"
                                Text="State"
                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                Style="{StaticResource BodyTextBlockStyle}" />
-                    <TextBlock Grid.Column="1" Grid.Row="2"
-                               x:Name="ModuleState"
+                    <TextBlock Grid.Column="1" Grid.Row="4"
+                               x:Name="ModuleStateValue"
                                Style="{StaticResource BodyTextBlockStyle}" />
+
+                    <TextBlock x:Name="ModuleDetailDescriptionLabel" x:Uid="ModuleDetailDescriptionLabel"
+                               Grid.Column="0" Grid.Row="5"
+                               Text="Description"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                               Style="{StaticResource BodyTextBlockStyle}" />
+                    <TextBlock Grid.Column="1" Grid.Row="5"
+                               x:Name="ModuleDescriptionText"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
                 </Grid>
             </Border>
 
-            <!-- Permissions section / 权限部分 -->
-            <TextBlock
-                x:Name="ModuleDetailPermissions"
-                x:Uid="ModuleDetailPermissions"
-                Text="Permissions"
-                AutomationProperties.HeadingLevel="Level1"
-                Style="{StaticResource SubtitleTextBlockStyle}" />
+            <!-- SelectorBar: Introduction / Changelog / 选择栏切换：介绍/更新记录 -->
+            <SelectorBar x:Name="DetailSelectorBar"
+                         SelectionChanged="DetailSelectorBar_SelectionChanged">
+                <SelectorBarItem x:Name="ModuleDetailIntroTab" x:Uid="ModuleDetailIntroTab"
+                                 IsSelected="True">
+                    <SelectorBarItem.Icon>
+                        <FontIcon Glyph="&#xE7C3;" />
+                    </SelectorBarItem.Icon>
+                </SelectorBarItem>
+                <SelectorBarItem x:Name="ModuleDetailChangelogTab" x:Uid="ModuleDetailChangelogTab">
+                    <SelectorBarItem.Icon>
+                        <FontIcon Glyph="&#xECC5;" />
+                    </SelectorBarItem.Icon>
+                </SelectorBarItem>
+            </SelectorBar>
 
-            <ItemsControl x:Name="PermissionsList">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Spacing="8" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border CornerRadius="6"
-                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                Padding="14,8"
-                                HorizontalAlignment="Left">
-                            <TextBlock Text="{Binding}"
-                                       Style="{StaticResource BodyTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <!-- Content panels / 内容面板 -->
+            <Grid>
+                <TextBlock x:Name="IntroPlaceholder"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap"
+                           Visibility="Visible" />
+                <TextBlock x:Name="ChangelogPlaceholder"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap"
+                           Visibility="Collapsed" />
+            </Grid>
 
-            <!-- Action buttons / 操作按钮 -->
+            <!-- Action buttons: Install / Uninstall / Update / Re-enable / 操作按钮 -->
             <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button
+                    x:Name="ModuleDetailInstallButton"
+                    x:Uid="ModuleDetailInstallButton"
+                    Content="Install"
+                    Style="{StaticResource AccentButtonStyle}"
+                    Click="InstallButton_Click"
+                    Visibility="Collapsed" />
+
                 <Button
                     x:Name="ModuleDetailUninstallButton"
                     x:Uid="ModuleDetailUninstallButton"
                     Content="Uninstall"
                     Style="{StaticResource AccentButtonStyle}"
                     Click="UninstallButton_Click" />
+
+                <Button
+                    x:Name="ModuleDetailUpdateButton"
+                    x:Uid="ModuleDetailUpdateButton"
+                    Content="Update"
+                    Click="UpdateButton_Click"
+                    Visibility="Collapsed" />
 
                 <Button
                     x:Name="ModuleDetailReinstallButton"
