@@ -159,7 +159,7 @@ jobs:
           echo "nextPatch=$nP" >> $env:GITHUB_OUTPUT
 
       - name: Sync all csproj versions
-        if: steps.changes.outputs.rt == 'True' || steps.changes.outputs.app == 'True' || steps.changes.outputs.uh == 'True'
+        if: (steps.changes.outputs.rt == 'True' || steps.changes.outputs.app == 'True' || steps.changes.outputs.uh == 'True') && steps.changes.outputs.hasRelease == 'True'
         shell: pwsh
         run: |
           $parts = @()
@@ -278,7 +278,7 @@ jobs:
           [System.IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
           $securePwd = ConvertTo-SecureString $env:MSIX_CERT_PASSWORD -AsPlainText -Force
           $importedCert = Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePwd
-          dotnet build src/ShuRuk.App/ShuRuk.App.csproj -c Release -p:Platform=x64 -p:AppxPackageSigningEnabled=True -p:AppxPackageSigningCertificateThumbprint=$($importedCert.Thumbprint) -p:PackageVersion=$ver
+          dotnet build src/ShuRuk.App/ShuRuk.App.csproj -c Release -p:Platform=x64 -p:AppxPackageSigningEnabled=True -p:PackageCertificateThumbprint=$($importedCert.Thumbprint) -p:PackageVersion=$ver
           Get-ChildItem -Path "src/ShuRuk.App/bin" -Recurse -Filter "*.msix" | Copy-Item -Destination artifacts -Force
 
       - name: Upload artifacts
