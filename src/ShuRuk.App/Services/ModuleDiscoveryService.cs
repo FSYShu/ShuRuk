@@ -49,10 +49,11 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
         entries = sortBy?.ToLowerInvariant() switch
         {
+            "name" => entries.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList(),
             "downloads" => entries.OrderByDescending(e => e.Downloads).ToList(),
-            "rating" => entries.OrderByDescending(e => e.Rating).ToList(),
+
             "updated" => entries.OrderByDescending(e => e.UpdatedAt).ToList(),
-            _ => entries.OrderByDescending(e => e.Rating).ThenByDescending(e => e.Downloads).ToList()
+            _ => entries.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList()
         };
 
         return entries;

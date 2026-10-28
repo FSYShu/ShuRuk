@@ -14,6 +14,8 @@ internal static class AppConstants
     public const string AppDataFolderName = "ShuRuk";
     public const string CrashLogFileName = "crash.log";
     public const string AppIconPath = "Assets/ShuRuk.ico";
+    // Self repository as default changelog source in non-test mode / 非测试模式默认日志源为自身仓库
+    public const string DefaultChangelogRepoUrl = "FSYShu/ShuRuk";
 
     // HTTP client / HTTP客户端
     public const int HttpTimeoutSeconds = 30;
@@ -143,6 +145,7 @@ internal static class AppConstants
         public const string ChangelogRepoUrl = "ChangelogRepoUrl";
         public const string ChangelogSectionFilter = "ChangelogSectionFilter";
 
+
     }
 
     // Monitor sort columns / 监控页排序列
@@ -157,7 +160,8 @@ internal static class AppConstants
     // Discover sort options / 发现页排序选项
     public static class DiscoverSort
     {
-        public const string Rating = "rating";
+        public const string Name = "name";
+
         public const string Downloads = "downloads";
         public const string Updated = "updated";
     }

@@ -83,9 +83,10 @@
 
 
   <!-- ModuleDiscoverPage -->
-  <data name="DiscoverSortRating.Content" xml:space="preserve">
-    <value>Rating</value>
+  <data name="DiscoverSortName.Content" xml:space="preserve">
+    <value>Name</value>
   </data>
+
   <data name="DiscoverSortDownloads.Content" xml:space="preserve">
     <value>Downloads</value>
   </data>

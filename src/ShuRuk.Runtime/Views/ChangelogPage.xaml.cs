@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
 using ShuRuk.Runtime.Abstractions;
 using ShuRuk.Runtime.Abstractions.Interfaces;
+using ShuRuk.Runtime.Controls;
 using ShuRuk.Runtime.Helpers;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -175,6 +176,8 @@ public sealed partial class ChangelogPage : Page
             var cache = JsonSerializer.Deserialize<ChangelogCacheData>(json, JsonOpts);
             if (cache is null) return null;
             if (cache.RepoUrl != repoUrl || cache.SectionFilter != sectionFilter) return null;
+            // Invalidate old cache without ReleaseName field / 旧缓存无ReleaseName字段则失效
+            if (cache.Entries.Count > 0 && string.IsNullOrWhiteSpace(cache.Entries[0].ReleaseName)) return null;
             return cache;
         }
         catch { return null; }
@@ -254,11 +257,15 @@ public sealed partial class ChangelogPage : Page
         ShowImagesToggle.IsChecked = _showImages;
         ToolTipService.SetToolTip(ShowImagesToggle,
             RuntimeLocalizationHelper.GetString(_showImages ? "RuntimeChangelogHideImages" : "RuntimeChangelogShowImages"));
+        ToolTipService.SetToolTip(RefreshButton, RuntimeLocalizationHelper.GetString("RuntimeChangelogRefresh"));
         _filterTag = prefs.FilterTag;
         FilterButton.Content = _filterTag == FilterTagExcludePrerelease ? FilterExcludePrereleaseText : FilterAllText;
 
         var provider = RuntimeServices.ChangelogDataProvider;
-        if (provider is null || !provider.IsAvailable)
+        // Test mode with empty state: skip fetch, show empty / 测试模式空状态:跳过获取显示空状态
+        var testMode = RuntimeServices.TestModeService;
+        if (provider is null || !provider.IsAvailable ||
+            (testMode is not null && testMode.IsEnabled && !testMode.IsFillDataEnabled))
         {
             Entries = [];
             return;
@@ -276,26 +283,58 @@ public sealed partial class ChangelogPage : Page
         }
         else
         {
-            // No cache: full load with loading overlay / 无缓存:全量加载带遮罩
+            // No cache: streaming load with progressive display / 无缓存:流式加载渐进显示
+            _loadStartTime = DateTime.UtcNow;
+            _isLoadingOverlayActive = true;
             IsLoading = true;
             LoadingText = RuntimeLocalizationHelper.GetString("RuntimeChangelogLoading");
             try
             {
-                var entries = await provider.GetEntriesAsync(repoUrl, sectionFilter);
-                IsLoading = false;
-                Entries = entries;
-                await SaveCacheAsync(repoUrl, sectionFilter, entries);
+                var allEntries = new List<ChangelogEntry>();
+                var firstBatch = true;
+                await provider.GetEntriesStreamingAsync(repoUrl, sectionFilter, batch =>
+                {
+                    allEntries.AddRange(batch);
+                    // Marshal to UI thread to append entries / 切换UI线程追加条目
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        if (firstBatch)
+                        {
+                            firstBatch = false;
+                            HideLoadingAndRevealAfterMinTime();
+                        }
+                        // Add to source and filtered list, let LoadMore handle display / 添加到源和过滤列表,由LoadMore控制显示
+                        foreach (var entry in batch)
+                        {
+                            if (string.IsNullOrWhiteSpace(entry.ReleaseName)) entry.ReleaseName = entry.Version;
+                            entry.Segments = ChangelogSegment.Parse(entry.Notes);
+                            entry.InitializeVisibleSegments();
+                            _sourceEntries.Add(entry);
+                            if (_filterTag == FilterTagAll || !entry.IsPrerelease)
+                            {
+                                _allEntries.Add(entry);
+                            }
+                        }
+                        // Show content only after loading overlay hidden / 仅加载遮罩隐藏后才显示内容
+                        if (!_isLoadingOverlayActive)
+                        {
+                            if (_displayItems.Count < BatchSize) LoadMore();
+                            UpdateNavButtons();
+                            UpdateEmptyState();
+                        }
+                    });
+                });
+                HideLoadingAndRevealAfterMinTime();
+                await SaveCacheAsync(repoUrl, sectionFilter, allEntries);
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"ChangelogPage fetch failed: {ex}");
-                IsLoading = false;
-                Entries = [new ChangelogEntry
-                {
-                    Version = "Error",
-                    Date = DateTime.UtcNow.ToString("yyyy-MM-dd"),
-                    Notes = $"Failed to fetch: {ex.Message}"
-                }];
+                _isLoadingOverlayActive = false;
+                _sourceEntries.Clear();
+                _allEntries.Clear();
+                _displayItems.Clear();
+                HideLoadingAndShowErrorAfterMinTime(ex.Message);
             }
         }
     }
@@ -312,6 +351,7 @@ public sealed partial class ChangelogPage : Page
             DispatcherQueue.TryEnqueue(() =>
             {
                 // Parse segments for new entries / 为新条目解析段
+                _cardHeightCache.Clear();
                 foreach (var entry in newEntries)
                 {
                     entry.Segments = ChangelogSegment.Parse(entry.Notes);
@@ -330,13 +370,7 @@ public sealed partial class ChangelogPage : Page
                     }
                 }
 
-                // Ensure filter controls visible / 确保过滤控件可见
-                if (_sourceEntries.Count > 0)
-                {
-                    FilterBorder.Visibility = Visibility.Visible;
-                    ImageToggleBorder.Visibility = Visibility.Visible;
-                    NavButtonsPanel.Visibility = Visibility.Visible;
-                }
+
                 UpdateNavButtons();
                 UpdateEmptyState();
             });
@@ -350,8 +384,101 @@ public sealed partial class ChangelogPage : Page
         }
     }
 
+    // Refresh: delete cache and full reload / 刷新:删除缓存并全量重新加载
+    private async void RefreshButton_Click(object sender, RoutedEventArgs e)
+    {
+        var provider = RuntimeServices.ChangelogDataProvider;
+        var testMode = RuntimeServices.TestModeService;
+        // Test mode empty state: show loading animation then keep empty / 测试模式空状态:显示加载动画后保持空状态
+        var isTestEmptyState = testMode is not null && testMode.IsEnabled && !testMode.IsFillDataEnabled;
 
+        // Reuse loading overlay instead of in-button animation / 复用加载遮罩而非按钮内动画
+        _loadStartTime = DateTime.UtcNow;
+        _isLoadingOverlayActive = true;
+        IsLoading = true;
+        LoadingText = RuntimeLocalizationHelper.GetString("RuntimeChangelogLoading");
+        RefreshButton.IsEnabled = false;
 
+        if (isTestEmptyState)
+        {
+            // Min display time then restore empty state / 最小展示时间后恢复空状态
+            await Task.Delay(MinLoadTimeMs);
+            _isLoadingOverlayActive = false;
+            IsLoading = false;
+            RefreshButton.IsEnabled = true;
+            _sourceEntries.Clear();
+            _allEntries.Clear();
+            _displayItems.Clear();
+            UpdateEmptyState();
+            return;
+        }
+
+        if (provider is null || !provider.IsAvailable || string.IsNullOrEmpty(_currentRepoUrl))
+        {
+            _isLoadingOverlayActive = false;
+            HideLoadingAfterMinTime();
+            RefreshButton.IsEnabled = true;
+            return;
+        }
+
+        try
+        {
+            // Delete cache file for current repo+filter / 删除当前仓库+过滤的缓存文件
+            var cachePath = GetCachePath(_currentRepoUrl, _currentSectionFilter);
+            if (File.Exists(cachePath)) File.Delete(cachePath);
+
+            // Clear current display before streaming reload / 流式重新加载前清空当前显示
+            _cardHeightCache.Clear();
+            _sourceEntries.Clear();
+            _allEntries.Clear();
+            _displayItems.Clear();
+
+            var allEntries = new List<ChangelogEntry>();
+            var firstBatch = true;
+
+            await provider.GetEntriesStreamingAsync(_currentRepoUrl, _currentSectionFilter, batch =>
+            {
+                allEntries.AddRange(batch);
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (firstBatch) { firstBatch = false; HideLoadingAndRevealAfterMinTime(); }
+                    foreach (var entry in batch)
+                    {
+                        if (string.IsNullOrWhiteSpace(entry.ReleaseName)) entry.ReleaseName = entry.Version;
+                        entry.Segments = ChangelogSegment.Parse(entry.Notes);
+                        entry.InitializeVisibleSegments();
+                        _sourceEntries.Add(entry);
+                        if (_filterTag == FilterTagAll || !entry.IsPrerelease)
+                        {
+                            _allEntries.Add(entry);
+                        }
+                    }
+                    // Show content only after loading overlay hidden / 仅加载遮罩隐藏后才显示内容
+                    if (!_isLoadingOverlayActive)
+                    {
+                        if (_displayItems.Count < BatchSize) LoadMore();
+                        UpdateNavButtons();
+                        UpdateEmptyState();
+                    }
+                });
+            });
+            await SaveCacheAsync(_currentRepoUrl, _currentSectionFilter, allEntries);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Changelog refresh failed: {ex}");
+            _isLoadingOverlayActive = false;
+            _sourceEntries.Clear();
+            _allEntries.Clear();
+            _displayItems.Clear();
+            HideLoadingAndShowErrorAfterMinTime(ex.Message);
+        }
+        finally
+        {
+            HideLoadingAndRevealAfterMinTime();
+            RefreshButton.IsEnabled = true;
+        }
+    }
 
     // Find ProgressRing sibling in same Grid / 在同一Grid中查找ProgressRing
     private static ProgressRing? FindLoadingRing(Image img)
@@ -393,7 +520,7 @@ public sealed partial class ChangelogPage : Page
         {
             _lastExpandedEntry = null;
             _lastExpandedIndex = -1;
-            CollapseFloatingButton.Visibility = Visibility.Collapsed;
+            CollapseFloatingBorder.Visibility = Visibility.Collapsed;
         }
     }
 
@@ -402,62 +529,169 @@ public sealed partial class ChangelogPage : Page
         if (d is ChangelogPage page)
         {
             // Store source entries then apply filter / 存储原始条目后应用过滤
+            page._cardHeightCache.Clear();
             page._sourceEntries.Clear();
             page._sourceEntries.AddRange(page.Entries ?? []);
             // Parse segments for each entry / 为每个条目解析段
             foreach (var entry in page._sourceEntries)
             {
+                // Fallback ReleaseName to Version for old cache without name / 旧缓存无name时回退到版本号
+                if (string.IsNullOrWhiteSpace(entry.ReleaseName)) entry.ReleaseName = entry.Version;
                 entry.Segments = ChangelogSegment.Parse(entry.Notes);
                 entry.InitializeVisibleSegments();
             }
             page.ApplyFilter();
-            // Show filter and play appear animation / 显示过滤按钮并播放出现动画
-            if (page._sourceEntries.Count > 0)
-            {
-                page.FilterBorder.Visibility = Visibility.Visible;
-                // Sync DropDownButton content with restored filter tag / 同步DropDownButton显示与恢复的过滤标签
-                page.FilterButton.Content = page._filterTag == FilterTagExcludePrerelease
-                    ? page.FilterExcludePrereleaseText : page.FilterAllText;
-                page.ImageToggleBorder.Visibility = Visibility.Visible;
-                page.NavButtonsPanel.Visibility = Visibility.Visible;
-            }
-            else
-            {
-                page.NavButtonsPanel.Visibility = Visibility.Collapsed;
-            }
+            // Sync DropDownButton content with restored filter tag / 同步DropDownButton显示与恢复的过滤标签
+            page.FilterButton.Content = page._filterTag == FilterTagExcludePrerelease
+                ? page.FilterExcludePrereleaseText : page.FilterAllText;
             page.UpdateNavButtons();
+            // Hide error state only when data successfully loaded / 仅成功加载数据时隐藏错误状态
+            if (page._sourceEntries.Count > 0) FadeOut(page.ErrorState);
             page.PlayAppearAnimation();
         }
     }
 
-    // Fade-in + slide-up animation for content / 内容淡入+上滑动画
-    private void PlayAppearAnimation()
+    // Animation constants / 动画常量
+    private const int SlideInAnimMs = 150;   // Slide-in duration (content/cards) / 滑入时长(内容/卡片)
+    private const int StateAnimMs = 300;     // State transition duration / 状态切换时长
+    private const double CardSlideDistance = 16;  // Card slide-up distance / 卡片上滑距离
+    private const double PanelSlideDistance = 20; // Panel slide-up distance / 面板上滑距离
+
+    // Play slide-up + fade-in with CubicEase on element / 上滑+淡入动画(CubicEase缓动)
+    private static void PlaySlideInAnimation(FrameworkElement element, double fromY, int durationMs)
     {
+        element.Opacity = 0;
+        var tt = element.RenderTransform as TranslateTransform ?? new TranslateTransform();
+        tt.Y = fromY;
+        element.RenderTransform = tt;
+        var sb = new Storyboard();
         var opacityAnim = new DoubleAnimation
         {
-            From = 0,
-            To = 1,
-            Duration = TimeSpan.FromMilliseconds(300),
+            From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(durationMs),
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
-        Storyboard.SetTarget(opacityAnim, ContentPanel);
+        Storyboard.SetTarget(opacityAnim, element);
         Storyboard.SetTargetProperty(opacityAnim, "Opacity");
-
-        var slideAnim = new DoubleAnimation
+        sb.Children.Add(opacityAnim);
+        var yAnim = new DoubleAnimation
         {
-            From = 20,
-            To = 0,
-            Duration = TimeSpan.FromMilliseconds(300),
+            From = fromY, To = 0, Duration = TimeSpan.FromMilliseconds(durationMs),
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
-        Storyboard.SetTarget(slideAnim, ContentPanel);
-        Storyboard.SetTargetProperty(slideAnim, "(UIElement.RenderTransform).(TranslateTransform.Y)");
-
-        var sb = new Storyboard();
-        sb.Children.Add(opacityAnim);
-        sb.Children.Add(slideAnim);
+        Storyboard.SetTarget(yAnim, tt);
+        Storyboard.SetTargetProperty(yAnim, "Y");
+        sb.Children.Add(yAnim);
         sb.Begin();
     }
+
+    // Content panel appear animation / 内容面板出现动画
+    private void PlayAppearAnimation() => PlaySlideInAnimation(ContentPanel, PanelSlideDistance, SlideInAnimMs);
+
+    // Track rendered card height for nav offset calculation / 追踪卡片渲染高度供导航偏移计算
+    private void CardGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is not FrameworkElement element) return;
+        try
+        {
+            int idx = ChangelogRepeater.GetElementIndex(element);
+            if (idx >= 0) _cardHeightCache[idx] = e.NewSize.Height;
+        }
+        catch { }
+    }
+
+    // Card appear animation / 卡片出现动画
+    private void CardGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement element) return;
+        // Track height changes for nav offset cache / 追踪高度变化供导航偏移缓存
+        element.SizeChanged += CardGrid_SizeChanged;
+        if (!_isLoadingOverlayActive)
+        {
+            if (_isNavigating)
+            {
+                // Navigation-induced realization (virtualization re-cycle): show immediately / 导航触发的实现(虚拟化回收):立即显示
+                // without slide-in, else RenderTransform.Y=16 pollutes TransformToVisual / 否则RenderTransform.Y=16污染TransformToVisual
+                // and shifts the card mid-version / 并使卡片停在版本中间
+                element.Opacity = 1;
+                if (element.RenderTransform is TranslateTransform tt) tt.Y = 0;
+                NavLog($"CardGrid_Loaded: NAV mode, set Opacity=1 Y=0");
+            }
+            else
+            {
+                // Scroll-loaded card: animate directly / 滚动加载的卡片:直接动画
+                NavLog($"CardGrid_Loaded: slide-in animation (Y={CardSlideDistance})");
+                PlaySlideInAnimation(element, CardSlideDistance, SlideInAnimMs);
+            }
+        }
+        // Initial load: XAML already sets Opacity=0; RevealContent animates later / 初始加载:XAML已设Opacity=0,RevealContent稍后动画
+    }
+
+
+    // Refresh all MarqueeText controls inside a card element / 刷新卡片内所有跑马灯控件
+    private static void RefreshMarqueeInCard(DependencyObject root)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is MarqueeText mt) mt.Refresh();
+            else RefreshMarqueeInCard(child);
+        }
+    }
+
+    // Minimum loading display time / 最小加载展示时间
+    private const int MinLoadTimeMs = 1000;
+    private DateTime _loadStartTime;
+    // Whether loading overlay is active (defers card display) / 加载遮罩激活中(延迟卡片显示)
+    private bool _isLoadingOverlayActive;
+
+    // Run action on UI thread after minimum load time elapsed / 最小加载时间后在UI线程执行操作
+    private void RunAfterMinTime(Action action)
+    {
+        var remaining = TimeSpan.FromMilliseconds(MinLoadTimeMs) - (DateTime.UtcNow - _loadStartTime);
+        if (remaining > TimeSpan.Zero)
+            _ = Task.Delay(remaining).ContinueWith(_ => DispatcherQueue.TryEnqueue(() => action()));
+        else
+            action();
+    }
+
+    // Hide loading overlay after min time / 最小时间后隐藏加载遮罩
+    private void HideLoadingAfterMinTime() => RunAfterMinTime(() => IsLoading = false);
+
+    // Hide overlay after min time then reveal content / 最小时间后隐藏遮罩并显示内容
+    private void HideLoadingAndRevealAfterMinTime() => RunAfterMinTime(RevealContent);
+
+    // Reveal content: clear overlay flag, hide overlay, show cards (guarded against double-call) / 显示内容:清遮罩标志,隐藏遮罩,显示卡片(防止重复调用)
+    private void RevealContent()
+    {
+        if (!_isLoadingOverlayActive) return;
+        _isLoadingOverlayActive = false;
+        IsLoading = false;
+        PlayAppearAnimation();
+        int prevCount = _displayItems.Count;
+        LoadMore();
+        // Defer to next frame: let MarqueeText initialize before card animation / 延迟到下一帧:让跑马灯在卡片动画前初始化
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            for (int i = prevCount; i < _displayItems.Count; i++)
+            {
+                try
+                {
+                    if (ChangelogRepeater.GetOrCreateElement(i) is FrameworkElement fe)
+                    {
+                        PlaySlideInAnimation(fe, CardSlideDistance, SlideInAnimMs);
+                        RefreshMarqueeInCard(fe);
+                    }
+                }
+                catch { }
+            }
+            UpdateEmptyState();
+            UpdateNavButtons();
+        });
+    }
+
+    // Hide overlay after min time then show error state / 最小时间后隐藏遮罩并显示错误状态
+    private void HideLoadingAndShowErrorAfterMinTime(string errorMessage)
+        => RunAfterMinTime(() => { IsLoading = false; ShowErrorState(errorMessage); });
 
     // Filter tag constants / 过滤标签常量
     private const string FilterTagAll = "all";
@@ -469,6 +703,7 @@ public sealed partial class ChangelogPage : Page
     private void ApplyFilter()
     {
         var excludePrerelease = _filterTag == FilterTagExcludePrerelease;
+        _cardHeightCache.Clear();
         _allEntries.Clear();
         // Inline filter avoids LINQ iterator allocation / 内联过滤避免LINQ迭代器分配
         foreach (var entry in _sourceEntries)
@@ -535,6 +770,19 @@ public sealed partial class ChangelogPage : Page
     }
 
 
+    // Nav debug log to %LOCALAPPDATA%\ShuRuk\nav_log.txt / 导航调试日志
+    private static void NavLog(string msg)
+    {
+        try
+        {
+            var dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ShuRuk");
+            System.IO.Directory.CreateDirectory(dir);
+            System.IO.File.AppendAllText(System.IO.Path.Combine(dir, "nav_log.txt"),
+                $"{DateTime.Now:HH:mm:ss.fff} {msg}\n");
+        }
+        catch { }
+    }
+
     private void LoadMore()
     {
         var toLoad = Math.Min(BatchSize, _allEntries.Count - _displayItems.Count);
@@ -544,19 +792,50 @@ public sealed partial class ChangelogPage : Page
         }
     }
 
+    // Cache of rendered card heights by index / 卡片渲染高度缓存(按索引)
+    // Fixes PREV nav drift: prev card virtualized → ActualHeight is unrendered height / 修复PREV导航偏移:prev卡片虚拟化回收后ActualHeight为未渲染高度
+    private readonly Dictionary<int, double> _cardHeightCache = [];
+
     // Navigation re-entrancy guard / 导航重入保护
     private bool _isNavigating;
+    // Scroll animation in progress (programmatic nav) / 编程导航滚动动画进行中
+    private bool _isScrollAnimating;
+    // Target vertical offset for current nav animation / 当前导航动画目标垂直偏移
+    private double _navTargetOffset;
+    // Offset tolerance to treat scroll as settled (px) / 视为滚动稳定的偏移容差(像素)
+    private const double NavSettleTolerance = 1.5;
+    // UI update queued to next frame (dedup) / 已排队到下一帧的UI更新(去重)
+    private bool _uiUpdateQueued;
+
 
     // Load more when scrolled near bottom / 滚动接近底部时加载更多
     private void ChangelogScrollViewer_ViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
     {
         var sv = (ScrollViewer)sender;
-        // Skip all updates during programmatic navigation / 编程导航期间跳过所有更新
-        if (!_isNavigating)
+        // Detect scroll animation end: non-intermediate AND offset reached target / 检测滚动动画结束:非中间帧且偏移已达目标
+        if (_isNavigating && _isScrollAnimating && !e.IsIntermediate &&
+            Math.Abs(sv.VerticalOffset - _navTargetOffset) <= NavSettleTolerance)
         {
-            UpdateStickyVersionInfo();
-            UpdateNavButtons();
-            UpdateCollapseButton();
+            NavLog($"ViewChanged: ANIM END offset={sv.VerticalOffset:F1} target={_navTargetOffset:F1} -> defer FinishNavigation");
+            _isScrollAnimating = false;
+            _navSettleTimer?.Stop();
+            // Defer to next frame: FinishNavigation touches layout, / 延迟到下一帧:FinishNavigation触发布局
+            // calling synchronously in ViewChanged callback causes LayoutCycleException / 在ViewChanged回调中同步调用会触发LayoutCycleException
+            DispatcherQueue.TryEnqueue(FinishNavigation);
+        }
+        // Skip all updates during programmatic navigation / 编程导航期间跳过所有更新
+        if (!_isNavigating && !_uiUpdateQueued)
+        {
+            // Defer sticky/nav/collapse updates: they touch Visibility/UpdateLayout, / 延迟sticky/nav/collapse更新:它们修改Visibility/UpdateLayout
+            // running synchronously in the layout-driven ViewChanged callback causes LayoutCycleException / 在布局驱动的ViewChanged回调中同步执行会触发LayoutCycleException
+            _uiUpdateQueued = true;
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _uiUpdateQueued = false;
+                UpdateStickyVersionInfo();
+                UpdateNavButtons();
+                UpdateCollapseButton();
+            });
         }
         if (sv.VerticalOffset >= sv.ScrollableHeight - 200 && _displayItems.Count < _allEntries.Count)
         {
@@ -576,19 +855,19 @@ public sealed partial class ChangelogPage : Page
     {
         if (_lastExpandedEntry is null || !_lastExpandedEntry.IsExpanded || _lastExpandedIndex < 0 || _lastExpandedIndex >= _displayItems.Count)
         {
-            CollapseFloatingButton.Visibility = Visibility.Collapsed;
+            CollapseFloatingBorder.Visibility = Visibility.Collapsed;
             return;
         }
         var top = GetItemTop(_lastExpandedIndex);
-        if (top is null) { CollapseFloatingButton.Visibility = Visibility.Collapsed; return; }
+        if (top is null) { CollapseFloatingBorder.Visibility = Visibility.Collapsed; return; }
         try
         {
             var el = ChangelogRepeater.GetOrCreateElement(_lastExpandedIndex);
-            if (el is not FrameworkElement fe) { CollapseFloatingButton.Visibility = Visibility.Collapsed; return; }
+            if (el is not FrameworkElement fe) { CollapseFloatingBorder.Visibility = Visibility.Collapsed; return; }
             double bottom = top.Value + fe.ActualHeight;
-            CollapseFloatingButton.Visibility = bottom > ChangelogScrollViewer.ViewportHeight ? Visibility.Visible : Visibility.Collapsed;
+            CollapseFloatingBorder.Visibility = bottom > ChangelogScrollViewer.ViewportHeight ? Visibility.Visible : Visibility.Collapsed;
         }
-        catch { CollapseFloatingButton.Visibility = Visibility.Collapsed; }
+        catch { CollapseFloatingBorder.Visibility = Visibility.Collapsed; }
     }
 
     private void CollapseFloatingButton_Click(object sender, RoutedEventArgs e)
@@ -596,7 +875,7 @@ public sealed partial class ChangelogPage : Page
         if (_lastExpandedEntry is not null) _lastExpandedEntry.IsExpanded = false;
         _lastExpandedEntry = null;
         _lastExpandedIndex = -1;
-        CollapseFloatingButton.Visibility = Visibility.Collapsed;
+        CollapseFloatingBorder.Visibility = Visibility.Collapsed;
     }
 
     // Sticky overlay: pin version info when card scrolls past top, push up by next / sticky覆盖层:卡片滚过顶部时固定版本信息,被下一项顶上去
@@ -613,6 +892,7 @@ public sealed partial class ChangelogPage : Page
         int firstVisibleIdx = FindFirstVisibleIndex();
         if (firstVisibleIdx <= 0)
         {
+            NavLog($"UpdateSticky: firstVisible={firstVisibleIdx} -> hide sticky");
             StickyVersionPanel.Visibility = Visibility.Collapsed;
             RestoreHiddenVersionPanel();
             _stickyEntryIndex = -1;
@@ -625,6 +905,7 @@ public sealed partial class ChangelogPage : Page
         // Sticky shows the previous item which scrolled past top / sticky显示前一个已滚出视口的项
         int stickyIdx = firstVisibleIdx - 1;
         HideOriginalVersionInfo(stickyIdx);
+        NavLog($"UpdateSticky: firstVisible={firstVisibleIdx} top={firstVisibleTop.Value:F1} stickyIdx={stickyIdx} prevSticky={_stickyEntryIndex}");
 
         if (stickyIdx != _stickyEntryIndex)
         {
@@ -675,8 +956,8 @@ public sealed partial class ChangelogPage : Page
         if (StickyVersionPanel.RenderTransform is TranslateTransform panelTt)
         {
             double panelHeight = StickyVersionPanel.ActualHeight;
-            // Card spacing 10 + sticky margin 8 / 卡片间距10+sticky边距8
-            double offsetY = Math.Min(0, firstVisibleTop - 10 - 8 - panelHeight);
+            // Card spacing 10 + extra gap 6 + sticky margin 8 / 卡片间距10+额外间距6+sticky边距8
+            double offsetY = Math.Min(0, firstVisibleTop - 10 - 6 - 8 - panelHeight);
             panelTt.Y = offsetY;
         }
     }
@@ -685,6 +966,7 @@ public sealed partial class ChangelogPage : Page
     private void PrevVersionButton_Click(object sender, RoutedEventArgs e)
     {
         int idx = FindFirstVisibleIndex();
+        NavLog($"PREV click: firstVisible={idx} count={_displayItems.Count} offset={ChangelogScrollViewer.VerticalOffset:F1}");
         if (idx > 0) ScrollToItem(idx - 1);
     }
 
@@ -692,6 +974,7 @@ public sealed partial class ChangelogPage : Page
     private void NextVersionButton_Click(object sender, RoutedEventArgs e)
     {
         int idx = FindFirstVisibleIndex();
+        NavLog($"NEXT click: firstVisible={idx} count={_displayItems.Count} offset={ChangelogScrollViewer.VerticalOffset:F1}");
         if (idx >= 0 && idx < _displayItems.Count - 1) ScrollToItem(idx + 1);
     }
 
@@ -709,7 +992,7 @@ public sealed partial class ChangelogPage : Page
         {
             double? top = GetItemTop(i);
             if (top is null) continue;
-            if (top.Value >= 0) { visibleIdx = i; break; }
+            if (top.Value >= -FirstVisibleTolerance) { visibleIdx = i; NavLog($"  FFV P1a: hint={hint} i={i} top={top.Value:F1} -> visibleIdx={i}"); break; }
         }
 
         // Phase 1b: search backward if not found forward / 第一阶段b:向前未找到则向后搜索
@@ -719,11 +1002,11 @@ public sealed partial class ChangelogPage : Page
             {
                 double? top = GetItemTop(i);
                 if (top is null) continue;
-                if (top.Value >= 0) { visibleIdx = i; break; }
+                if (top.Value >= -FirstVisibleTolerance) { visibleIdx = i; NavLog($"  FFV P1b: hint={hint} i={i} top={top.Value:F1} -> visibleIdx={i}"); break; }
             }
         }
 
-        if (visibleIdx == -1) return -1;
+        if (visibleIdx == -1) { NavLog($"  FFV: hint={hint} -> -1 (none found)"); return -1; }
 
         // Phase 2: scan backwards to find earliest visible item / 第二阶段:向前扫描找最早可见项
         // Top positions are monotonically increasing, stop at first negative / 顶部位置单调递增,遇到负值即停止
@@ -731,30 +1014,38 @@ public sealed partial class ChangelogPage : Page
         {
             double? top = GetItemTop(i);
             if (top is null) continue;
-            if (top.Value >= 0) visibleIdx = i;
-            else break;
+            if (top.Value >= -FirstVisibleTolerance) visibleIdx = i;
+            else { NavLog($"  FFV P2: stop at i={i} top={top.Value:F1} final visibleIdx={visibleIdx}"); break; }
         }
 
+        NavLog($"  FFV result: {visibleIdx} (hint={hint} stickyEntry={_stickyEntryIndex})");
         return visibleIdx;
     }
 
-    // Navigation settle timer delay (ms) / 导航稳定定时器延迟(毫秒)
+    // Tolerance for treating item as visible (px), absorbs sub-pixel drift / 视为可见的容差(像素),吸收亚像素漂移
+    private const double FirstVisibleTolerance = 2.0;
+    // Card bottom margin in XAML (spacing between cards) / XAML中卡片底部边距(卡片间距)
+    private const double CardSpacing = 10.0;
+    // Navigation settle fallback timer delay (ms) / 导航稳定兜底定时器延迟(毫秒)
     private const int NavSettleDelayMs = 300;
-
     // Active navigation settle timer / 当前导航稳定定时器
     private DispatcherTimer? _navSettleTimer;
 
-    // Scroll to item so its top aligns with viewport top / 滚动使条目顶部对齐视口顶部
+    // Scroll so previous card's bottom aligns with viewport top (first card → page top) / 滚动使上一卡片底部对齐视口顶部(首卡片→页面顶部)
     private void ScrollToItem(int index)
     {
-        if (index < 0 || index >= _displayItems.Count) return;
-        if (_isNavigating) return; // Prevent rapid clicks / 防止快速重复点击
+        if (index < 0 || index >= _displayItems.Count) { NavLog($"ScrollToItem SKIP: index={index} count={_displayItems.Count}"); return; }
+        if (_isNavigating) { NavLog($"ScrollToItem BLOCKED by _isNavigating: index={index}"); return; }
+
+        NavLog($"ScrollToItem START: index={index} curOffset={ChangelogScrollViewer.VerticalOffset:F1} scrollable={ChangelogScrollViewer.ScrollableHeight:F1}");
 
         // Ensure target item is loaded / 确保目标条目已加载
         while (_displayItems.Count <= index && _displayItems.Count < _allEntries.Count)
             LoadMore();
 
         _isNavigating = true;
+        _isScrollAnimating = true;
+
         PrevVersionButton.IsEnabled = false;
         NextVersionButton.IsEnabled = false;
 
@@ -763,41 +1054,228 @@ public sealed partial class ChangelogPage : Page
         RestoreHiddenVersionPanel();
         _stickyEntryIndex = -1;
 
-        // Defer position calc to after layout / 延迟到布局后计算位置
+        // Calculate target offset from firstVisible (accurate) + accumulated heights / 从firstVisible(准确)累加高度计算目标偏移
         DispatcherQueue.TryEnqueue(() =>
         {
-            double? top = GetItemTop(index);
-            if (top is null)
-            {
-                FinishNavigation();
-                return;
-            }
-            // Clamp to valid scroll range / 限制到有效滚动范围
-            double targetOffset = Math.Clamp(
-                ChangelogScrollViewer.VerticalOffset + top.Value,
-                0, ChangelogScrollViewer.ScrollableHeight);
-            // Animated scroll (disableAnimation=false) / 带动画滚动
-            ChangelogScrollViewer.ChangeView(null, targetOffset, null, false);
+            if (index == 0) { ExecuteScrollTo(0); return; }
 
-            // Update sticky after animation settles / 动画稳定后更新sticky
-            _navSettleTimer?.Stop();
-            _navSettleTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(NavSettleDelayMs) };
-            _navSettleTimer.Tick += OnNavSettleTimerTick;
-            _navSettleTimer.Start();
+            int firstVisible = FindFirstVisibleIndex();
+            if (firstVisible < 0) { NavLog($"  firstVisible=-1, fallback"); CalculateAndScrollTo(index); return; }
+
+            double? firstTop = GetItemTop(firstVisible);
+            if (firstTop is null) { NavLog($"  firstTop null, fallback"); CalculateAndScrollTo(index); return; }
+
+            double curOffset = ChangelogScrollViewer.VerticalOffset;
+            double firstAbs = curOffset + firstTop.Value;
+
+            if (index > firstVisible)
+            {
+                // NEXT: accumulate heights forward from firstVisible / 向下从firstVisible累加高度
+                double accum = firstAbs;
+                for (int i = firstVisible; i < index; i++)
+                {
+                    double h = GetRenderedCardHeight(i);
+                    accum += h + CardSpacing;
+                    NavLog($"  NEXT accum: i={i} h={h:F1} accum={accum:F1}");
+                }
+                double targetOffset = accum - CardSpacing;
+                NavLog($"  NEXT calc: firstVisible={firstVisible} firstTop={firstTop.Value:F1} h[firstVisible]={GetRenderedCardHeight(firstVisible):F1} targetOffset={targetOffset:F1}");
+                ExecuteScrollTo(targetOffset);
+            }
+            else if (index < firstVisible)
+            {
+                // PREV: poll target card ActualHeight until stable, then calculate / PREV:轮询目标卡片ActualHeight直到稳定再计算
+                PrevPollAndScroll(firstVisible, index, firstAbs, firstTop.Value);
+            }
+            else
+            {
+                // index == firstVisible, no scroll needed / 目标即当前,无需滚动
+                FinishNavigation();
+            }
         });
     }
 
-    // Navigation settle timer callback / 导航稳定定时器回调
+    // Get rendered card height from ActualHeight (accurate for visible cards) / 从ActualHeight获取已渲染卡片高度(可见卡片准确)
+    private double GetRenderedCardHeight(int index)
+    {
+        try
+        {
+            var el = ChangelogRepeater.GetOrCreateElement(index);
+            if (el is FrameworkElement fe) return fe.ActualHeight;
+        }
+        catch { }
+        return 0;
+    }
+
+    // Get cached card height, fall back to ActualHeight if realized / 获取缓存卡片高度,未缓存则尝试ActualHeight
+    private double GetCachedCardHeight(int index)
+    {
+        if (_cardHeightCache.TryGetValue(index, out double h) && h > 0) return h;
+        return GetRenderedCardHeight(index);
+    }
+
+    // Poll interval for PREV height stability check / PREV高度稳定性轮询间隔
+    private const int PrevPollIntervalMs = 50;
+    // Max polls before proceeding with current height / 最大轮询次数(超时则用当前高度)
+    private const int PrevPollMaxCount = 8;
+
+    // PREV: poll target card ActualHeight until stable, then scroll / PREV:轮询目标卡片ActualHeight直到稳定再滚动
+    private void PrevPollAndScroll(int firstVisible, int target, double firstAbs, double firstTop)
+    {
+        FrameworkElement? targetEl = null;
+        try { targetEl = ChangelogRepeater.GetOrCreateElement(target) as FrameworkElement; } catch { }
+        if (targetEl is null)
+        {
+            NavLog($"  PREV poll: targetEl null, fallback to GetItemTop");
+            CalculateAndScrollTo(target);
+            return;
+        }
+
+        ChangelogRepeater.UpdateLayout();
+        double prevHeight = targetEl.ActualHeight;
+        var pollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(PrevPollIntervalMs) };
+        int stableCount = 0;
+        int pollCount = 0;
+
+        pollTimer.Tick += (_, _) =>
+        {
+            pollCount++;
+            double curHeight = targetEl.ActualHeight;
+
+            if (curHeight <= 0) { stableCount = 0; }
+            else if (Math.Abs(curHeight - prevHeight) < 1.0) { stableCount++; }
+            else
+            {
+                stableCount = 0;
+                NavLog($"  PREV poll: h {prevHeight:F1} -> {curHeight:F1}");
+            }
+            prevHeight = curHeight;
+
+            if (stableCount >= 2 || pollCount >= PrevPollMaxCount)
+            {
+                pollTimer.Stop();
+                if (!_isNavigating) return;
+
+                // Calculate from firstVisible + stable target height / 用firstVisible和稳定的target高度计算
+                double accum = firstAbs;
+                for (int i = firstVisible - 1; i >= target; i--)
+                {
+                    double h = (i == target) ? curHeight : GetCachedCardHeight(i);
+                    accum -= h + CardSpacing;
+                }
+                double targetOffset = accum - CardSpacing;
+                NavLog($"  PREV calc (poll): polls={pollCount} stable={stableCount} h={curHeight:F1} firstTop={firstTop:F1} targetOffset={targetOffset:F1}");
+                ExecuteScrollTo(targetOffset);
+            }
+        };
+        pollTimer.Start();
+        NavLog($"  PREV poll start: target={target} initial h={prevHeight:F1}");
+    }
+
+    // Debounce delay after last SizeChanged before treating render as stable / 最后一次SizeChanged后的防抖延迟(视为渲染稳定)
+    private const int RenderDebounceMs = 80;
+    // Max wait for render stability before proceeding with current height / 渲染稳定最大等待时间(超时则用当前高度)
+    private const int RenderMaxWaitMs = 500;
+
+    // Wait for target card's SizeChanged to settle, then scroll / 等待目标卡片SizeChanged稳定后再滚动
+    private void WaitForRenderStableAndScroll(FrameworkElement element, int index)
+    {
+        var debounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(RenderDebounceMs) };
+        var maxTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(RenderMaxWaitMs) };
+        bool completed = false;
+
+        SizeChangedEventHandler handler = null!;
+        handler = (s, e) =>
+        {
+            NavLog($"  SizeChanged: height={e.NewSize.Height:F1} -> reset debounce");
+            debounceTimer.Stop();
+            debounceTimer.Start();
+        };
+
+        debounceTimer.Tick += (_, _) =>
+        {
+            if (completed) return;
+            completed = true;
+            debounceTimer.Stop();
+            maxTimer.Stop();
+            element.SizeChanged -= handler;
+            NavLog($"  render stable (debounce {RenderDebounceMs}ms), proceed");
+            CalculateAndScrollTo(index);
+        };
+
+        maxTimer.Tick += (_, _) =>
+        {
+            if (completed) return;
+            completed = true;
+            maxTimer.Stop();
+            debounceTimer.Stop();
+            element.SizeChanged -= handler;
+            NavLog($"  render max timeout {RenderMaxWaitMs}ms, proceed");
+            CalculateAndScrollTo(index);
+        };
+
+        element.SizeChanged += handler;
+        debounceTimer.Start();
+        maxTimer.Start();
+        NavLog($"  pre-realized index={index}, waiting for SizeChanged debounce ({RenderDebounceMs}ms) or timeout ({RenderMaxWaitMs}ms)");
+    }
+
+    // Calculate target offset from current card position and scroll / 从当前卡片位置计算目标偏移并滚动
+    private void CalculateAndScrollTo(int index)
+    {
+        if (!_isNavigating) return;
+        ChangelogRepeater.UpdateLayout();
+        double? targetTop = GetItemTop(index);
+        if (targetTop is null) { NavLog($"  targetTop null after wait"); FinishNavigation(); return; }
+        double targetOffset = ChangelogScrollViewer.VerticalOffset + targetTop.Value - CardSpacing;
+        NavLog($"  calc (fallback): targetTop={targetTop.Value:F1} curOffset={ChangelogScrollViewer.VerticalOffset:F1} targetOffset={targetOffset:F1}");
+        ExecuteScrollTo(targetOffset);
+    }
+
+    // Execute scroll to target offset with animation and fallback / 执行滚动到目标偏移(带动画和兜底)
+    private void ExecuteScrollTo(double targetOffset)
+    {
+        // Clamp to valid scroll range / 限制到有效滚动范围
+        targetOffset = Math.Clamp(targetOffset, 0, ChangelogScrollViewer.ScrollableHeight);
+        _navTargetOffset = targetOffset;
+        NavLog($"  ChangeView: targetOffset={targetOffset:F1} (clamped) scrollable={ChangelogScrollViewer.ScrollableHeight:F1}");
+        // Animated scroll / 带动画滚动
+        ChangelogScrollViewer.ChangeView(null, targetOffset, null, false);
+
+        // No-animation case: offset already at target, finish immediately / 无动画情况:偏移已在目标处,立即完成
+        if (Math.Abs(ChangelogScrollViewer.VerticalOffset - targetOffset) <= NavSettleTolerance)
+        {
+            NavLog($"  no-animation (already at target), FinishNavigation");
+            _isScrollAnimating = false;
+            FinishNavigation();
+            return;
+        }
+
+        // Fallback timer in case ViewChanged never fires final frame / 兜底定时器防止ViewChanged未触发最终帧
+        _navSettleTimer?.Stop();
+        _navSettleTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(NavSettleDelayMs) };
+        _navSettleTimer.Tick += OnNavSettleTimerTick;
+        _navSettleTimer.Start();
+
+    }
+
+    // Navigation settle timer callback (fallback) / 导航稳定定时器回调(兜底)
     private void OnNavSettleTimerTick(object? sender, object e)
     {
         _navSettleTimer?.Stop();
+        _isScrollAnimating = false;
         FinishNavigation();
     }
 
-    // Complete navigation: restore state and update UI / 完成导航:恢复状态并更新UI
+    // Complete navigation: restore state and update UI (idempotent) / 完成导航:恢复状态并更新UI(幂等)
     private void FinishNavigation()
     {
+        if (!_isNavigating) { NavLog($"FinishNavigation SKIP (not navigating)"); return; }
+        double curOffset = ChangelogScrollViewer.VerticalOffset;
+        NavLog($"FinishNavigation: curOffset={curOffset:F1} target={_navTargetOffset:F1} drift={curOffset - _navTargetOffset:F1}");
         _isNavigating = false;
+        _isScrollAnimating = false;
+
         UpdateStickyVersionInfo();
         UpdateNavButtons();
     }
@@ -857,17 +1335,89 @@ public sealed partial class ChangelogPage : Page
     }
 
 
+    // Fade in element with opacity + upward float (CubicEase) / 淡入并向上浮入(CubicEase缓动)
+    private static void FadeIn(FrameworkElement element)
+    {
+        if (element.Visibility == Visibility.Visible && element.Opacity >= 1) return;
+        element.Opacity = 0;
+        element.Visibility = Visibility.Visible;
+        var tt = element.RenderTransform as TranslateTransform ?? new TranslateTransform();
+        tt.Y = PanelSlideDistance;
+        element.RenderTransform = tt;
+        var sb = new Storyboard();
+        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var opacityAnim = new DoubleAnimation
+        {
+            From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(StateAnimMs),
+            EasingFunction = easing
+        };
+        Storyboard.SetTarget(opacityAnim, element);
+        Storyboard.SetTargetProperty(opacityAnim, "Opacity");
+        sb.Children.Add(opacityAnim);
+        var yAnim = new DoubleAnimation
+        {
+            From = PanelSlideDistance, To = 0, Duration = TimeSpan.FromMilliseconds(StateAnimMs),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(yAnim, tt);
+        Storyboard.SetTargetProperty(yAnim, "Y");
+        sb.Children.Add(yAnim);
+        sb.Begin();
+    }
+
+    // Fade out element then collapse (CubicEase EaseIn) / 淡出元素后折叠(CubicEase缓入)
+    private static void FadeOut(FrameworkElement element)
+    {
+        if (element.Visibility == Visibility.Collapsed) return;
+        var anim = new DoubleAnimation
+        {
+            From = element.Opacity, To = 0, Duration = TimeSpan.FromMilliseconds(StateAnimMs),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        };
+        Storyboard.SetTarget(anim, element);
+        Storyboard.SetTargetProperty(anim, "Opacity");
+        var sb = new Storyboard();
+        sb.Children.Add(anim);
+        sb.Completed += (_, _) => element.Visibility = Visibility.Collapsed;
+        sb.Begin();
+    }
+
     private void UpdateEmptyState()
     {
         var hasEntries = _allEntries.Count > 0;
-        EmptyState.Visibility = hasEntries ? Visibility.Collapsed : Visibility.Visible;
+        // Empty state only when no entries and no error / 无条目且无错误时才显示空状态
+        var showEmpty = !hasEntries && ErrorState.Visibility != Visibility.Visible;
+        if (showEmpty) FadeIn(EmptyState); else FadeOut(EmptyState);
+        // Hide error state when entries exist / 有条目时隐藏错误状态
+        if (hasEntries) FadeOut(ErrorState);
+    }
+
+    // Show dedicated error state with message / 显示独立错误状态
+    private void ShowErrorState(string message)
+    {
+        ErrorTitleText.Text = RuntimeLocalizationHelper.GetString("RuntimeChangelogErrorTitle");
+        // Localized description + technical detail / 本地化描述+技术详情
+        ErrorDescriptionText.Text = RuntimeLocalizationHelper.GetString("RuntimeChangelogErrorDescription");
+        FadeOut(EmptyState);
+        FadeIn(ErrorState);
     }
 
     private static void OnIsLoadingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is ChangelogPage page)
         {
-            page.LoadingOverlay.Visibility = (bool)e.NewValue ? Visibility.Visible : Visibility.Collapsed;
+            var loading = (bool)e.NewValue;
+            if (loading)
+            {
+                FadeIn(page.LoadingOverlay);
+                // Hide empty/error states while loading to avoid overlap / 加载时隐藏空/错误状态避免叠加
+                FadeOut(page.EmptyState);
+                FadeOut(page.ErrorState);
+            }
+            else
+            {
+                FadeOut(page.LoadingOverlay);
+            }
         }
     }
 
@@ -894,6 +1444,8 @@ public sealed class ChangelogEntry : INotifyPropertyChanged
     private const int OverflowSegmentCount = 6;
 
     public string Version { get; set; } = string.Empty;
+    // GitHub release name (title), falls back to tag if empty / GitHub release 标题,空时回退到tag
+    public string ReleaseName { get; set; } = string.Empty;
     public string Date { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
     public bool IsPrerelease { get; set; }
@@ -919,6 +1471,7 @@ public sealed class ChangelogEntry : INotifyPropertyChanged
                 RaisePropertyChanged(nameof(ExpandButtonGlyph));
                 RaisePropertyChanged(nameof(ExpandButtonText));
                 RaisePropertyChanged(nameof(FadeOverlayVisibility));
+                RaisePropertyChanged(nameof(CardMaxHeight));
             }
         }
     }
@@ -963,14 +1516,18 @@ public sealed class ChangelogEntry : INotifyPropertyChanged
     [JsonIgnore]
     public string ExpandButtonText => _isExpanded ? CollapseText : ExpandText;
 
-    // Estimate whether content overflows collapsed height / 估算内容是否超出折叠高度
+    // Overflow when hidden segments exist or notes too long to fit collapsed height / 段数超限或内容过长才溢出
     [JsonIgnore]
-    public bool HasOverflow => Notes.Length > OverflowNoteLength || Segments.Count > OverflowSegmentCount;
+    public bool HasOverflow => Segments.Count > CollapsedSegmentLimit || Notes.Length > OverflowNoteLength;
     [JsonIgnore]
     public Visibility ExpandButtonVisibility => HasOverflow ? Visibility.Visible : Visibility.Collapsed;
     // Fade gradient overlay: only when collapsed and has overflow / 渐变遮罩:仅折叠且有溢出时显示
     [JsonIgnore]
     public Visibility FadeOverlayVisibility => !_isExpanded && HasOverflow ? Visibility.Visible : Visibility.Collapsed;
+
+    // Card max height: capped when collapsed, unlimited when expanded / 卡片最大高度:折叠时上限,展开时无限
+    [JsonIgnore]
+    public double CardMaxHeight => !_isExpanded ? CollapsedMaxHeight : double.PositiveInfinity;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void RaisePropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

@@ -70,10 +70,11 @@
                     VerticalAlignment="Center"
                     Margin="12,0,0,0"
                     Visibility="Collapsed"
-                    Content="{x:Bind SortRatingText}">
+                    Content="{x:Bind SortNameText}">
                     <DropDownButton.Flyout>
                         <MenuFlyout Placement="BottomEdgeAlignedRight">
-                            <MenuFlyoutItem Text="{x:Bind SortRatingText}" Tag="rating" Click="SortMenuItem_Click" />
+                            <MenuFlyoutItem Text="{x:Bind SortNameText}" Tag="name" Click="SortMenuItem_Click" />
+
                             <MenuFlyoutItem Text="{x:Bind SortDownloadsText}" Tag="downloads" Click="SortMenuItem_Click" />
                             <MenuFlyoutItem Text="{x:Bind SortUpdatedText}" Tag="updated" Click="SortMenuItem_Click" />
                         </MenuFlyout>

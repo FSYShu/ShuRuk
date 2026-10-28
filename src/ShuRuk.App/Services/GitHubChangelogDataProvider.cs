@@ -49,6 +49,38 @@ public sealed class GitHubChangelogDataProvider : IChangelogDataProvider
         return allEntries;
     }
 
+    // Streaming fetch: invoke onBatch per page for progressive display / 流式获取:每页回调onBatch实现渐进式显示
+    public async Task GetEntriesStreamingAsync(string repoUrl, string? sectionFilter, Action<List<ChangelogEntry>> onBatch, IProgress<string>? progress = null)
+    {
+        EnsureInitialized();
+
+        var (owner, repo) = ParseRepoUrl(repoUrl);
+        int page = 1;
+        const int pageSize = 100;
+
+        while (true)
+        {
+            progress?.Report($"Fetching page {page}...");
+            var url = $"https://api.github.com/repos/{owner}/{repo}/releases?per_page={pageSize}&page={page}";
+            var response = await _httpClient.GetStringAsync(url);
+            var releases = JsonDocument.Parse(response).RootElement;
+
+            if (releases.GetArrayLength() == 0) break;
+
+            var batch = new List<ChangelogEntry>();
+            foreach (var release in releases.EnumerateArray())
+            {
+                var entry = BuildEntry(release, sectionFilter);
+                if (entry is not null) batch.Add(entry);
+            }
+
+            if (batch.Count > 0) onBatch(batch);
+
+            if (releases.GetArrayLength() < pageSize) break;
+            page++;
+        }
+    }
+
     // Fetch only entries newer than sinceTag for incremental loading / 增量加载:仅获取比sinceTag更新的条目
     public async Task<List<ChangelogEntry>> GetNewEntriesAsync(string repoUrl, string? sectionFilter, string sinceTag, IProgress<string>? progress = null)
     {
@@ -94,6 +126,9 @@ public sealed class GitHubChangelogDataProvider : IChangelogDataProvider
         var publishedAt = release.GetProperty("published_at").GetString();
         var body = release.TryGetProperty("body", out var bodyProp) ? bodyProp.GetString() : "";
         var isPrerelease = release.TryGetProperty("prerelease", out var preProp) && preProp.GetBoolean();
+        // Read release name (title), fall back to tag when empty / 读取release标题,空时回退到tag
+        var releaseName = release.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : null;
+        if (string.IsNullOrWhiteSpace(releaseName)) releaseName = tag;
 
         if (tag is null || publishedAt is null) return null;
 
@@ -105,6 +140,7 @@ public sealed class GitHubChangelogDataProvider : IChangelogDataProvider
             return new ChangelogEntry
             {
                 Version = tag,
+                ReleaseName = releaseName ?? tag,
                 Date = DateTime.Parse(publishedAt).ToString("yyyy-MM-dd"),
                 Notes = NormalizeMarkdown(filteredNotes),
                 IsPrerelease = isPrerelease
@@ -114,6 +150,7 @@ public sealed class GitHubChangelogDataProvider : IChangelogDataProvider
         return new ChangelogEntry
         {
             Version = tag,
+            ReleaseName = releaseName ?? tag,
             Date = DateTime.Parse(publishedAt).ToString("yyyy-MM-dd"),
             Notes = NormalizeMarkdown(body ?? ""),
             IsPrerelease = isPrerelease

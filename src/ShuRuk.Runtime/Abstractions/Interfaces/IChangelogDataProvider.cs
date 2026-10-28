@@ -19,6 +19,13 @@ public interface IChangelogDataProvider
     Task<List<ChangelogEntry>> GetEntriesAsync(string repoUrl, string? sectionFilter = null, IProgress<string>? progress = null);
 
     /// <summary>
+    /// Fetch changelog entries in batches, invoking onBatch for each page as it arrives.
+    /// Enables progressive display for repositories with many releases.
+    /// / 分批获取更新日志条目,每获取一页即回调onBatch。支持多release仓库的渐进式显示。
+    /// </summary>
+    Task GetEntriesStreamingAsync(string repoUrl, string? sectionFilter, Action<List<ChangelogEntry>> onBatch, IProgress<string>? progress = null);
+
+    /// <summary>
     /// Fetch only changelog entries newer than the given tag, for incremental loading.
     /// Stops fetching pages once a release matching sinceTag is encountered.
     /// / 仅获取比指定tag更新的更新日志条目（增量加载）。遇到匹配sinceTag的release即停止。

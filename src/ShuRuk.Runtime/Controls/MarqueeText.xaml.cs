@@ -40,22 +40,45 @@ public sealed partial class MarqueeText : UserControl
 
     private TextBlock? _clone;
     private Storyboard? _storyboard;
+    // Track current marquee text width to avoid redundant restarts / 追踪当前跑马灯文本宽度避免冗余重启
+    private double _currentMarqueeWidth;
+    // Pending layout-based marquee update (set when text changes or Loaded fires) / 待布局更新跑马灯(文本变更或Loaded时设置)
+    private bool _pendingLayoutUpdate;
 
     public MarqueeText()
     {
         InitializeComponent();
         ApplyText();
         UpdateClip();
+        Loaded += (_, _) =>
+        {
+            _pendingLayoutUpdate = true;
+            UpdateMarquee();
+        };
+        SizeChanged += (_, _) => UpdateMarquee();
+        // LayoutUpdated fires after any layout pass; use it to catch ActualWidth becoming ready / LayoutUpdated在布局后触发,用于捕获ActualWidth就绪
+        LayoutUpdated += (_, _) =>
+        {
+            if (!_pendingLayoutUpdate) return;
+            if (MainText.ActualWidth <= 0) return;
+            _pendingLayoutUpdate = false;
+            UpdateMarquee();
+        };
     }
 
     // Force re-evaluation of marquee after layout / 布局后强制重新评估跑马灯
-    public void Refresh() => UpdateMarquee();
+    public void Refresh()
+    {
+        _pendingLayoutUpdate = true;
+        UpdateMarquee();
+    }
 
     private static void OnTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is MarqueeText mt)
         {
             mt.ApplyText();
+            mt._pendingLayoutUpdate = true;
             mt.UpdateMarquee();
         }
     }
@@ -93,9 +116,12 @@ public sealed partial class MarqueeText : UserControl
 
     private void UpdateMarquee()
     {
-        StopMarquee();
-
-        if (string.IsNullOrEmpty(MainText.Text)) return;
+        if (string.IsNullOrEmpty(MainText.Text))
+        {
+            StopMarquee();
+            _currentMarqueeWidth = 0;
+            return;
+        }
 
         // Use ActualWidth, fallback to detached probe / 用ActualWidth,后备为独立探测
         double textWidth = MainText.ActualWidth;
@@ -104,6 +130,7 @@ public sealed partial class MarqueeText : UserControl
             var probe = new TextBlock
             {
                 Text = MainText.Text,
+                FontFamily = MainText.FontFamily,
                 FontSize = MainText.FontSize,
                 FontWeight = MainText.FontWeight
             };
@@ -112,8 +139,22 @@ public sealed partial class MarqueeText : UserControl
         }
         if (textWidth <= 0) return; // Not laid out yet / 尚未布局
 
-        if (textWidth <= ClipWidth) return; // Text fits, no marquee needed / 文本适配,无需跑马灯
+        if (textWidth <= ClipWidth)
+        {
+            // Text fits, no marquee or tooltip needed / 文本适配,无需跑马灯和tooltip
+            if (_storyboard is not null) { StopMarquee(); _currentMarqueeWidth = 0; }
+            ToolTipService.SetToolTip(this, null);
+            return;
+        }
 
+        // Skip restart if marquee already running with same width (avoids resetting pause timer) / 跑马灯已以相同宽度运行则跳过(避免重置停顿计时器)
+        if (_storyboard is not null && Math.Abs(_currentMarqueeWidth - textWidth) < 0.5)
+            return;
+
+        StopMarquee();
+        // Show full text tooltip when truncated / 截断时显示完整文本tooltip
+        ToolTipService.SetToolTip(this, Text);
+        _currentMarqueeWidth = textWidth;
         StartMarquee(textWidth);
     }
 

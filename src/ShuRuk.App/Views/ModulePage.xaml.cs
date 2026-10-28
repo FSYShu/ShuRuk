@@ -19,7 +19,8 @@ public sealed partial class ModulePage : Page
     public string TabBarA11yName => LocalizationHelper.GetString("String_ModulePageTabBarA11y");
     public string InstalledTabA11yName => LocalizationHelper.GetString("ModulePageInstalledTab.Content");
     public string DiscoverTabA11yName => LocalizationHelper.GetString("ModulePageDiscoverTab.Content");
-    public string SortRatingText => LocalizationHelper.GetString("DiscoverSortRating.Content");
+    public string SortNameText => LocalizationHelper.GetString("DiscoverSortName.Content");
+
     public string SortDownloadsText => LocalizationHelper.GetString("DiscoverSortDownloads.Content");
     public string SortUpdatedText => LocalizationHelper.GetString("DiscoverSortUpdated.Content");
 
@@ -161,7 +162,7 @@ public sealed partial class ModulePage : Page
         SortButton.Content = item.Text;
         if (ContentFrame.Content is ModuleDiscoverPage discover)
         {
-            discover.ApplySort(item.Tag?.ToString() ?? AppConstants.DiscoverSort.Rating);
+            discover.ApplySort(item.Tag?.ToString() ?? AppConstants.DiscoverSort.Name);
         }
     }
 

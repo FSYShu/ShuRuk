@@ -12,6 +12,7 @@ using ShuRuk.App;
 using ShuRuk.App.Helpers;
 using ShuRuk.App.Services;
 using ShuRuk.Runtime.Abstractions.Interfaces;
+using ShuRuk.Runtime.Abstractions;
 
 using System.Runtime.InteropServices;
 using WinRT.Interop;
@@ -73,6 +74,14 @@ public sealed partial class MainWindow : Window
 
         var languageService = App.Services.GetRequiredService<LanguageService>();
         languageService.LanguageChanged += OnLanguageChanged;
+
+        // Subscribe to test mode changes to reload changelog page / 订阅测试模式变化以重新加载更新日志页
+        var testModeService = App.Services.GetService<ITestModeService>();
+        if (testModeService is not null)
+        {
+            testModeService.TestModeChanged += OnTestModeChanged;
+            testModeService.FillDataChanged += OnTestModeChanged;
+        }
 
         var themeService = App.Services.GetRequiredService<ThemeService>();
         var initialTheme = themeService.ToElementTheme();
@@ -340,6 +349,36 @@ public sealed partial class MainWindow : Window
         });
     }
 
+    // Test mode changed: update provider and reload changelog if current page / 测试模式变更:更新提供者并重载更新日志页(若为当前页)
+    private void OnTestModeChanged(object? sender, bool _)
+    {
+        var testModeService = App.Services.GetService<ITestModeService>();
+        if (testModeService is null) return;
+
+        // Update changelog provider based on new test mode state / 根据新测试模式状态更新更新日志提供者
+        RuntimeServices.ChangelogDataProvider = !testModeService.IsEnabled || testModeService.IsFillDataEnabled
+            ? new GitHubChangelogDataProvider()
+            : null;
+
+        // Reload ChangelogPage if it's the current page / 当前为更新日志页时重新加载
+        if (ContentFrame.Content is ShuRuk.Runtime.Views.ChangelogPage)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                var repoUrl = testModeService.IsEnabled && !string.IsNullOrWhiteSpace(testModeService.ChangelogRepoUrl)
+                    ? testModeService.ChangelogRepoUrl
+                    : AppConstants.DefaultChangelogRepoUrl;
+                var parameter = new ShuRuk.Runtime.Views.ChangelogPageParameter
+                {
+                    RepoUrl = repoUrl,
+                    SectionFilter = string.IsNullOrEmpty(testModeService.ChangelogSectionFilter) ? null : testModeService.ChangelogSectionFilter
+                };
+                // Force re-navigate to create new page instance / 强制重新导航创建新页面实例
+                ContentFrame.Navigate(typeof(ShuRuk.Runtime.Views.ChangelogPage), parameter);
+            });
+        }
+    }
+
     // Update localized content for nav menu items / 更新导航菜单项的本地化内容
     private void RefreshNavItems()
     {
@@ -519,9 +558,13 @@ public sealed partial class MainWindow : Window
             var testMode = App.Services.GetService<ITestModeService>();
             if (testMode is not null)
             {
+                // Non-test mode uses self repo as default source / 非测试模式使用自身仓库为默认日志源
+                var repoUrl = testMode.IsEnabled && !string.IsNullOrWhiteSpace(testMode.ChangelogRepoUrl)
+                    ? testMode.ChangelogRepoUrl
+                    : AppConstants.DefaultChangelogRepoUrl;
                 parameter = new ShuRuk.Runtime.Views.ChangelogPageParameter
                 {
-                    RepoUrl = testMode.ChangelogRepoUrl,
+                    RepoUrl = repoUrl,
                     SectionFilter = string.IsNullOrEmpty(testMode.ChangelogSectionFilter) ? null : testMode.ChangelogSectionFilter
                 };
             }

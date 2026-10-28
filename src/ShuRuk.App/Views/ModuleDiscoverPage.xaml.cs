@@ -122,7 +122,7 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
         }
     }
 
-    private string _currentSortTag = "rating";
+    private string _currentSortTag = "name";
 
     // Get current sort tag / 获取当前排序标签
     private string? CurrentSortBy() => _currentSortTag;

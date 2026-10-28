@@ -212,7 +212,9 @@ public partial class App : Application, IAppContext
             RuntimeServices.ThemeService = Services.GetRequiredService<ThemeService>();
             RuntimeServices.AppContext = this;
 
-            RuntimeServices.ChangelogDataProvider = testModeService.IsEnabled && testModeService.IsFillDataEnabled
+            // Non-test mode always provides changelog (self repo); test mode only when fill data enabled
+            // 非测试模式始终提供更新日志(自身仓库)，测试模式仅在填充数据时提供
+            RuntimeServices.ChangelogDataProvider = !testModeService.IsEnabled || testModeService.IsFillDataEnabled
                 ? new GitHubChangelogDataProvider()
                 : null;
         }

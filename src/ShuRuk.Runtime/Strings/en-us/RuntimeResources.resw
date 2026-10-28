@@ -48,6 +48,12 @@
   <data name="RuntimeChangelogEmptyDescription" xml:space="preserve">
     <value>You're up to date.</value>
   </data>
+  <data name="RuntimeChangelogErrorTitle" xml:space="preserve">
+    <value>Failed to load</value>
+  </data>
+  <data name="RuntimeChangelogErrorDescription" xml:space="preserve">
+    <value>Unable to fetch changelog. Please check your network and try again.</value>
+  </data>
   <data name="RuntimeChangelogLoading" xml:space="preserve">
     <value>Fetching changelogs...</value>
   </data>
@@ -77,6 +83,9 @@
   </data>
   <data name="RuntimeChangelogCollapse" xml:space="preserve">
     <value>Collapse</value>
+  </data>
+  <data name="RuntimeChangelogRefresh" xml:space="preserve">
+    <value>Refresh</value>
   </data>
   <data name="RuntimeMonitorHostProcess" xml:space="preserve">
     <value>ShuRuk.Runtime</value>

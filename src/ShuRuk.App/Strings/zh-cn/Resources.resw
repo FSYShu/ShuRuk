@@ -83,9 +83,10 @@
 
 
   <!-- ModuleDiscoverPage -->
-  <data name="DiscoverSortRating.Content" xml:space="preserve">
-    <value>评分</value>
+  <data name="DiscoverSortName.Content" xml:space="preserve">
+    <value>名称</value>
   </data>
+
   <data name="DiscoverSortDownloads.Content" xml:space="preserve">
     <value>下载量</value>
   </data>

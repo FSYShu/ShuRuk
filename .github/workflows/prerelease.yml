@@ -350,7 +350,8 @@ jobs:
             Get-ChildItem -Path "src/ShuRuk.App" -Recurse -File -Include "*.msix","*.appxbundle" | ForEach-Object { Write-Host "  $_" }
             throw "App MSIX not generated / App MSIX未生成"
           }
-          $msixFiles | Copy-Item -Destination artifacts -Force
+          # Rename to ShuRuk.x.y.z.msix format / 重命名为ShuRuk.x.y.z.msix格式
+          $msixFiles | Where-Object { $_.Extension -eq ".msix" } | Select-Object -First 1 | Copy-Item -Destination "artifacts\ShuRuk.$ver.msix" -Force
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
