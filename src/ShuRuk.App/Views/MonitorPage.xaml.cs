@@ -4,13 +4,21 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using ShuRuk.App;
-using ShuRuk.App.Helpers;
+using ShuRuk.Runtime.Helpers;
+using ShuRuk.App.Constants;
+using ShuRuk.Runtime.Core;
 
 using ShuRuk.App.Controls;
-using ShuRuk.App.Services;
-using ShuRuk.Runtime.Abstractions.Models;
-using ShuRuk.Runtime.Abstractions.Interfaces;
-using ShuRuk.Runtime.Abstractions.Services;
+using ShuRuk.App.Services.Module;
+using ShuRuk.Runtime.Services.Changelog;
+using ShuRuk.App.Services.Infrastructure;
+using ShuRuk.App.Services.UI;
+using ShuRuk.Runtime.Models;
+using ShuRuk.Runtime.Contracts;
+using ShuRuk.Runtime.Services.Module;
+using ShuRuk.Runtime.Services.Registry;
+using ShuRuk.Runtime.Services.Security;
+using ShuRuk.Runtime.Services.Infrastructure;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -111,7 +119,7 @@ public sealed partial class MonitorPage : Page
         {
             _isFirstLoad = false;
             await LoadSortPreference();
-            LoadingText.Text = LocalizationHelper.GetString("String_MonitorLoading");
+            LoadingText.Text = LocalizationHelper.App.GetString("String_MonitorLoading");
 
             for (int i = 0; i < AppConstants.MonitorDataWaitRetries; i++)
             {
@@ -217,7 +225,7 @@ public sealed partial class MonitorPage : Page
         var entries = snapshot.Select(s => new MonitorEntryViewModel
         {
             ModuleName = s.ModuleName == StatusMonitor.HostProcessName
-                ? LocalizationHelper.GetString("String_MonitorHostProcess")
+                ? LocalizationHelper.App.GetString("String_MonitorHostProcess")
                 : s.ModuleName,
             RawModuleName = s.ModuleName,
             Pid = s.Pid,
@@ -650,8 +658,8 @@ public sealed partial class MonitorPage : Page
             return;
         }
 
-        ModuleCardValue.Text = $"{runningCount} {LocalizationHelper.GetString("String_MonitorModuleRunning")}";
-        ModuleCardDetail.Text = $"{installedCount} {LocalizationHelper.GetString("String_MonitorModuleInstalled")}";
+        ModuleCardValue.Text = $"{runningCount} {LocalizationHelper.App.GetString("String_MonitorModuleRunning")}";
+        ModuleCardDetail.Text = $"{installedCount} {LocalizationHelper.App.GetString("String_MonitorModuleInstalled")}";
         var moduleSegments = new List<ProgressSegment>();
         if (runningCount > 0)
             moduleSegments.Add(new ProgressSegment { Value = runningCount, Brush = SegmentBrushes[0] });
@@ -730,26 +738,26 @@ public sealed partial class MonitorPage : Page
     // Apply localized strings to all headers and cards / 对所有表头和卡片应用本地化文本
     private void ApplyLocalization()
     {
-        HeaderName.Text = LocalizationHelper.GetString("String_MonitorHeaderName");
-        HeaderPid.Text = LocalizationHelper.GetString("String_MonitorHeaderPid");
-        HeaderCpu.Text = LocalizationHelper.GetString("String_MonitorHeaderCpu");
-        HeaderMemory.Text = LocalizationHelper.GetString("String_MonitorHeaderMemory");
+        HeaderName.Text = LocalizationHelper.App.GetString("String_MonitorHeaderName");
+        HeaderPid.Text = LocalizationHelper.App.GetString("String_MonitorHeaderPid");
+        HeaderCpu.Text = LocalizationHelper.App.GetString("String_MonitorHeaderCpu");
+        HeaderMemory.Text = LocalizationHelper.App.GetString("String_MonitorHeaderMemory");
 
         CpuCardIcon.Glyph = "\ueea1";
-        CpuCardTitle.Text = LocalizationHelper.GetString("String_MonitorCpuCardTitle");
+        CpuCardTitle.Text = LocalizationHelper.App.GetString("String_MonitorCpuCardTitle");
         MemoryCardIcon.Glyph = "\ueea0";
-        MemoryCardTitle.Text = LocalizationHelper.GetString("String_MonitorMemoryCardTitle");
+        MemoryCardTitle.Text = LocalizationHelper.App.GetString("String_MonitorMemoryCardTitle");
         ModuleCardIcon.Glyph = "\ue7b8";
-        ModuleCardTitle.Text = LocalizationHelper.GetString("String_MonitorModuleCardTitle");
+        ModuleCardTitle.Text = LocalizationHelper.App.GetString("String_MonitorModuleCardTitle");
 
-        LoadingText.Text = LocalizationHelper.GetString("String_MonitorLoading");
+        LoadingText.Text = LocalizationHelper.App.GetString("String_MonitorLoading");
 
         // Empty state text / 空状态文本
-        MonitorEmptyTitle.Text = LocalizationHelper.GetString("String_MonitorEmptyTitle");
-        MonitorEmptyDescription.Text = LocalizationHelper.GetString("String_MonitorEmptyDescription");
+        MonitorEmptyTitle.Text = LocalizationHelper.App.GetString("String_MonitorEmptyTitle");
+        MonitorEmptyDescription.Text = LocalizationHelper.App.GetString("String_MonitorEmptyDescription");
 
-        RestartProcessButton.Label = LocalizationHelper.GetString("String_MonitorRestartProcess");
-        StopProcessButton.Label = LocalizationHelper.GetString("String_MonitorStopProcess");
+        RestartProcessButton.Label = LocalizationHelper.App.GetString("String_MonitorRestartProcess");
+        StopProcessButton.Label = LocalizationHelper.App.GetString("String_MonitorStopProcess");
     }
 
     // Header hover enter: set subtle background / 表头悬停进入:设置微妙背景色
@@ -844,9 +852,9 @@ public sealed partial class MonitorPage : Page
         {
             var dialog = new ContentDialog
             {
-                Title = LocalizationHelper.GetString("String_MonitorRestartFailedTitle"),
+                Title = LocalizationHelper.App.GetString("String_MonitorRestartFailedTitle"),
                 Content = $"{selected.ModuleName}: {ex.Message}",
-                CloseButtonText = LocalizationHelper.GetString("String_MonitorCommandCancel"),
+                CloseButtonText = LocalizationHelper.App.GetString("String_MonitorCommandCancel"),
                 XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
@@ -874,9 +882,9 @@ public sealed partial class MonitorPage : Page
         {
             var dialog = new ContentDialog
             {
-                Title = LocalizationHelper.GetString("String_MonitorStopFailedTitle"),
+                Title = LocalizationHelper.App.GetString("String_MonitorStopFailedTitle"),
                 Content = $"{selected.ModuleName}: {ex.Message}",
-                CloseButtonText = LocalizationHelper.GetString("String_MonitorCommandCancel"),
+                CloseButtonText = LocalizationHelper.App.GetString("String_MonitorCommandCancel"),
                 XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();

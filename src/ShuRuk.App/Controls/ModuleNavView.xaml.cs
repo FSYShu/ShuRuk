@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using ShuRuk.App.Models;
+using ShuRuk.App.ViewModels;
 
 namespace ShuRuk.App.Controls;
 

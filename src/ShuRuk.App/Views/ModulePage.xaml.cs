@@ -3,10 +3,20 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using ShuRuk.App;
-using ShuRuk.App.Abstractions.Interfaces;
-using ShuRuk.App.Helpers;
+using ShuRuk.Runtime.Helpers;
+using ShuRuk.App.Constants;
+using ShuRuk.Runtime.Core;
 
 namespace ShuRuk.App.Views;
+
+/// <summary>
+/// Implemented by pages that can be filtered by a search keyword.
+/// / 可按搜索关键词过滤的页面契约。
+/// </summary>
+internal interface ISearchablePage
+{
+    void ApplyFilter(string keyword);
+}
 
 public sealed partial class ModulePage : Page
 {
@@ -16,13 +26,13 @@ public sealed partial class ModulePage : Page
     // SubBar index to return to from detail / 从详情页返回的目标 SubBar 索引
     private int _detailReturnIndex = 0;
 
-    public string TabBarA11yName => LocalizationHelper.GetString("String_ModulePageTabBarA11y");
-    public string InstalledTabA11yName => LocalizationHelper.GetString("ModulePageInstalledTab.Content");
-    public string DiscoverTabA11yName => LocalizationHelper.GetString("ModulePageDiscoverTab.Content");
-    public string SortNameText => LocalizationHelper.GetString("DiscoverSortName.Content");
+    public string TabBarA11yName => LocalizationHelper.App.GetString("String_ModulePageTabBarA11y");
+    public string InstalledTabA11yName => LocalizationHelper.App.GetString("ModulePageInstalledTab.Content");
+    public string DiscoverTabA11yName => LocalizationHelper.App.GetString("ModulePageDiscoverTab.Content");
+    public string SortNameText => LocalizationHelper.App.GetString("DiscoverSortName.Content");
 
-    public string SortDownloadsText => LocalizationHelper.GetString("DiscoverSortDownloads.Content");
-    public string SortUpdatedText => LocalizationHelper.GetString("DiscoverSortUpdated.Content");
+    public string SortDownloadsText => LocalizationHelper.App.GetString("DiscoverSortDownloads.Content");
+    public string SortUpdatedText => LocalizationHelper.App.GetString("DiscoverSortUpdated.Content");
 
     // Constructor: enable cache, wire events / 构造函数:启用缓存、挂载事件
     public ModulePage()
@@ -37,9 +47,9 @@ public sealed partial class ModulePage : Page
     // Apply localization and navigate to first tab on load / 加载时应用本地化并导航到首个标签
     private void ModulePage_Loaded(object sender, RoutedEventArgs e)
     {
-        LocalizationHelper.ApplyUidResources(this);
+        LocalizationHelper.App.ApplyUidResources(this);
 
-        SearchBox.PlaceholderText = LocalizationHelper.GetString("String_SearchModules");
+        SearchBox.PlaceholderText = LocalizationHelper.App.GetString("String_SearchModules");
 
         if (ContentFrame.Content is null && SubBar.SelectedItem is SelectorBarItem first)
         {

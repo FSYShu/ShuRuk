@@ -36,9 +36,9 @@ public sealed partial class SettingsAboutPage : Page
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        RuntimeLocalizationHelper.ApplyUidResources(this);
-        RuntimeAboutVersion.Text = RuntimeLocalizationHelper.GetString("RuntimeAboutVersion.Text");
-        RuntimeAboutAuthor.Text = RuntimeLocalizationHelper.GetString("RuntimeAboutAuthor.Text");
+        LocalizationHelper.Runtime.ApplyUidResources(this);
+        RuntimeAboutVersion.Text = LocalizationHelper.Runtime.GetString("RuntimeAboutVersion.Text");
+        RuntimeAboutAuthor.Text = LocalizationHelper.Runtime.GetString("RuntimeAboutAuthor.Text");
     }
 }
 

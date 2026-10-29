@@ -6,8 +6,8 @@ namespace ShuRuk.Runtime.Views;
 
 public sealed partial class HomePage : Page
 {
-    public string WelcomeTitle => RuntimeLocalizationHelper.GetString("HomeWelcome.Title");
-    public string WelcomeMessage => RuntimeLocalizationHelper.GetString("HomeWelcome.Message");
+    public string WelcomeTitle => LocalizationHelper.Runtime.GetString("HomeWelcome.Title");
+    public string WelcomeMessage => LocalizationHelper.Runtime.GetString("HomeWelcome.Message");
 
     public HomePage()
     {

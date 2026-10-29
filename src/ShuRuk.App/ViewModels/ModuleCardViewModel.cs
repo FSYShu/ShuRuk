@@ -1,4 +1,4 @@
-using ShuRuk.Runtime.Abstractions.Models;
+using ShuRuk.Runtime.Models;
 
 namespace ShuRuk.App.ViewModels;
 

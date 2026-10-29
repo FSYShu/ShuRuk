@@ -2,10 +2,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using ShuRuk.App;
-using ShuRuk.App.Helpers;
+using ShuRuk.App.Constants;
+using ShuRuk.Runtime.Core;
 using ShuRuk.App.ViewModels;
-using ShuRuk.Runtime.Abstractions.Interfaces;
-using ShuRuk.Runtime.Abstractions.Models;
+using ShuRuk.Runtime.Contracts;
+using ShuRuk.Runtime.Models;
+using ShuRuk.Runtime.Helpers;
 
 namespace ShuRuk.App.Views;
 
@@ -23,7 +25,7 @@ public sealed partial class ModuleDetailPage : Page
     // Apply localized resources on page load / 页面加载时应用本地化资源
     private void OnPageLoaded(object sender, RoutedEventArgs e)
     {
-        LocalizationHelper.ApplyUidResources(this);
+        LocalizationHelper.App.ApplyUidResources(this);
     }
 
     // Receive module card and populate detail fields / 接收模块卡片并填充详情字段
@@ -41,29 +43,29 @@ public sealed partial class ModuleDetailPage : Page
 
             // Info card / 信息卡片
             ModuleId.Text = card.Name;
-            ModuleAuthor.Text = LocalizationHelper.GetString("String_ModuleDetailAuthorUnknown");
+            ModuleAuthor.Text = LocalizationHelper.App.GetString("String_ModuleDetailAuthorUnknown");
             ModuleVersion.Text = string.IsNullOrEmpty(card.Version)
-                ? LocalizationHelper.GetString("String_Unknown")
+                ? LocalizationHelper.App.GetString("String_Unknown")
                 : card.Version;
             ModuleSourceValue.Text = card.Source == ModuleSource.BuiltIn
-                ? LocalizationHelper.GetString("String_ModuleDetailSourceBuiltIn")
-                : LocalizationHelper.GetString("String_ModuleDetailSourceExternal");
+                ? LocalizationHelper.App.GetString("String_ModuleDetailSourceBuiltIn")
+                : LocalizationHelper.App.GetString("String_ModuleDetailSourceExternal");
             ModuleStateValue.Text = card.State.ToString();
             ModuleDescriptionText.Text = card.Description;
 
             // Pivot placeholders / 选择栏占位
-            IntroPlaceholder.Text = LocalizationHelper.GetString("String_ModuleDetailIntroPlaceholder");
-            ChangelogPlaceholder.Text = LocalizationHelper.GetString("String_ModuleDetailChangelogPlaceholder");
+            IntroPlaceholder.Text = LocalizationHelper.App.GetString("String_ModuleDetailIntroPlaceholder");
+            ChangelogPlaceholder.Text = LocalizationHelper.App.GetString("String_ModuleDetailChangelogPlaceholder");
 
             // Action buttons visibility / 操作按钮可见性
             if (card.Source == ModuleSource.BuiltIn)
             {
-                ModuleDetailUninstallButton.Content = LocalizationHelper.GetString("String_ModuleDetailUninstallLogical");
+                ModuleDetailUninstallButton.Content = LocalizationHelper.App.GetString("String_ModuleDetailUninstallLogical");
                 ModuleDetailReinstallButton.Visibility = Visibility.Visible;
             }
             else
             {
-                ModuleDetailUninstallButton.Content = LocalizationHelper.GetString("String_ModuleDetailUninstallPhysical");
+                ModuleDetailUninstallButton.Content = LocalizationHelper.App.GetString("String_ModuleDetailUninstallPhysical");
                 ModuleDetailReinstallButton.Visibility = Visibility.Collapsed;
             }
 
@@ -115,23 +117,23 @@ public sealed partial class ModuleDetailPage : Page
             var dialog = _card.Source == ModuleSource.BuiltIn
                 ? new ContentDialog
                 {
-                    Title = LocalizationHelper.GetString("String_ModuleDetailDialogTitle"),
-                    Content = LocalizationHelper.GetStringFormatted(
+                    Title = LocalizationHelper.App.GetString("String_ModuleDetailDialogTitle"),
+                    Content = LocalizationHelper.App.GetStringFormatted(
                         "String_ModuleDetailDialogLogicalContentFormat",
                         _card.DisplayName),
-                    PrimaryButtonText = LocalizationHelper.GetString("String_ModuleDetailUninstallLogical"),
-                    CloseButtonText = LocalizationHelper.GetString("String_DiscoverDialogCancel"),
+                    PrimaryButtonText = LocalizationHelper.App.GetString("String_ModuleDetailUninstallLogical"),
+                    CloseButtonText = LocalizationHelper.App.GetString("String_DiscoverDialogCancel"),
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = XamlRoot
                 }
                 : new ContentDialog
                 {
-                    Title = LocalizationHelper.GetString("String_ModuleDetailDialogTitle"),
-                    Content = LocalizationHelper.GetStringFormatted(
+                    Title = LocalizationHelper.App.GetString("String_ModuleDetailDialogTitle"),
+                    Content = LocalizationHelper.App.GetStringFormatted(
                         "String_ModuleDetailDialogExternalContentFormat",
                         _card.DisplayName),
-                    PrimaryButtonText = LocalizationHelper.GetString("String_ModuleDetailUninstallPhysical"),
-                    CloseButtonText = LocalizationHelper.GetString("String_DiscoverDialogCancel"),
+                    PrimaryButtonText = LocalizationHelper.App.GetString("String_ModuleDetailUninstallPhysical"),
+                    CloseButtonText = LocalizationHelper.App.GetString("String_DiscoverDialogCancel"),
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = XamlRoot
                 };
@@ -171,9 +173,9 @@ public sealed partial class ModuleDetailPage : Page
     {
         var dialog = new ContentDialog
         {
-            Title = LocalizationHelper.GetString("String_ModuleDetailNotImplementedTitle"),
-            Content = LocalizationHelper.GetString("String_ModuleDetailNotImplementedContent"),
-            CloseButtonText = LocalizationHelper.GetString("String_DiscoverDialogCancel"),
+            Title = LocalizationHelper.App.GetString("String_ModuleDetailNotImplementedTitle"),
+            Content = LocalizationHelper.App.GetString("String_ModuleDetailNotImplementedContent"),
+            CloseButtonText = LocalizationHelper.App.GetString("String_DiscoverDialogCancel"),
             XamlRoot = XamlRoot
         };
         await dialog.ShowAsync();

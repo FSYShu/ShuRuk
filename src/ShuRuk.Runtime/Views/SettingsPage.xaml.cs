@@ -2,8 +2,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
-using ShuRuk.Runtime.Abstractions;
-using ShuRuk.Runtime.Abstractions.Interfaces;
+using ShuRuk.Runtime.Core;
+using ShuRuk.Runtime.Contracts;
 using ShuRuk.Runtime.Helpers;
 using System.IO;
 using System.Reflection;
@@ -19,35 +19,35 @@ public sealed partial class SettingsPage : Page
     private readonly IAppContext _appContext;
     private bool _initializing = true;
 
-    public string PageTitleText => RuntimeLocalizationHelper.GetString("String_SettingsPageTitle");
-    public string LanguageSectionHeader => RuntimeLocalizationHelper.GetString("String_SettingsSectionLanguage");
-    public string LanguageHeader => RuntimeLocalizationHelper.GetString("String_SettingsLanguageHeader");
-    public string LanguageDescription => RuntimeLocalizationHelper.GetString("String_SettingsLanguageDescription");
-    public string ThemeHeader => RuntimeLocalizationHelper.GetString("String_SettingsThemeHeader");
-    public string ThemeDescription => RuntimeLocalizationHelper.GetString("String_SettingsThemeDescription");
-    public string TestModeHeader => RuntimeLocalizationHelper.GetString("String_SettingsTestModeHeader");
-    public string TestModeDescription => RuntimeLocalizationHelper.GetString("String_SettingsTestModeDescription");
-    public string TestModeFillHeader => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillHeader");
-    public string TestModeFillDescription => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillDescription");
-    public string TestModeFillEmpty => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillEmpty");
-    public string TestModeFillFull => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillFull");
-    public string ChangelogRepoHeader => RuntimeLocalizationHelper.GetString("String_SettingsChangelogRepoHeader");
-    public string ChangelogRepoDescription => RuntimeLocalizationHelper.GetString("String_SettingsChangelogRepoDescription");
-    public string ChangelogSectionHeader => RuntimeLocalizationHelper.GetString("String_SettingsChangelogSectionHeader");
-    public string ChangelogSectionDescription => RuntimeLocalizationHelper.GetString("String_SettingsChangelogSectionDescription");
+    public string PageTitleText => LocalizationHelper.Runtime.GetString("String_SettingsPageTitle");
+    public string LanguageSectionHeader => LocalizationHelper.Runtime.GetString("String_SettingsSectionLanguage");
+    public string LanguageHeader => LocalizationHelper.Runtime.GetString("String_SettingsLanguageHeader");
+    public string LanguageDescription => LocalizationHelper.Runtime.GetString("String_SettingsLanguageDescription");
+    public string ThemeHeader => LocalizationHelper.Runtime.GetString("String_SettingsThemeHeader");
+    public string ThemeDescription => LocalizationHelper.Runtime.GetString("String_SettingsThemeDescription");
+    public string TestModeHeader => LocalizationHelper.Runtime.GetString("String_SettingsTestModeHeader");
+    public string TestModeDescription => LocalizationHelper.Runtime.GetString("String_SettingsTestModeDescription");
+    public string TestModeFillHeader => LocalizationHelper.Runtime.GetString("String_SettingsTestModeFillHeader");
+    public string TestModeFillDescription => LocalizationHelper.Runtime.GetString("String_SettingsTestModeFillDescription");
+    public string TestModeFillEmpty => LocalizationHelper.Runtime.GetString("String_SettingsTestModeFillEmpty");
+    public string TestModeFillFull => LocalizationHelper.Runtime.GetString("String_SettingsTestModeFillFull");
+    public string ChangelogRepoHeader => LocalizationHelper.Runtime.GetString("String_SettingsChangelogRepoHeader");
+    public string ChangelogRepoDescription => LocalizationHelper.Runtime.GetString("String_SettingsChangelogRepoDescription");
+    public string ChangelogSectionHeader => LocalizationHelper.Runtime.GetString("String_SettingsChangelogSectionHeader");
+    public string ChangelogSectionDescription => LocalizationHelper.Runtime.GetString("String_SettingsChangelogSectionDescription");
 
-    public string RestartButtonText => RuntimeLocalizationHelper.GetString("SettingsRestartButton.Content");
-    public string AboutSectionHeader => RuntimeLocalizationHelper.GetString("String_SettingsSectionAbout");
+    public string RestartButtonText => LocalizationHelper.Runtime.GetString("SettingsRestartButton.Content");
+    public string AboutSectionHeader => LocalizationHelper.Runtime.GetString("String_SettingsSectionAbout");
     public string AppNameHeader => _appContext.AppTitle;
     public string AppSubtitle => _appContext.AppSubtitle;
-    public string AppVersionDescription => RuntimeLocalizationHelper.GetString("String_SettingsAppVersionFormat")
+    public string AppVersionDescription => LocalizationHelper.Runtime.GetString("String_SettingsAppVersionFormat")
         .Replace("{0}", _appContext.AppVersion);
-    public string SdkVersionDescription => RuntimeLocalizationHelper.GetString("String_SettingsSdkVersionFormat")
+    public string SdkVersionDescription => LocalizationHelper.Runtime.GetString("String_SettingsSdkVersionFormat")
         .Replace("{0}", _sdkVersion ?? "unknown");
-    public string SdkVersionHeader => RuntimeLocalizationHelper.GetString("String_SettingsSdkVersionHeader");
-    public string ToolkitVersionDescription => RuntimeLocalizationHelper.GetString("String_SettingsToolkitVersionFormat")
+    public string SdkVersionHeader => LocalizationHelper.Runtime.GetString("String_SettingsSdkVersionHeader");
+    public string ToolkitVersionDescription => LocalizationHelper.Runtime.GetString("String_SettingsToolkitVersionFormat")
         .Replace("{0}", _toolkitVersion ?? "unknown");
-    public string ToolkitVersionHeader => RuntimeLocalizationHelper.GetString("String_SettingsToolkitVersionHeader");
+    public string ToolkitVersionHeader => LocalizationHelper.Runtime.GetString("String_SettingsToolkitVersionHeader");
 
     // Read NuGet package versions from .deps.json at runtime / 运行时从 deps.json 读取 NuGet 包版本
     private static readonly string? _sdkVersion = TryGetPackageVersion("Microsoft.WindowsAppSDK");
@@ -98,9 +98,9 @@ public sealed partial class SettingsPage : Page
             var theme = _themeService.AvailableThemes[i];
             var displayName = theme.Code switch
             {
-                RuntimeConstants.Themes.System => RuntimeLocalizationHelper.GetString("String_ThemeFollowSystem"),
-                RuntimeConstants.Themes.Light => RuntimeLocalizationHelper.GetString("String_ThemeLight"),
-                RuntimeConstants.Themes.Dark => RuntimeLocalizationHelper.GetString("String_ThemeDark"),
+                RuntimeConstants.Themes.System => LocalizationHelper.Runtime.GetString("String_ThemeFollowSystem"),
+                RuntimeConstants.Themes.Light => LocalizationHelper.Runtime.GetString("String_ThemeLight"),
+                RuntimeConstants.Themes.Dark => LocalizationHelper.Runtime.GetString("String_ThemeDark"),
                 _ => theme.DisplayName
             };
             ThemeComboBox.Items.Add(displayName);
@@ -134,7 +134,7 @@ public sealed partial class SettingsPage : Page
         {
             var lang = _languageService.AvailableLanguages[i];
             var displayName = lang.Code == RuntimeConstants.Languages.System
-                ? RuntimeLocalizationHelper.GetString("String_LangFollowSystem")
+                ? LocalizationHelper.Runtime.GetString("String_LangFollowSystem")
                 : lang.DisplayName;
             LanguageComboBox.Items.Add(displayName);
             if (lang.Code == selectedCode)
@@ -236,8 +236,8 @@ public sealed partial class SettingsPage : Page
 
     private void ShowRestartInfoBar()
     {
-        RestartInfoBar.Title = RuntimeLocalizationHelper.GetString("SettingsLanguageRestartTitle.Text");
-        RestartInfoBar.Message = RuntimeLocalizationHelper.GetString("SettingsLanguageRestartHint.Text");
+        RestartInfoBar.Title = LocalizationHelper.Runtime.GetString("SettingsLanguageRestartTitle.Text");
+        RestartInfoBar.Message = LocalizationHelper.Runtime.GetString("SettingsLanguageRestartHint.Text");
         RestartInfoBar.Visibility = Visibility.Visible;
         RestartInfoBar.Opacity = 0;
         RestartInfoBar.IsOpen = true;

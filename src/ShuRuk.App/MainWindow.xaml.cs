@@ -9,10 +9,14 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using ShuRuk.App.Views;
 using ShuRuk.App;
-using ShuRuk.App.Helpers;
-using ShuRuk.App.Services;
-using ShuRuk.Runtime.Abstractions.Interfaces;
-using ShuRuk.Runtime.Abstractions;
+using ShuRuk.App.Constants;
+using ShuRuk.Runtime.Core;
+using ShuRuk.App.Services.Module;
+using ShuRuk.Runtime.Services.Changelog;
+using ShuRuk.App.Services.Infrastructure;
+using ShuRuk.App.Services.UI;
+using ShuRuk.Runtime.Contracts;
+using ShuRuk.Runtime.Helpers;
 
 using System.Runtime.InteropServices;
 using WinRT.Interop;
@@ -115,7 +119,7 @@ public sealed partial class MainWindow : Window
             NavView.SelectedItem = NavView.MenuItems[0];
         _suppressNavigation = false;
         NavigateTo("home", pushHistory: false);
-        LocalizationHelper.ApplyUidResources(NavView);
+        LocalizationHelper.App.ApplyUidResources(NavView);
 
         NavView.Loaded += NavView_Loaded;
 
@@ -345,7 +349,7 @@ public sealed partial class MainWindow : Window
         {
             RefreshNavItems();
             RefreshNavBuiltInItems();
-            LocalizationHelper.ApplyUidResources(NavView);
+            LocalizationHelper.App.ApplyUidResources(NavView);
         });
     }
 
@@ -386,10 +390,10 @@ public sealed partial class MainWindow : Window
         {
             item.Content = item.Tag?.ToString() switch
             {
-                var t when t == AppConstants.NavTags.Home => LocalizationHelper.GetString("NavHome.Content"),
-                var t when t == AppConstants.NavTags.Modules => LocalizationHelper.GetString("NavModules.Content"),
-                var t when t == AppConstants.NavTags.Changelog => LocalizationHelper.GetString("NavChangelog.Content"),
-                var t when t == AppConstants.NavTags.Monitor => LocalizationHelper.GetString("NavMonitor.Content"),
+                var t when t == AppConstants.NavTags.Home => LocalizationHelper.App.GetString("NavHome.Content"),
+                var t when t == AppConstants.NavTags.Modules => LocalizationHelper.App.GetString("NavModules.Content"),
+                var t when t == AppConstants.NavTags.Changelog => LocalizationHelper.App.GetString("NavChangelog.Content"),
+                var t when t == AppConstants.NavTags.Monitor => LocalizationHelper.App.GetString("NavMonitor.Content"),
                 _ => item.Content
             };
         }
@@ -398,10 +402,10 @@ public sealed partial class MainWindow : Window
     // Update settings item and back/pane button tooltips / 更新设置项及返回/面板按钮提示
     private void RefreshNavBuiltInItems()
     {
-        var settingsText = LocalizationHelper.GetString("String_NavSettings");
-        var backText = LocalizationHelper.GetString("String_NavBack");
-        var paneOpenText = LocalizationHelper.GetString("String_NavPaneOpen");
-        var paneCloseText = LocalizationHelper.GetString("String_NavPaneClose");
+        var settingsText = LocalizationHelper.App.GetString("String_NavSettings");
+        var backText = LocalizationHelper.App.GetString("String_NavBack");
+        var paneOpenText = LocalizationHelper.App.GetString("String_NavPaneOpen");
+        var paneCloseText = LocalizationHelper.App.GetString("String_NavPaneClose");
 
         if (NavView.SettingsItem is NavigationViewItem settingsNavItem)
         {
@@ -618,7 +622,7 @@ public sealed partial class MainWindow : Window
             {
                 Title = "导航失败",
                 Content = $"无法导航到 {tag}:\n{ex}",
-                CloseButtonText = LocalizationHelper.GetString("String_Ok"),
+                CloseButtonText = LocalizationHelper.App.GetString("String_Ok"),
                 XamlRoot = NavView.XamlRoot
             };
             await dialog.ShowAsync();
@@ -651,7 +655,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            var manager = App.Services.GetRequiredService<ShuRuk.Runtime.Abstractions.Interfaces.IModuleManager>();
+            var manager = App.Services.GetRequiredService<ShuRuk.Runtime.Contracts.IModuleManager>();
             var modules = manager.GetInstalledModules();
 
             // Remove existing dynamic module items / 移除已有的动态模块条目

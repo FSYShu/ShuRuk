@@ -125,14 +125,16 @@
                                         Height="1"
                                         Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
                                 <ScrollViewer Grid.Row="1"
-
-                                              VerticalScrollBarVisibility="Disabled"
-                                              VerticalScrollMode="Disabled"
+                                              SizeChanged="CardScrollViewer_SizeChanged"
+                                               VerticalScrollBarVisibility="Hidden"
+                                               VerticalScrollMode="Disabled"
                                               HorizontalScrollBarVisibility="Disabled"
                                               HorizontalScrollMode="Disabled"
+
                                               Padding="0"
                                               Margin="0,8,0,0">
                                     <ItemsRepeater ItemsSource="{x:Bind VisibleSegments, Mode=OneTime}"
+                                                   SizeChanged="CardContent_SizeChanged"
                                                    ItemTemplate="{StaticResource SegmentTemplate}">
                                         <ItemsRepeater.Layout>
                                             <StackLayout Spacing="4" />
@@ -154,7 +156,8 @@
                                 <Button Click="ExpandButton_Click"
                                         Tag="{x:Bind Mode=OneTime}"
                                         Padding="8,4"
-                                        CornerRadius="6">
+                                        CornerRadius="6"
+                                        AutomationProperties.Name="{x:Bind ExpandButtonText, Mode=OneWay}">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <TextBlock Text="{x:Bind ExpandButtonText, Mode=OneWay}" />
                                         <FontIcon Glyph="{x:Bind ExpandButtonGlyph, Mode=OneWay}" FontSize="12" />

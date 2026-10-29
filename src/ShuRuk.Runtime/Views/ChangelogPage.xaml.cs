@@ -1,12 +1,14 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
-using ShuRuk.Runtime.Abstractions;
-using ShuRuk.Runtime.Abstractions.Interfaces;
+using ShuRuk.Runtime.Core;
+using ShuRuk.Runtime.Contracts;
 using ShuRuk.Runtime.Controls;
+using Windows.Foundation;
 using ShuRuk.Runtime.Helpers;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -31,11 +33,11 @@ public sealed partial class ChangelogPage : Page
     private const int BatchSize = 20;
 
     // Localized filter option text / 本地化过滤选项文本
-    public string PageTitleText => RuntimeLocalizationHelper.GetString("RuntimeChangelogPageTitle");
-    public string FilterAllText => RuntimeLocalizationHelper.GetString("RuntimeChangelogFilterAll");
-    public string FilterExcludePrereleaseText => RuntimeLocalizationHelper.GetString("RuntimeChangelogFilterExcludePrerelease");
-    public string PrevVersionText => RuntimeLocalizationHelper.GetString("RuntimeChangelogPrevVersion");
-    public string NextVersionText => RuntimeLocalizationHelper.GetString("RuntimeChangelogNextVersion");
+    public string PageTitleText => LocalizationHelper.Runtime.GetString("RuntimeChangelogPageTitle");
+    public string FilterAllText => LocalizationHelper.Runtime.GetString("RuntimeChangelogFilterAll");
+    public string FilterExcludePrereleaseText => LocalizationHelper.Runtime.GetString("RuntimeChangelogFilterExcludePrerelease");
+    public string PrevVersionText => LocalizationHelper.Runtime.GetString("RuntimeChangelogPrevVersion");
+    public string NextVersionText => LocalizationHelper.Runtime.GetString("RuntimeChangelogNextVersion");
 
     public static readonly DependencyProperty EntriesProperty =
         DependencyProperty.Register(nameof(Entries), typeof(IEnumerable<ChangelogEntry>), typeof(ChangelogPage), new PropertyMetadata(null, OnEntriesChanged));
@@ -75,7 +77,7 @@ public sealed partial class ChangelogPage : Page
         ChangelogRepeater.ItemsSource = _displayItems;
 
         // Initial tooltip for image toggle / 图片切换初始提示
-        ToolTipService.SetToolTip(ShowImagesToggle, RuntimeLocalizationHelper.GetString("RuntimeChangelogHideImages"));
+        ToolTipService.SetToolTip(ShowImagesToggle, LocalizationHelper.Runtime.GetString("RuntimeChangelogHideImages"));
     }
 
 
@@ -238,11 +240,11 @@ public sealed partial class ChangelogPage : Page
         base.OnNavigatedTo(e);
 
         // Apply localized empty state text / 应用本地化空状态文字
-        EmptyTitle = RuntimeLocalizationHelper.GetString("RuntimeChangelogEmptyTitle");
-        EmptyDescription = RuntimeLocalizationHelper.GetString("RuntimeChangelogEmptyDescription");
+        EmptyTitle = LocalizationHelper.Runtime.GetString("RuntimeChangelogEmptyTitle");
+        EmptyDescription = LocalizationHelper.Runtime.GetString("RuntimeChangelogEmptyDescription");
         // Set static localized expand/collapse text for binding / 设置静态本地化展开收起文字供绑定
-        ChangelogEntry.ExpandText = RuntimeLocalizationHelper.GetString("RuntimeChangelogExpand");
-        ChangelogEntry.CollapseText = RuntimeLocalizationHelper.GetString("RuntimeChangelogCollapse");
+        ChangelogEntry.ExpandText = LocalizationHelper.Runtime.GetString("RuntimeChangelogExpand");
+        ChangelogEntry.CollapseText = LocalizationHelper.Runtime.GetString("RuntimeChangelogCollapse");
 
         // Read navigation parameter / 读取导航参数
         var param = e.Parameter as ChangelogPageParameter;
@@ -256,8 +258,8 @@ public sealed partial class ChangelogPage : Page
         _showImages = prefs.ShowImages;
         ShowImagesToggle.IsChecked = _showImages;
         ToolTipService.SetToolTip(ShowImagesToggle,
-            RuntimeLocalizationHelper.GetString(_showImages ? "RuntimeChangelogHideImages" : "RuntimeChangelogShowImages"));
-        ToolTipService.SetToolTip(RefreshButton, RuntimeLocalizationHelper.GetString("RuntimeChangelogRefresh"));
+            LocalizationHelper.Runtime.GetString(_showImages ? "RuntimeChangelogHideImages" : "RuntimeChangelogShowImages"));
+        ToolTipService.SetToolTip(RefreshButton, LocalizationHelper.Runtime.GetString("RuntimeChangelogRefresh"));
         _filterTag = prefs.FilterTag;
         FilterButton.Content = _filterTag == FilterTagExcludePrerelease ? FilterExcludePrereleaseText : FilterAllText;
 
@@ -287,7 +289,7 @@ public sealed partial class ChangelogPage : Page
             _loadStartTime = DateTime.UtcNow;
             _isLoadingOverlayActive = true;
             IsLoading = true;
-            LoadingText = RuntimeLocalizationHelper.GetString("RuntimeChangelogLoading");
+            LoadingText = LocalizationHelper.Runtime.GetString("RuntimeChangelogLoading");
             try
             {
                 var allEntries = new List<ChangelogEntry>();
@@ -396,7 +398,7 @@ public sealed partial class ChangelogPage : Page
         _loadStartTime = DateTime.UtcNow;
         _isLoadingOverlayActive = true;
         IsLoading = true;
-        LoadingText = RuntimeLocalizationHelper.GetString("RuntimeChangelogLoading");
+        LoadingText = LocalizationHelper.Runtime.GetString("RuntimeChangelogLoading");
         RefreshButton.IsEnabled = false;
 
         if (isTestEmptyState)
@@ -599,12 +601,89 @@ public sealed partial class ChangelogPage : Page
         catch { }
     }
 
+    // Measure card content overflow via ScrollViewer extent vs viewport / 通过ScrollViewer范围与视口比较测量卡片内容溢出
+    private void CardScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is not ScrollViewer sv) return;
+        ScheduleOverflowMeasure(sv);
+    }
+
+    // Content (ItemsRepeater) size changed: re-measure after async markdown render / 内容尺寸变化:异步markdown渲染后重新测量
+    private void CardContent_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is not FrameworkElement content) return;
+
+        // Walk up visual tree to find enclosing ScrollViewer / 向上遍历可视化树查找包裹的ScrollViewer
+        DependencyObject? node = content;
+        ScrollViewer? sv = null;
+        while (node is not null)
+        {
+            if (node is ScrollViewer found) { sv = found; break; }
+            node = VisualTreeHelper.GetParent(node);
+        }
+        if (sv is null) return;
+        ScheduleOverflowMeasure(sv);
+    }
+
+    // Resolve ChangelogEntry from a card-internal element via repeater index / 通过repeater索引从卡片内部元素解析ChangelogEntry
+    private ChangelogEntry? GetEntryFromCardElement(DependencyObject element)
+    {
+        // Walk up to find direct child of ChangelogRepeater (card root) / 向上查找ChangelogRepeater的直接子元素(卡片根)
+        DependencyObject? node = element;
+        while (node is not null)
+        {
+            var parent = VisualTreeHelper.GetParent(node);
+            if (parent == ChangelogRepeater && node is FrameworkElement fe)
+            {
+                try
+                {
+                    int idx = ChangelogRepeater.GetElementIndex(fe);
+                    if (idx >= 0 && idx < _displayItems.Count) return _displayItems[idx];
+                }
+                catch { }
+                return null;
+            }
+            node = parent;
+        }
+        return null;
+    }
+
+    // Defer measurement to next layout pass so ExtentHeight reflects final render / 延迟到下一布局帧测量,确保ExtentHeight反映最终渲染
+    private void ScheduleOverflowMeasure(ScrollViewer sv, ChangelogEntry? knownEntry = null)
+    {
+        ChangelogEntry? entry = knownEntry ?? sv.DataContext as ChangelogEntry ?? GetEntryFromCardElement(sv);
+        if (entry is null) return;
+        if (entry.IsExpanded) return;
+        if (!_pendingOverflowMeasure.Add(entry)) return;
+        var entryRef = entry;
+        sv.DispatcherQueue.TryEnqueue(() =>
+        {
+            _pendingOverflowMeasure.Remove(entryRef);
+            if (entryRef.IsExpanded) return;
+            // Guard against virtualization container recycling: sv may now show a different card / 防止虚拟化容器回收:sv可能已切换到其他卡片
+            if (sv.DataContext is ChangelogEntry dc && !ReferenceEquals(dc, entryRef)) return;
+            entryRef.MeasuredOverflow = sv.ExtentHeight > sv.ActualHeight + 1;
+        });
+    }
+
     // Card appear animation / 卡片出现动画
     private void CardGrid_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement element) return;
         // Track height changes for nav offset cache / 追踪高度变化供导航偏移缓存
         element.SizeChanged += CardGrid_SizeChanged;
+
+        // Fallback measure FIRST: resolve entry via repeater index and schedule overflow check / 兜底测量优先:通过repeater索引解析条目并调度溢出检查
+        // Must run before animation which may throw and block subsequent code / 必须在动画前执行,动画可能抛异常阻断后续代码
+        try
+        {
+            int cardIdx = ChangelogRepeater.GetElementIndex(element);
+            var cardSv = FindDescendant<ScrollViewer>(element);
+            if (cardIdx >= 0 && cardIdx < _displayItems.Count && cardSv is ScrollViewer sv)
+                ScheduleOverflowMeasure(sv, _displayItems[cardIdx]);
+        }
+        catch { }
+
         if (!_isLoadingOverlayActive)
         {
             if (_isNavigating)
@@ -623,7 +702,18 @@ public sealed partial class ChangelogPage : Page
                 PlaySlideInAnimation(element, CardSlideDistance, SlideInAnimMs);
             }
         }
-        // Initial load: XAML already sets Opacity=0; RevealContent animates later / 初始加载:XAML已设Opacity=0,RevealContent稍后动画
+    }
+
+    // Depth-first search for first descendant of given type / 深度优先查找首个指定类型后代
+    private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) return match;
+            if (FindDescendant<T>(child) is T nested) return nested;
+        }
+        return null;
     }
 
 
@@ -732,7 +822,7 @@ public sealed partial class ChangelogPage : Page
         _showImages = ShowImagesToggle.IsChecked == true;
         // Update tooltip to reflect current state / 更新提示反映当前状态
         ToolTipService.SetToolTip(ShowImagesToggle,
-            RuntimeLocalizationHelper.GetString(_showImages ? "RuntimeChangelogHideImages" : "RuntimeChangelogShowImages"));
+            LocalizationHelper.Runtime.GetString(_showImages ? "RuntimeChangelogHideImages" : "RuntimeChangelogShowImages"));
         // Persist preference / 持久化偏好
         await SavePrefsAsync(new ChangelogPrefs { ShowImages = _showImages, FilterTag = _filterTag });
 
@@ -795,6 +885,8 @@ public sealed partial class ChangelogPage : Page
     // Cache of rendered card heights by index / 卡片渲染高度缓存(按索引)
     // Fixes PREV nav drift: prev card virtualized → ActualHeight is unrendered height / 修复PREV导航偏移:prev卡片虚拟化回收后ActualHeight为未渲染高度
     private readonly Dictionary<int, double> _cardHeightCache = [];
+    // Entries with a pending overflow measure; prevents layout-cycle re-entrancy / 待测量溢出条目集合;防止布局循环重入
+    private readonly HashSet<ChangelogEntry> _pendingOverflowMeasure = [];
 
     // Navigation re-entrancy guard / 导航重入保护
     private bool _isNavigating;
@@ -1395,9 +1487,9 @@ public sealed partial class ChangelogPage : Page
     // Show dedicated error state with message / 显示独立错误状态
     private void ShowErrorState(string message)
     {
-        ErrorTitleText.Text = RuntimeLocalizationHelper.GetString("RuntimeChangelogErrorTitle");
+        ErrorTitleText.Text = LocalizationHelper.Runtime.GetString("RuntimeChangelogErrorTitle");
         // Localized description + technical detail / 本地化描述+技术详情
-        ErrorDescriptionText.Text = RuntimeLocalizationHelper.GetString("RuntimeChangelogErrorDescription");
+        ErrorDescriptionText.Text = LocalizationHelper.Runtime.GetString("RuntimeChangelogErrorDescription");
         FadeOut(EmptyState);
         FadeIn(ErrorState);
     }
@@ -1439,9 +1531,8 @@ public sealed class ChangelogEntry : INotifyPropertyChanged
     public const double CollapsedMaxHeight = 1000;
     // Max visible segments when collapsed / 折叠时最大可见段数
     private const int CollapsedSegmentLimit = 6;
-    // Estimate threshold: notes longer than this likely overflow / 估算阈值:notes超过此长度可能溢出
-    private const int OverflowNoteLength = 1200;
-    private const int OverflowSegmentCount = 6;
+
+
 
     public string Version { get; set; } = string.Empty;
     // GitHub release name (title), falls back to tag if empty / GitHub release 标题,空时回退到tag
@@ -1470,8 +1561,11 @@ public sealed class ChangelogEntry : INotifyPropertyChanged
                 RaisePropertyChanged(nameof(IsExpanded));
                 RaisePropertyChanged(nameof(ExpandButtonGlyph));
                 RaisePropertyChanged(nameof(ExpandButtonText));
+                RaisePropertyChanged(nameof(ExpandButtonVisibility));
                 RaisePropertyChanged(nameof(FadeOverlayVisibility));
                 RaisePropertyChanged(nameof(CardMaxHeight));
+
+
             }
         }
     }
@@ -1487,6 +1581,10 @@ public sealed class ChangelogEntry : INotifyPropertyChanged
         int count = _isExpanded ? Segments.Count : Math.Min(Segments.Count, CollapsedSegmentLimit);
         for (int i = 0; i < count; i++)
             VisibleSegments.Add(Segments[i]);
+        // Notify overflow-dependent bindings since Segments was populated / Segments填充后通知溢出相关绑定
+        RaisePropertyChanged(nameof(HasOverflow));
+        RaisePropertyChanged(nameof(ExpandButtonVisibility));
+        RaisePropertyChanged(nameof(FadeOverlayVisibility));
     }
 
     // Incrementally add/remove segments on expand/collapse toggle / 展开/收起时增量增删段
@@ -1516,11 +1614,28 @@ public sealed class ChangelogEntry : INotifyPropertyChanged
     [JsonIgnore]
     public string ExpandButtonText => _isExpanded ? CollapseText : ExpandText;
 
-    // Overflow when hidden segments exist or notes too long to fit collapsed height / 段数超限或内容过长才溢出
+    // Overflow when hidden segments exist or measured content exceeds collapsed height / 段数超限或运行时测量溢出
     [JsonIgnore]
-    public bool HasOverflow => Segments.Count > CollapsedSegmentLimit || Notes.Length > OverflowNoteLength;
+    public bool HasOverflow => Segments.Count > CollapsedSegmentLimit || MeasuredOverflow;
+    // Runtime-measured overflow: ScrollViewer extent exceeds viewport / 运行时测量溢出:ScrollViewer范围超视口
+    private bool _measuredOverflow;
     [JsonIgnore]
-    public Visibility ExpandButtonVisibility => HasOverflow ? Visibility.Visible : Visibility.Collapsed;
+    public bool MeasuredOverflow
+    {
+        get => _measuredOverflow;
+        set
+        {
+            if (_measuredOverflow != value)
+            {
+                _measuredOverflow = value;
+                RaisePropertyChanged(nameof(HasOverflow));
+                RaisePropertyChanged(nameof(ExpandButtonVisibility));
+                RaisePropertyChanged(nameof(FadeOverlayVisibility));
+            }
+        }
+    }
+    [JsonIgnore]
+    public Visibility ExpandButtonVisibility => (_isExpanded || HasOverflow) ? Visibility.Visible : Visibility.Collapsed;
     // Fade gradient overlay: only when collapsed and has overflow / 渐变遮罩:仅折叠且有溢出时显示
     [JsonIgnore]
     public Visibility FadeOverlayVisibility => !_isExpanded && HasOverflow ? Visibility.Visible : Visibility.Collapsed;
@@ -1528,6 +1643,7 @@ public sealed class ChangelogEntry : INotifyPropertyChanged
     // Card max height: capped when collapsed, unlimited when expanded / 卡片最大高度:折叠时上限,展开时无限
     [JsonIgnore]
     public double CardMaxHeight => !_isExpanded ? CollapsedMaxHeight : double.PositiveInfinity;
+
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void RaisePropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
