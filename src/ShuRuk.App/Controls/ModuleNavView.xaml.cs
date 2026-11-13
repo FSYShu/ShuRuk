@@ -21,7 +21,11 @@ public sealed partial class ModuleNavView : UserControl
     }
 
     public static readonly DependencyProperty SubModulesProperty =
-        DependencyProperty.Register(nameof(SubModules), typeof(IReadOnlyList<SubModuleNavModel>), typeof(ModuleNavView), new PropertyMetadata(Array.Empty<SubModuleNavModel>(), OnSubModulesChanged));
+        DependencyProperty.Register(
+            nameof(SubModules),
+            typeof(IReadOnlyList<SubModuleNavModel>),
+            typeof(ModuleNavView),
+            new PropertyMetadata(Array.Empty<SubModuleNavModel>(), OnSubModulesChanged));
 
     // Update list source when SubModules property changes / SubModules属性变更时更新列表源
     private static void OnSubModulesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

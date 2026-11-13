@@ -3,6 +3,7 @@ using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using ShuRuk.App.Constants;
 using ShuRuk.Runtime.Core;
+using ShuRuk.Runtime.Models;
 using ShuRuk.App.Services.Module;
 using ShuRuk.Runtime.Services.Changelog;
 using ShuRuk.App.Services.Infrastructure;
@@ -16,14 +17,12 @@ using System.Runtime.InteropServices;
 using WinRT.Interop;
 using ShuRuk.Runtime.Helpers;
 
-
 namespace ShuRuk.App;
 
 public partial class App : Application, IAppContext
 {
     private Window? _window;
     private MainWindow? _mainWindow;
-
 
     public static IServiceProvider Services { get; private set; } = null!;
     public static Window MainWindowStatic { get; private set; } = null!;
@@ -51,6 +50,7 @@ public partial class App : Application, IAppContext
     public static IAppContext AppContextInstance { get; private set; } = null!;
 
     // Constructor: wire crash logging and init XAML / 构造函数:挂载崩溃日志并初始化XAML
+
     public App()
     {
         // AppDomain-level crash logging / AppDomain级崩溃日志
@@ -101,7 +101,8 @@ public partial class App : Application, IAppContext
         catch (Exception ex) { CrashLogger.LogCrash("RefCount", ex); }
     }
 
-    // Ensure services and window are initialized (shared by OnLaunched and OnAppActivated) / 确保服务和窗口已初始化(OnLaunched和OnAppActivated共用)
+    // Ensure services and window are initialized (shared by OnLaunched and OnAppActivated)
+    // / 确保服务和窗口已初始化(OnLaunched和OnAppActivated共用)
     private bool EnsureInitialized()
     {
         if (_mainWindow is not null) return true;
@@ -136,7 +137,9 @@ public partial class App : Application, IAppContext
         {
             var services = new ServiceCollection();
 
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppConstants.AppDataFolderName);
+            var appDataPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                AppConstants.AppDataFolderName);
             Directory.CreateDirectory(appDataPath);
 
             var dbPath = Path.Combine(appDataPath, AppConstants.DbFileName);
@@ -162,7 +165,9 @@ public partial class App : Application, IAppContext
             {
                 var manager = sp.GetRequiredService<IModuleManager>();
                 var testMode = sp.GetRequiredService<ITestModeService>();
-                return new StatusMonitor(manager, testMode, TimeSpan.FromSeconds(AppConstants.StatusMonitorIntervalSeconds));
+                return new StatusMonitor(
+                    manager, testMode,
+                    TimeSpan.FromSeconds(AppConstants.StatusMonitorIntervalSeconds));
             });
             services.AddSingleton<LanguageService>();
             services.AddSingleton<ITestModeService, TestModeService>();
@@ -221,9 +226,11 @@ public partial class App : Application, IAppContext
 
             // Non-test mode always provides changelog (self repo); test mode only when fill data enabled
             // 非测试模式始终提供更新日志(自身仓库)，测试模式仅在填充数据时提供
-            RuntimeServices.ChangelogDataProvider = !testModeService.IsEnabled || testModeService.IsFillDataEnabled
-                ? new GitHubChangelogDataProvider()
-                : null;
+            RuntimeServices.ChangelogDataProvider =
+                !testModeService.IsPageCovered(TestModeCoverage.Changelog) ||
+                testModeService.IsFillDataEnabled
+                    ? new GitHubChangelogDataProvider()
+                    : null;
         }
         catch (Exception ex) { CrashLogger.LogCrash("RegisterRuntimeServices", ex); }
     }
@@ -386,6 +393,8 @@ public partial class App : Application, IAppContext
     }
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = true)]
-    private static extern int SHGetPropertyStoreForWindow(IntPtr hwnd, ref Guid riid, [Out, MarshalAs(UnmanagedType.IUnknown)] out object? ppv);
+    private static extern int SHGetPropertyStoreForWindow(
+        IntPtr hwnd, ref Guid riid,
+        [Out, MarshalAs(UnmanagedType.IUnknown)] out object? ppv);
 
 }

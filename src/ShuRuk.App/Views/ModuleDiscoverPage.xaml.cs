@@ -169,11 +169,12 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
         };
     }
 
-    // Load discover entries from API or test data with offline fallback / 从API或测试数据加载发现条目,含离线回退
+    // Load discover entries from API or test data with offline fallback
+    // 从API或测试数据加载发现条目,含离线回退
     private async Task LoadDiscoverAsync(string? keyword = null, string? sortBy = null)
     {
         // Show loading state for async fetch / 异步获取时显示加载状态
-        var isTestMode = _testModeService?.IsEnabled == true;
+        var isTestMode = _testModeService?.IsPageCovered(TestModeCoverage.Discover) == true;
         if (!isTestMode)
         {
             LoadingOverlay.Visibility = Visibility.Visible;
@@ -262,7 +263,6 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
         }
     }
 
-
     // Item click: confirm install dialog and refresh / 条目点击:确认安装对话框并刷新
     private async void DiscoverGridView_ItemClick(object sender, ItemClickEventArgs e)
     {
@@ -270,10 +270,11 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
 
         var discovery = AppContextAccessor.Current.Services.GetRequiredService<IModuleDiscoveryService>();
 
-
         var confirmDialog = new ContentDialog
         {
-            Title = LocalizationHelper.App.GetStringFormatted("String_DiscoverDialogInstallConfirmTitleFormat", card.DisplayName),
+            Title = LocalizationHelper.App.GetStringFormatted(
+                "String_DiscoverDialogInstallConfirmTitleFormat",
+                card.DisplayName),
             Content = LocalizationHelper.App.GetStringFormatted(
                 "String_DiscoverDialogInstallConfirmContentFormat",
                 card.DisplayName,
@@ -308,7 +309,8 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
         }
     }
 
-    // Recompute max columns on resize so centered grid stays page-width-bound / 尺寸变化时重算列数,使居中网格仍受页面宽度约束
+    // Recompute max columns on resize so centered grid stays page-width-bound
+    // 尺寸变化时重算列数,使居中网格仍受页面宽度约束
     private void DiscoverGridView_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         GridViewLayoutHelper.UpdateMaxColumns(DiscoverGridView, AppConstants.ModuleCardWidth);

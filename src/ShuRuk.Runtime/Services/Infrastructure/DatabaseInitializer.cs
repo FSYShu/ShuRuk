@@ -41,9 +41,11 @@ public class DatabaseInitializer
         }
     }
 
-    // ── Table creation methods / 建表方法 ──────────────────────────
+    // ── Table creation methods
+    // / 建表方法 ──────────────────────────
 
-    private static async Task CreateModuleRegistryTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task CreateModuleRegistryTableAsync(
+        SqliteConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteNonQueryAsync(connection, cancellationToken, @"
             CREATE TABLE IF NOT EXISTS module_registry (
@@ -65,7 +67,8 @@ public class DatabaseInitializer
             )");
     }
 
-    private static async Task CreateFileNotesTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task CreateFileNotesTableAsync(
+        SqliteConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteNonQueryAsync(connection, cancellationToken, @"
             CREATE TABLE IF NOT EXISTS file_notes (
@@ -77,7 +80,8 @@ public class DatabaseInitializer
             )");
     }
 
-    private static async Task CreateFileIdentitiesTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task CreateFileIdentitiesTableAsync(
+        SqliteConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteNonQueryAsync(connection, cancellationToken, @"
             CREATE TABLE IF NOT EXISTS file_identities (
@@ -89,7 +93,8 @@ public class DatabaseInitializer
             )");
     }
 
-    private static async Task CreateFileSnapshotsTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task CreateFileSnapshotsTableAsync(
+        SqliteConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteNonQueryAsync(connection, cancellationToken, @"
             CREATE TABLE IF NOT EXISTS file_snapshots (
@@ -113,7 +118,8 @@ public class DatabaseInitializer
             )");
     }
 
-    private static async Task CreateFolderIconConfigsTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task CreateFolderIconConfigsTableAsync(
+        SqliteConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteNonQueryAsync(connection, cancellationToken, @"
             CREATE TABLE IF NOT EXISTS folder_icon_configs (
@@ -130,7 +136,8 @@ public class DatabaseInitializer
             )");
     }
 
-    private static async Task CreateAutomationFlowsTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task CreateAutomationFlowsTableAsync(
+        SqliteConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteNonQueryAsync(connection, cancellationToken, @"
             CREATE TABLE IF NOT EXISTS automation_flows (
@@ -145,7 +152,8 @@ public class DatabaseInitializer
             )");
     }
 
-    private static async Task CreateDownloadTasksTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task CreateDownloadTasksTableAsync(
+        SqliteConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteNonQueryAsync(connection, cancellationToken, @"
             CREATE TABLE IF NOT EXISTS download_tasks (
@@ -162,7 +170,8 @@ public class DatabaseInitializer
             )");
     }
 
-    private static async Task CreateVirtualCanvasConfigsTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task CreateVirtualCanvasConfigsTableAsync(
+        SqliteConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteNonQueryAsync(connection, cancellationToken, @"
             CREATE TABLE IF NOT EXISTS virtual_canvas_configs (
@@ -177,7 +186,8 @@ public class DatabaseInitializer
             )");
     }
 
-    private static async Task CreateGestureConfigsTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task CreateGestureConfigsTableAsync(
+        SqliteConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteNonQueryAsync(connection, cancellationToken, @"
             CREATE TABLE IF NOT EXISTS gesture_configs (
@@ -192,8 +202,10 @@ public class DatabaseInitializer
 
     // Note: password and totp_secret fields MUST be encrypted before storage
     // using DataProtectionService. Never persist plaintext sensitive values.
-    // 注意：password和totp_secret字段存储前必须用DataProtectionService加密，绝不持久化明文敏感值。
-    private static async Task CreatePasswordEntriesTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    // 注意：password和totp_secret字段存储前必须用DataProtectionService加密，
+    // 绝不持久化明文敏感值。
+    private static async Task CreatePasswordEntriesTableAsync(
+        SqliteConnection connection, CancellationToken cancellationToken)
     {
         await ExecuteNonQueryAsync(connection, cancellationToken, @"
             CREATE TABLE IF NOT EXISTS password_entries (
@@ -210,7 +222,8 @@ public class DatabaseInitializer
             )");
     }
 
-    private static async Task ExecuteNonQueryAsync(SqliteConnection connection, CancellationToken cancellationToken, string sql)
+    private static async Task ExecuteNonQueryAsync(
+        SqliteConnection connection, CancellationToken cancellationToken, string sql)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = sql;

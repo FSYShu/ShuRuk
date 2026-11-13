@@ -77,6 +77,19 @@ public enum DownloadStatus
     Failed,
     Cancelled
 }
+// Test mode coverage scope: which pages are affected by test mode
+// / 测试模式覆盖范围:哪些页面受测试模式影响
+[Flags]
+public enum TestModeCoverage
+{
+    None = 0,
+    Monitor = 1,
+    Installed = 2,
+    Discover = 4,
+    Changelog = 8,
+    All = Monitor | Installed | Discover | Changelog
+}
+
 // Sub-module page type: function page or settings-only page / 子模块页面类型：功能页或仅介绍设置页
 public enum SubModulePageType
 {

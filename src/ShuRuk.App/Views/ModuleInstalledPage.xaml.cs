@@ -38,7 +38,6 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
     {
         LocalizationHelper.App.ApplyUidResources(this);
 
-
         // Subscribe to test mode changes / 订阅测试模式变化
         _testModeService = AppContextAccessor.Current.Services.GetService<ITestModeService>();
         if (_testModeService is not null)
@@ -69,7 +68,6 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
         await LoadInstalledAsync();
     }
 
-
     // Load installed modules or test data into card list / 加载已安装模块或测试数据到卡片列表
     private async Task LoadInstalledAsync()
     {
@@ -77,7 +75,7 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
 
         // Use test data when test mode is enabled / 测试模式开启时使用测试数据
         var testModeService = App.Services.GetService<ITestModeService>();
-        if (testModeService?.IsEnabled == true)
+        if (testModeService?.IsPageCovered(TestModeCoverage.Installed) == true)
         {
             LoadTestModules();
             ApplyFilter(_currentKeyword);
@@ -182,7 +180,8 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
         FindParentModulePage()?.SwitchToDiscoverTab();
     }
 
-    // Recompute max columns on resize so centered grid stays page-width-bound / 尺寸变化时重算列数,使居中网格仍受页面宽度约束
+    // Recompute max columns on resize so centered grid stays page-width-bound
+    // / 尺寸变化时重算列数,使居中网格仍受页面宽度约束
     private void InstalledGridView_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         GridViewLayoutHelper.UpdateMaxColumns(InstalledGridView, AppConstants.ModuleCardWidth);

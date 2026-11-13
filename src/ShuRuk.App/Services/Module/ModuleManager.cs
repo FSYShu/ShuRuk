@@ -51,7 +51,8 @@ public class ModuleManager : IModuleManager
         DiscoverRegisteredModules();
     }
 
-    // Discover modules from global registry (Path B pre-installed) / 从全局注册表发现已装模块（路径B预装）
+    // Discover modules from global registry (Path B pre-installed)
+    // / 从全局注册表发现已装模块（路径B预装）
     private void DiscoverRegisteredModules()
     {
         using var registry = new GlobalRegistry();
@@ -67,7 +68,9 @@ public class ModuleManager : IModuleManager
                 Entry = m.Entry,
                 Permissions = m.Permissions.ToArray(),
                 Source = ModuleSource.External,
-                Kind = m.Kind.Equals("atomicService", StringComparison.OrdinalIgnoreCase) ? ModuleKind.AtomicService : ModuleKind.Module,
+                Kind = m.Kind.Equals("atomicService", StringComparison.OrdinalIgnoreCase)
+                    ? ModuleKind.AtomicService
+                    : ModuleKind.Module,
                 SubmodulePath = m.InstallPath,
                 Signature = string.IsNullOrEmpty(m.Signature) ? null : m.Signature
             };
@@ -82,7 +85,10 @@ public class ModuleManager : IModuleManager
         }
     }
 
-    public Task RegisterModuleAsync(ModuleManifest manifest, string moduleDir, CancellationToken cancellationToken = default)
+    public Task RegisterModuleAsync(
+        ModuleManifest manifest,
+        string moduleDir,
+        CancellationToken cancellationToken = default)
     {
         var validationResult = _validator.Validate(manifest);
         if (!validationResult.IsValid)
@@ -342,7 +348,9 @@ public class ModuleManager : IModuleManager
             {
                 var assembly = Assembly.LoadFrom(dll);
                 var moduleType = assembly.GetTypes()
-                    .FirstOrDefault(t => typeof(IModule).IsAssignableFrom(t) && t is { IsAbstract: false, IsClass: true });
+                    .FirstOrDefault(t =>
+                        typeof(IModule).IsAssignableFrom(t) &&
+                        t is { IsAbstract: false, IsClass: true });
 
                 if (moduleType is null) continue;
 

@@ -34,7 +34,8 @@ public class StatusMonitor
 
     public event EventHandler<IReadOnlyList<ModuleResourceUsage>>? ResourceUsageUpdated;
 
-    public StatusMonitor(IModuleManager moduleManager, ITestModeService? testModeService, TimeSpan interval, int historyRetentionCount = 60)
+    public StatusMonitor(IModuleManager moduleManager, ITestModeService? testModeService,
+        TimeSpan interval, int historyRetentionCount = 60)
     {
         _moduleManager = moduleManager;
         _testModeService = testModeService;
@@ -87,7 +88,7 @@ public class StatusMonitor
     {
         try
         {
-            if (_testModeService?.IsEnabled == true)
+            if (_testModeService?.IsPageCovered(TestModeCoverage.Monitor) == true)
             {
                 ProcessTestModeSnapshot();
                 return;
@@ -212,7 +213,8 @@ public class StatusMonitor
     }
 
     [DllImport("psapi.dll", SetLastError = true)]
-    private static extern bool GetProcessMemoryInfo(IntPtr hProcess, out PROCESS_MEMORY_COUNTERS_EX2 counters, uint size);
+    private static extern bool GetProcessMemoryInfo(IntPtr hProcess,
+        out PROCESS_MEMORY_COUNTERS_EX2 counters, uint size);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct PROCESS_MEMORY_COUNTERS_EX2

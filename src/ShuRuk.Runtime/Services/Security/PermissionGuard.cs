@@ -21,7 +21,8 @@ public class PermissionGuard
         if (!HasPermission(permission))
         {
             throw new UnauthorizedAccessException(
-                $"Module does not have '{permission}' permission. Declared permissions: {string.Join(", ", _grantedPermissions)}");
+                $"Module does not have '{permission}' permission. " +
+                $"Declared permissions: {string.Join(", ", _grantedPermissions)}");
         }
     }
 

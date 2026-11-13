@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:ShuRuk.Runtime.Views"
+    xmlns:models="using:ShuRuk.Runtime.Models"
     xmlns:controls="using:ShuRuk.Runtime.Controls"
     xmlns:ctk="using:CommunityToolkit.WinUI.Controls"
 
@@ -11,8 +12,17 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <Brush x:Key="PrereleaseBadgeBrush">#B8831E</Brush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <Brush x:Key="PrereleaseBadgeBrush">#E0A838</Brush>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
 
-        <DataTemplate x:Key="SegmentTemplate" x:DataType="local:ChangelogSegment">
+            <DataTemplate x:Key="SegmentTemplate" x:DataType="models:ChangelogSegment">
             <StackPanel Spacing="8">
                 <ctk:MarkdownTextBlock Text="{x:Bind MarkdownText, Mode=OneTime}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -23,7 +33,9 @@
                                        UseSoftlineBreakAsHardlineBreak="True"
                                        IsTextSelectionEnabled="True"
                                        Visibility="{x:Bind TextVisibility, Mode=OneTime}"
-                                       Loaded="MarkdownTextBlock_Loaded" />
+                                       Loading="MarkdownTextBlock_Loading"
+                                       Loaded="MarkdownTextBlock_Loaded"
+                                       SizeChanged="MarkdownTextBlock_SizeChanged" />
                 <Grid Visibility="{x:Bind ImageVisibility, Mode=OneWay}"
                       HorizontalAlignment="Left">
                     <Image Source="{x:Bind ImageSource, Mode=OneWay}"
@@ -40,6 +52,36 @@
                 </Grid>
             </StackPanel>
         </DataTemplate>
+
+        <!-- Sticky overlay template: mirrors card version info column -->
+        <!-- sticky覆盖层模板:镜像卡片版本信息列 -->
+        <DataTemplate x:Key="StickyOverlayTemplate" x:DataType="models:ChangelogEntry">
+            <StackPanel Spacing="2" Margin="0,8,16,0" Width="100">
+                <controls:MarqueeText Text="{x:Bind Version, Mode=OneWay}"
+                                       FontSize="16"
+                                       FontWeight="Bold"
+                                       ClipWidth="84"
+                                       ClipHeight="24"
+                                       HorizontalAlignment="Left" />
+                <TextBlock Text="{x:Bind Date, Mode=OneTime}"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                <Border Visibility="{x:Bind PrereleaseVisibility, Mode=OneTime}"
+                        Background="Transparent"
+                        BorderBrush="{ThemeResource PrereleaseBadgeBrush}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="10,4"
+                        HorizontalAlignment="Left"
+                        Margin="0,2,0,0">
+                    <TextBlock Text="{x:Bind PrereleaseLabel, Mode=OneTime}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               FontWeight="SemiBold"
+                               Foreground="{ThemeResource PrereleaseBadgeBrush}" />
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+        </ResourceDictionary>
     </Page.Resources>
 
     <Grid Padding="24,0,0,0">
@@ -48,11 +90,10 @@
                       HorizontalScrollMode="Disabled"
                       VerticalScrollBarVisibility="Visible"
                       ViewChanged="ChangelogScrollViewer_ViewChanged">
-            <Grid x:Name="ContentPanel" Margin="0,16,24,0" Opacity="0">
-                <Grid.RenderTransform>
-                    <TranslateTransform Y="20" />
-                </Grid.RenderTransform>
+            <Grid x:Name="ContentPanel" Margin="0,16,24,16">
+
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
@@ -60,14 +101,21 @@
                 <!-- Page title / 页标题 -->
                 <TextBlock Grid.Row="0"
                            Text="{x:Bind PageTitleText}"
-                           Style="{StaticResource TitleTextBlockStyle}"
-                           Margin="0,0,0,16" />
+                           Style="{StaticResource TitleTextBlockStyle}" />
 
-                <ItemsRepeater Grid.Row="1" x:Name="ChangelogRepeater">
+                <!-- Cache/offline indicator InfoBar / 缓存/离线指示InfoBar -->
+                <InfoBar Grid.Row="1"
+                         x:Name="CacheInfoBar"
+                         IsOpen="False"
+                         IsClosable="True"
+                         Severity="Warning"
+                         Margin="0,0,0,12" />
+
+                <ItemsRepeater Grid.Row="2" x:Name="ChangelogRepeater">
 
                 <ItemsRepeater.ItemTemplate>
-                    <DataTemplate x:DataType="local:ChangelogEntry">
-                        <Grid Margin="0,0,0,10" Loaded="CardGrid_Loaded" Opacity="0">
+                    <DataTemplate x:DataType="models:ChangelogEntry">
+                        <Grid Margin="0,0,0,10" Loaded="CardGrid_Loaded">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="100" />
                                 <ColumnDefinition Width="*" />
@@ -86,21 +134,23 @@
                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                 <Border Visibility="{x:Bind PrereleaseVisibility, Mode=OneTime}"
                                         Background="Transparent"
-                                        BorderBrush="#CB9422"
+                                        BorderBrush="{ThemeResource PrereleaseBadgeBrush}"
                                         BorderThickness="1"
                                         CornerRadius="12"
                                         Padding="10,4"
                                         HorizontalAlignment="Left"
                                         Margin="0,2,0,0">
-                                    <TextBlock Text="Pre-release"
-                                               FontSize="11"
+                                    <TextBlock Text="{x:Bind PrereleaseLabel, Mode=OneTime}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
                                                FontWeight="SemiBold"
-                                               Foreground="#CB9422" />
+                                               Foreground="{ThemeResource PrereleaseBadgeBrush}" />
                                 </Border>
                             </StackPanel>
 
-                            <!-- Card with segments (text + image alternating), collapsible height / 卡片含文字图片交替段,可折叠高度 -->
+                            <!-- Card with segments (text + image alternating), collapsible height -->
+                            <!-- 卡片含文字图片交替段,可折叠高度 -->
                             <Grid Grid.Column="1"
+                                  x:Name="CardContentGrid"
                                   Padding="12,12"
                                   CornerRadius="6"
                                   MaxHeight="{x:Bind CardMaxHeight, Mode=OneWay}"
@@ -114,7 +164,7 @@
                                 <!-- Release name title at card top / 卡片顶部release标题 -->
                                 <TextBlock Grid.Row="0"
                                            Text="{x:Bind ReleaseName, Mode=OneTime}"
-                                           FontSize="22"
+                                           Style="{StaticResource SubtitleTextBlockStyle}"
                                            FontWeight="SemiBold"
                                            Margin="0,0,0,16"
                                            TextWrapping="Wrap"
@@ -126,8 +176,8 @@
                                         Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
                                 <ScrollViewer Grid.Row="1"
                                               SizeChanged="CardScrollViewer_SizeChanged"
-                                               VerticalScrollBarVisibility="Hidden"
-                                               VerticalScrollMode="Disabled"
+                                              VerticalScrollBarVisibility="Hidden"
+                                              VerticalScrollMode="Disabled"
                                               HorizontalScrollBarVisibility="Disabled"
                                               HorizontalScrollMode="Disabled"
 
@@ -143,7 +193,8 @@
                                 </ScrollViewer>
                             </Grid>
 
-                            <!-- Expand/collapse button overlaid on card bottom center / 展开收起按钮叠加卡片底部居中 -->
+                            <!-- Expand/collapse button overlaid on card bottom center -->
+                            <!-- 展开收起按钮叠加卡片底部居中 -->
                             <Border Grid.Column="1"
                                     Visibility="{x:Bind ExpandButtonVisibility, Mode=OneWay}"
                                     VerticalAlignment="Bottom"
@@ -171,6 +222,10 @@
             </Grid>
         </ScrollViewer>
 
+        <!-- Sticky overlay layer: per-version sticky panels outside ScrollViewer -->
+        <!-- sticky覆盖层:每版本独立面板在ScrollViewer外 -->
+        <Canvas x:Name="StickyLayerContainer" IsHitTestVisible="False" />
+
         <!-- Filter selector floating on top, hidden until data loaded / 过滤选择器,数据加载后显示 -->
         <StackPanel VerticalAlignment="Top"
                     HorizontalAlignment="Right"
@@ -178,87 +233,57 @@
                     Spacing="8"
                     Margin="0,18,24,0">
             <Border x:Name="ImageToggleBorder"
-                    CornerRadius="4"
+                    CornerRadius="{StaticResource ControlCornerRadius}"
                     Background="{ThemeResource SystemControlTransientBackgroundBrush}">
                 <ToggleButton x:Name="ShowImagesToggle"
                               IsChecked="True"
                               Click="ShowImagesToggle_Click"
                               Padding="8,5"
                               Height="32"
-                              MinWidth="0">
+                              MinWidth="0"
+                              AutomationProperties.Name="{x:Bind ShowImagesA11yName}">
                     <Grid>
                         <FontIcon x:Name="ShowImagesIcon" Glyph="&#xE8B9;" FontSize="14" />
-                        <ProgressRing x:Name="ShowImagesProgress" IsActive="False" Visibility="Collapsed" Width="14" Height="14" />
+                        <ProgressRing x:Name="ShowImagesProgress"
+                                      IsActive="False"
+                                      Visibility="Collapsed"
+                                      Width="14" Height="14" />
                     </Grid>
                 </ToggleButton>
             </Border>
             <Border x:Name="FilterBorder"
-                    CornerRadius="4"
-
+                    CornerRadius="{StaticResource ControlCornerRadius}"
                     Background="{ThemeResource SystemControlTransientBackgroundBrush}">
                 <DropDownButton x:Name="FilterButton"
                                 Content="{x:Bind FilterAllText}">
                     <DropDownButton.Flyout>
                         <MenuFlyout Placement="BottomEdgeAlignedRight">
                             <MenuFlyoutItem Text="{x:Bind FilterAllText}" Tag="all" Click="FilterMenuItem_Click" />
-                            <MenuFlyoutItem Text="{x:Bind FilterExcludePrereleaseText}" Tag="exclude-prerelease" Click="FilterMenuItem_Click" />
+                            <MenuFlyoutItem Text="{x:Bind FilterExcludePrereleaseText}"
+                                            Tag="exclude-prerelease"
+                                            Click="FilterMenuItem_Click" />
                         </MenuFlyout>
                     </DropDownButton.Flyout>
                 </DropDownButton>
             </Border>
             <!-- Refresh button / 刷新按钮 -->
             <Border x:Name="RefreshBorder"
-                    CornerRadius="4"
-
+                    CornerRadius="{StaticResource ControlCornerRadius}"
                     Background="{ThemeResource SystemControlTransientBackgroundBrush}">
                 <Button x:Name="RefreshButton"
                         Click="RefreshButton_Click"
                         Padding="8,5"
                         Height="32"
-                        Width="34">
+                        Width="34"
+                        AutomationProperties.Name="{x:Bind RefreshA11yName}">
                     <Grid Width="14" Height="14">
                         <FontIcon x:Name="RefreshIcon" Glyph="&#xE72C;" FontSize="14" />
-                        <ProgressRing x:Name="RefreshProgress" IsActive="False" Visibility="Collapsed" Width="14" Height="14" />
+                        <ProgressRing x:Name="RefreshProgress"
+                                      IsActive="False"
+                                      Visibility="Collapsed"
+                                      Width="14" Height="14" />
                     </Grid>
                 </Button>
-            </Border>
-        </StackPanel>
-
-        <!-- Sticky version overlay / sticky版本覆盖层 -->
-        <StackPanel x:Name="StickyVersionPanel"
-                    Visibility="Collapsed"
-                    VerticalAlignment="Top"
-                    HorizontalAlignment="Left"
-                    Width="100"
-                    Margin="0,8,16,0"
-                    Canvas.ZIndex="10"
-                    Spacing="2"
-                    Background="Transparent">
-            <StackPanel.RenderTransform>
-                <TranslateTransform Y="0" />
-            </StackPanel.RenderTransform>
-            <controls:MarqueeText x:Name="StickyVersionText"
-                                   FontSize="16"
-                                   FontWeight="Bold"
-                                   ClipWidth="84"
-                                   ClipHeight="24"
-                                   HorizontalAlignment="Left" />
-            <TextBlock x:Name="StickyDateText"
-                       Style="{StaticResource CaptionTextBlockStyle}"
-                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-            <Border x:Name="StickyPrereleaseBorder"
-                    Background="Transparent"
-                    BorderBrush="#CB9422"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Padding="10,4"
-                    HorizontalAlignment="Left"
-                    Margin="0,2,0,0"
-                    Visibility="Collapsed">
-                <TextBlock Text="Pre-release"
-                           FontSize="11"
-                           FontWeight="SemiBold"
-                           Foreground="#CB9422" />
             </Border>
         </StackPanel>
 
@@ -285,7 +310,8 @@
                        OpticalMarginAlignment="TrimSideBearings" />
         </StackPanel>
 
-        <!-- Error state (similar layout to empty but distinct icon/text) / 错误状态(布局类似空状态但图标文字不同) -->
+        <!-- Error state (similar layout to empty but distinct icon/text) -->
+        <!-- 错误状态(布局类似空状态但图标文字不同) -->
         <StackPanel x:Name="ErrorState"
                     Visibility="Collapsed"
                     VerticalAlignment="Center"
@@ -312,7 +338,10 @@
         <Grid x:Name="LoadingOverlay" Visibility="Collapsed" Background="Transparent">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
                 <ProgressRing IsActive="True" Width="64" Height="64" />
-                <TextBlock x:Name="LoadingTextBlock" HorizontalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" OpticalMarginAlignment="TrimSideBearings" />
+                <TextBlock x:Name="LoadingTextBlock"
+                           HorizontalAlignment="Center"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           OpticalMarginAlignment="TrimSideBearings" />
             </StackPanel>
         </Grid>
 
@@ -322,44 +351,54 @@
                 HorizontalAlignment="Left"
                 Margin="0,0,0,12"
                 CornerRadius="6"
-                Padding="2"
-
-                Background="{ThemeResource SystemControlTransientBackgroundBrush}">
+                Padding="2">
             <StackPanel Orientation="Vertical" Spacing="2">
-                <Button x:Name="PrevVersionButton"
+                <Border x:Name="PrevVersionBorder"
+                    CornerRadius="{StaticResource ControlCornerRadius}"
+                    Background="{ThemeResource SystemControlTransientBackgroundBrush}">
+                    <Button x:Name="PrevVersionButton"
                         Click="PrevVersionButton_Click"
                         Width="36" Height="36"
                         Padding="0"
-                        ToolTipService.ToolTip="{x:Bind PrevVersionText}">
-                    <FontIcon Glyph="&#xE70E;" FontSize="14" />
-                </Button>
-                <Button x:Name="NextVersionButton"
+                        ToolTipService.ToolTip="{x:Bind PrevVersionText}"
+                        AutomationProperties.Name="{x:Bind PrevVersionText}">
+                        <FontIcon Glyph="&#xE70E;" FontSize="14" />
+                    </Button>
+                </Border>
+                <Border x:Name="NextVersionBorder"
+                    CornerRadius="{StaticResource ControlCornerRadius}"
+                    Background="{ThemeResource SystemControlTransientBackgroundBrush}">
+                    <Button x:Name="NextVersionButton"
                         Click="NextVersionButton_Click"
                         Width="36" Height="36"
                         Padding="0"
-                        ToolTipService.ToolTip="{x:Bind NextVersionText}">
-                    <FontIcon Glyph="&#xE70D;" FontSize="14" />
-                </Button>
+                        ToolTipService.ToolTip="{x:Bind NextVersionText}"
+                        AutomationProperties.Name="{x:Bind NextVersionText}">
+                        <FontIcon Glyph="&#xE70D;" FontSize="14" />
+                    </Button>
+                </Border>
             </StackPanel>
         </Border>
 
-        <!-- Floating collapse button when expanded card bottom is off-screen / 展开卡片底部不可见时浮动收起按钮 -->
+        <!-- Sticky collapse button follows expanded card bottom, clamps to viewport -->
+        <!-- 跟随展开卡片底部的收起按钮,限制在视口内 -->
         <Border x:Name="CollapseFloatingBorder"
                 VerticalAlignment="Bottom"
                 HorizontalAlignment="Center"
                 Margin="76,0,0,12"
                 CornerRadius="6"
                 Padding="0"
+                Opacity="0"
                 Visibility="Collapsed"
                 Background="{ThemeResource SystemControlTransientBackgroundBrush}">
             <Button x:Name="CollapseFloatingButton"
                     Padding="8,4"
                     CornerRadius="6"
                     Click="CollapseFloatingButton_Click"
-
-                    ToolTipService.ToolTip="收起当前展开的卡片">
+                    ToolTipService.ToolTip="{x:Bind CollapseTooltipText}"
+                    AutomationProperties.Name="{x:Bind CollapseTooltipText}">
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                    <TextBlock Text="收起" />
+                    <TextBlock Text="{x:Bind CollapseButtonText}" />
                     <FontIcon Glyph="&#xE70E;" FontSize="12" />
                 </StackPanel>
             </Button>

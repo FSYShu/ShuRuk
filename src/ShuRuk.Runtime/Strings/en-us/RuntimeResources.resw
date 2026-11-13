@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
+
+  <!-- SettingsPage cards -->
   <data name="RuntimeSettingsTheme.Header" xml:space="preserve">
     <value>Theme</value>
   </data>
@@ -24,6 +26,8 @@
   <data name="RuntimeSettingsUpdateChannel.Description" xml:space="preserve">
     <value>Choose update source</value>
   </data>
+
+  <!-- AboutPage -->
   <data name="RuntimeAboutTitle.Text" xml:space="preserve">
     <value>About</value>
   </data>
@@ -36,12 +40,16 @@
   <data name="RuntimeAboutSettings.Text" xml:space="preserve">
     <value>Settings</value>
   </data>
+
+  <!-- HomePage -->
   <data name="RuntimeHomeSubmodules.Text" xml:space="preserve">
     <value>Submodules</value>
   </data>
   <data name="RuntimeHomeRecent.Text" xml:space="preserve">
     <value>Recent</value>
   </data>
+
+  <!-- ChangelogPage -->
   <data name="RuntimeChangelogEmptyTitle" xml:space="preserve">
     <value>No changelog</value>
   </data>
@@ -87,6 +95,20 @@
   <data name="RuntimeChangelogRefresh" xml:space="preserve">
     <value>Refresh</value>
   </data>
+  <data name="RuntimeChangelogPrerelease" xml:space="preserve">
+    <value>Pre-release</value>
+  </data>
+  <data name="RuntimeChangelogCollapseTooltip" xml:space="preserve">
+    <value>Collapse current expanded card</value>
+  </data>
+  <data name="RuntimeChangelogCacheTitle" xml:space="preserve">
+    <value>Showing cached data</value>
+  </data>
+  <data name="RuntimeChangelogCacheMessage" xml:space="preserve">
+    <value>Network request failed, showing locally cached changelog</value>
+  </data>
+
+  <!-- MonitorPage -->
   <data name="RuntimeMonitorHostProcess" xml:space="preserve">
     <value>ShuRuk.Runtime</value>
   </data>
@@ -137,6 +159,33 @@
   <data name="String_SettingsTestModeFillFull" xml:space="preserve">
     <value>Fill Test Entries</value>
   </data>
+  <data name="String_SettingsTestModeCoverageHeader" xml:space="preserve">
+    <value>Coverage Scope</value>
+  </data>
+  <data name="String_SettingsTestModeCoverageDescription" xml:space="preserve">
+    <value>Select which pages are affected by test mode.</value>
+  </data>
+  <data name="String_SettingsTestModeCoverageMonitor" xml:space="preserve">
+    <value>Monitor Page</value>
+  </data>
+  <data name="String_SettingsTestModeCoverageInstalled" xml:space="preserve">
+    <value>Installed Modules Page</value>
+  </data>
+  <data name="String_SettingsTestModeCoverageDiscover" xml:space="preserve">
+    <value>Discover Page</value>
+  </data>
+  <data name="String_SettingsTestModeCoverageChangelog" xml:space="preserve">
+    <value>Changelog Page</value>
+  </data>
+  <data name="String_SettingsTestModeCoverageAll" xml:space="preserve">
+    <value>All Pages</value>
+  </data>
+  <data name="String_SettingsTestModeCoverageNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="String_SettingsTestModeCoveragePagesCount" xml:space="preserve">
+    <value>{0} Pages</value>
+  </data>
   <data name="String_SettingsChangelogRepoHeader" xml:space="preserve">
     <value>Changelog Repository</value>
   </data>
@@ -177,6 +226,12 @@
     <value>Windows Community Toolkit</value>
   </data>
   <data name="String_SettingsToolkitVersionFormat" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="String_SettingsDotnetToolkitVersionHeader" xml:space="preserve">
+    <value>.NET Community Toolkit</value>
+  </data>
+  <data name="String_SettingsDotnetToolkitVersionFormat" xml:space="preserve">
     <value>Version {0}</value>
   </data>
 

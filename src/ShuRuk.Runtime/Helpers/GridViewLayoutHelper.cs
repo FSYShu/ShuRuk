@@ -12,7 +12,8 @@ namespace ShuRuk.Runtime.Helpers;
 public static class GridViewLayoutHelper
 {
     /// <summary>
-    /// Recompute max columns for the given GridView's ItemsWrapGrid / 重新计算指定 GridView 内 ItemsWrapGrid 的最大列数。
+    /// Recompute max columns for the given GridView's ItemsWrapGrid
+    /// / 重新计算指定 GridView 内 ItemsWrapGrid 的最大列数。
     /// Preserves scrollbar-induced margin differences by using the ScrollViewer viewport width.
     /// 使用 ScrollViewer 视口宽度,自然保留滚动条造成的两侧边距差值。
     /// </summary>

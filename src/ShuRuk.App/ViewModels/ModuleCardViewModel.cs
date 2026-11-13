@@ -12,7 +12,6 @@ public class ModuleCardViewModel
     public required ModuleSource Source { get; init; }
     public required ModuleState State { get; init; }
 
-
     // Extended display properties / 扩展显示属性
     public string Version { get; init; } = string.Empty;
     public string Author { get; init; } = string.Empty;

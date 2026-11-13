@@ -30,12 +30,16 @@ public static class CrashLogger
             var sb = new System.Text.StringBuilder();
             sb.Append($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{context}] ");
             var depth = 0;
-            for (var cur = ex; cur is not null && depth < RuntimeConstants.InnerExceptionDepthLimit; cur = cur.InnerException, depth++)
+            for (var cur = ex;
+                cur is not null && depth < RuntimeConstants.InnerExceptionDepthLimit;
+                cur = cur.InnerException, depth++)
             {
                 if (depth > 0) sb.Append(" ---> InnerException: ");
                 sb.Append(cur.GetType().FullName).Append(": ").Append(cur.Message).Append('\n');
                 sb.Append(cur.StackTrace).Append('\n');
-                foreach (var prop in cur.GetType().GetProperties().Where(p => p.Name != "Message" && p.Name != "StackTrace" && p.Name != "InnerException" && p.Name != "Data"))
+                foreach (var prop in cur.GetType().GetProperties()
+                    .Where(p => p.Name != "Message" && p.Name != "StackTrace"
+                        && p.Name != "InnerException" && p.Name != "Data"))
                 {
                     try
                     {

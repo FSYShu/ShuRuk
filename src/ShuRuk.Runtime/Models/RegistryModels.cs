@@ -23,7 +23,8 @@ public sealed class RuntimeRecord
 
     // RefCount and InstalledApps are maintained in registry HKCU\Software\ShuRuk\Runtime
     // (see GlobalRegistry), NOT duplicated here to avoid data drift.
-    // RefCount与InstalledApps由注册表HKCU\Software\ShuRuk\Runtime维护(见GlobalRegistry)，不在此重复以避免数据漂移。
+    // / RefCount与InstalledApps由注册表HKCU\Software\ShuRuk\Runtime维护
+    // / (见GlobalRegistry)，不在此重复以避免数据漂移。
 }
 
 public sealed class HostRecord

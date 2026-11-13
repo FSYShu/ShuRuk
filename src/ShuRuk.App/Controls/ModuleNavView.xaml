@@ -2,6 +2,7 @@
     x:Class="ShuRuk.App.Controls.ModuleNavView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:ShuRuk.App.ViewModels"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
@@ -14,14 +15,14 @@
         IsItemClickEnabled="True"
         ItemClick="SubModuleList_ItemClick">
         <ListView.ItemTemplate>
-            <DataTemplate>
+            <DataTemplate x:DataType="vm:SubModuleNavModel">
                 <Grid Padding="12,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <FontIcon Glyph="{Binding IconGlyph}" FontSize="16" Margin="0,0,12,0"/>
-                    <TextBlock Grid.Column="1" Text="{Binding DisplayName}" VerticalAlignment="Center"/>
+                    <FontIcon Glyph="{x:Bind IconGlyph}" FontSize="16" Margin="0,0,12,0"/>
+                    <TextBlock Grid.Column="1" Text="{x:Bind DisplayName}" VerticalAlignment="Center"/>
                 </Grid>
             </DataTemplate>
         </ListView.ItemTemplate>

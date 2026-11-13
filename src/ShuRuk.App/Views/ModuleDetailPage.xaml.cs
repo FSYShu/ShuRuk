@@ -60,12 +60,14 @@ public sealed partial class ModuleDetailPage : Page
             // Action buttons visibility / 操作按钮可见性
             if (card.Source == ModuleSource.BuiltIn)
             {
-                ModuleDetailUninstallButton.Content = LocalizationHelper.App.GetString("String_ModuleDetailUninstallLogical");
+                ModuleDetailUninstallButton.Content =
+                    LocalizationHelper.App.GetString("String_ModuleDetailUninstallLogical");
                 ModuleDetailReinstallButton.Visibility = Visibility.Visible;
             }
             else
             {
-                ModuleDetailUninstallButton.Content = LocalizationHelper.App.GetString("String_ModuleDetailUninstallPhysical");
+                ModuleDetailUninstallButton.Content =
+                    LocalizationHelper.App.GetString("String_ModuleDetailUninstallPhysical");
                 ModuleDetailReinstallButton.Visibility = Visibility.Collapsed;
             }
 

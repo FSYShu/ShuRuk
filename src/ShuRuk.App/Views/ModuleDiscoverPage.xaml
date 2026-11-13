@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <Page
     x:Class="ShuRuk.App.Views.ModuleDiscoverPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -26,8 +26,54 @@
                 SelectionMode="None"
                 IsItemClickEnabled="True"
                 ItemClick="DiscoverGridView_ItemClick"
-                Padding="24,96,22,0"
+                Padding="24,80,22,0"
                 SizeChanged="DiscoverGridView_SizeChanged">
+                <GridView.ItemContainerStyle>
+                    <Style TargetType="GridViewItem">
+                        <Setter Property="CornerRadius" Value="{StaticResource OverlayCornerRadius}" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="GridViewItem">
+                                    <Border x:Name="RootBorder"
+                                            CornerRadius="{TemplateBinding CornerRadius}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <VisualStateManager.VisualStateGroups>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal" />
+                                                <VisualState x:Name="PointerOver">
+                                                    <VisualState.Setters>
+                                                        <Setter Target="HoverFill.Opacity" Value="1" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                                <VisualState x:Name="Pressed">
+                                                    <VisualState.Setters>
+                                                        <Setter Target="HoverFill.Opacity" Value="1" />
+                                                        <Setter Target="HoverFill.Background"
+                                                                Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                            </VisualStateGroup>
+                                        </VisualStateManager.VisualStateGroups>
+                                        <Grid>
+                                            <Border x:Name="HoverFill"
+                                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                    Opacity="0"
+                                                    CornerRadius="{TemplateBinding CornerRadius}"
+                                                    IsHitTestVisible="False" />
+                                            <ContentPresenter
+                                                Content="{TemplateBinding Content}"
+                                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                HorizontalContentAlignment=
+                                                    "{TemplateBinding HorizontalContentAlignment}"
+                                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                        </Grid>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </GridView.ItemContainerStyle>
                 <GridView.ItemContainerTransitions>
                     <TransitionCollection />
                 </GridView.ItemContainerTransitions>
@@ -41,7 +87,7 @@
                 </GridView.ItemsPanel>
                 <GridView.ItemTemplate>
                     <DataTemplate x:DataType="local:DiscoverCardViewModel">
-                        <Grid Width="268" Height="100" Padding="16" CornerRadius="8"
+                        <Grid Width="268" Height="100" Padding="16" CornerRadius="{StaticResource OverlayCornerRadius}"
                               Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                               BorderThickness="1">
@@ -58,7 +104,7 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
 
-                                <Image Grid.Column="0" Source="ms-appx:///Assets/ShuRuk.ico"
+                                <Image Grid.Column="0" Source="ms-appx:///Assets/app-icon.png"
                                        Width="40" Height="40"
                                        VerticalAlignment="Center" HorizontalAlignment="Center" />
 
@@ -97,7 +143,6 @@
                                                    ClipHeight="20"
                                                    Margin="0,2,0,0"
                                                    VerticalAlignment="Top" />
-
 
                         </Grid>
                     </DataTemplate>
@@ -138,7 +183,10 @@
             <Grid x:Name="LoadingOverlay" Visibility="Visible" Background="Transparent">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
                     <ProgressRing x:Name="LoadingProgressRing" IsActive="True" Width="64" Height="64" />
-                    <TextBlock x:Name="LoadingText" HorizontalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" OpticalMarginAlignment="TrimSideBearings" />
+                    <TextBlock x:Name="LoadingText"
+                               HorizontalAlignment="Center"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               OpticalMarginAlignment="TrimSideBearings" />
                 </StackPanel>
             </Grid>
         </Grid>

@@ -116,7 +116,8 @@ public sealed class GlobalRegistry : IDisposable
     private const string InstalledAppsValue = "InstalledApps";
     private const string HostedModulesValue = "HostedModules";
 
-    // Register app install: add to InstalledApps (dedup), RefCount+1 / 注册应用安装：加入已安装列表(去重)，引用计数+1
+    // Register app install: add to InstalledApps (dedup), RefCount+1
+    // / 注册应用安装：加入已安装列表(去重)，引用计数+1
     public void RegisterAppInstall(string packageFullName)
     {
         AcquireMutex();
@@ -134,7 +135,8 @@ public sealed class GlobalRegistry : IDisposable
         finally { ReleaseMutex(); }
     }
 
-    // Unregister app install: remove from InstalledApps, RefCount-1 / 注销应用安装：移除，引用计数-1，返回是否归零
+    // Unregister app install: remove from InstalledApps, RefCount-1
+    // / 注销应用安装：移除，引用计数-1，返回是否归零
     public bool UnregisterAppInstall(string packageFullName)
     {
         AcquireMutex();
@@ -143,7 +145,9 @@ public sealed class GlobalRegistry : IDisposable
             using var key = WinReg.CurrentUser.OpenSubKey(RuntimeRegKey, writable: true);
             if (key is null) return false;
             var existing = ReadInstalledApps(key);
-            var updated = existing.Where(p => !string.Equals(p, packageFullName, StringComparison.OrdinalIgnoreCase)).ToArray();
+            var updated = existing
+                .Where(p => !string.Equals(p, packageFullName, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
             key.SetValue(InstalledAppsValue, updated, RegistryValueKind.MultiString);
             var current = ReadRefCount(key);
             var next = Math.Max(0, current - 1);
@@ -169,7 +173,8 @@ public sealed class GlobalRegistry : IDisposable
 
     // Reconcile InstalledApps against actual installed packages, fix dirty data.
     // Self-heal: if RefCount <= 0 but InstalledApps non-empty, reset RefCount to list length.
-    // 兜底对账：按实际已装包修正脏数据。自愈：RefCount<=0但InstalledApps非空时重置为列表长度。
+    // 兜底对账：按实际已装包修正脏数据。
+    // 自愈：RefCount<=0但InstalledApps非空时重置为列表长度。
     public void ReconcileInstalledApps(IEnumerable<string> actualInstalledPackages)
     {
         AcquireMutex();
@@ -181,12 +186,14 @@ public sealed class GlobalRegistry : IDisposable
             var reconciled = recorded.Where(p => actual.Contains(p, StringComparer.OrdinalIgnoreCase)).ToArray();
             key.SetValue(InstalledAppsValue, reconciled, RegistryValueKind.MultiString);
 
-            // Self-heal: reset RefCount to match actual installed list / 自愈：重置引用计数匹配实际已装列表
+            // Self-heal: reset RefCount to match actual installed list
+            // / 自愈：重置引用计数匹配实际已装列表
             int refCount = reconciled.Length;
             int currentRefCount = ReadRefCount(key);
             if (currentRefCount <= 0 && reconciled.Length > 0)
             {
-                // RefCount broken but apps exist: reset to list length / 引用计数异常但应用存在：重置为列表长度
+                // RefCount broken but apps exist: reset to list length
+                // / 引用计数异常但应用存在：重置为列表长度
                 refCount = reconciled.Length;
             }
             else if (currentRefCount != reconciled.Length)
@@ -235,7 +242,9 @@ public sealed class GlobalRegistry : IDisposable
             using var key = WinReg.CurrentUser.OpenSubKey(RuntimeRegKey, writable: true);
             if (key is null) return false;
             var existing = ReadHostedModules(key);
-            var updated = existing.Where(p => !string.Equals(p, packageFamilyName, StringComparison.OrdinalIgnoreCase)).ToArray();
+            var updated = existing
+                .Where(p => !string.Equals(p, packageFamilyName, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
             key.SetValue(HostedModulesValue, updated, RegistryValueKind.MultiString);
             return updated.Length < existing.Length;
         }
@@ -252,11 +261,13 @@ public sealed class GlobalRegistry : IDisposable
         key.GetValue(RefCountValue, 0) is int v ? v : 0;
 
     private static string[] ReadInstalledApps(RegistryKey key) =>
-        (string[]?)key.GetValue(InstalledAppsValue, Array.Empty<string>(), RegistryValueOptions.DoNotExpandEnvironmentNames)
+        (string[]?)key.GetValue(InstalledAppsValue, Array.Empty<string>(),
+            RegistryValueOptions.DoNotExpandEnvironmentNames)
         ?? Array.Empty<string>();
 
     private static string[] ReadHostedModules(RegistryKey key) =>
-        (string[]?)key.GetValue(HostedModulesValue, Array.Empty<string>(), RegistryValueOptions.DoNotExpandEnvironmentNames)
+        (string[]?)key.GetValue(HostedModulesValue, Array.Empty<string>(),
+            RegistryValueOptions.DoNotExpandEnvironmentNames)
         ?? Array.Empty<string>();
 
     private string ReadWithLock()

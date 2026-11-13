@@ -25,7 +25,7 @@
 
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
-    <ApplicationIcon>Assets\ShuRuk.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <DefaultLanguage>zh-cn</DefaultLanguage>
 
 
@@ -40,8 +40,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" />
     <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
+
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="System.Management" />
@@ -68,28 +70,10 @@
     <PropertyGroup>
       <_ManifestVersion>$(Version).0</_ManifestVersion>
     </PropertyGroup>
-    <XmlPeek
-      XmlInputPath="app.manifest"
-      Query="/asm1:assembly/asm1:assemblyIdentity/@version"
-      Result="_AppManifestVer"
-      Namespaces="&lt;Namespace Prefix='asm1' Uri='urn:schemas-microsoft-com:asm.v1' /&gt;" />
-    <XmlPeek
-      XmlInputPath="package.appxmanifest"
-      Query="/f:Package/f:Identity/@Version"
-      Result="_AppxManifestVer"
-      Namespaces="&lt;Namespace Prefix='f' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;" />
-    <XmlPoke
-      Condition="'@(_AppManifestVer)' != '$(_ManifestVersion)'"
-      XmlInputPath="app.manifest"
-      Query="/asm1:assembly/asm1:assemblyIdentity/@version"
-      Value="$(_ManifestVersion)"
-      Namespaces="&lt;Namespace Prefix='asm1' Uri='urn:schemas-microsoft-com:asm.v1' /&gt;" />
-    <XmlPoke
-      Condition="'@(_AppxManifestVer)' != '$(_ManifestVersion)'"
-      XmlInputPath="package.appxmanifest"
-      Query="/f:Package/f:Identity/@Version"
-      Value="$(_ManifestVersion)"
-      Namespaces="&lt;Namespace Prefix='f' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;" />
+    <XmlPeek XmlInputPath="app.manifest" Query="/asm1:assembly/asm1:assemblyIdentity/@version" Result="_AppManifestVer" Namespaces="&lt;Namespace Prefix='asm1' Uri='urn:schemas-microsoft-com:asm.v1' /&gt;" />
+    <XmlPeek XmlInputPath="package.appxmanifest" Query="/f:Package/f:Identity/@Version" Result="_AppxManifestVer" Namespaces="&lt;Namespace Prefix='f' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;" />
+    <XmlPoke Condition="'@(_AppManifestVer)' != '$(_ManifestVersion)'" XmlInputPath="app.manifest" Query="/asm1:assembly/asm1:assemblyIdentity/@version" Value="$(_ManifestVersion)" Namespaces="&lt;Namespace Prefix='asm1' Uri='urn:schemas-microsoft-com:asm.v1' /&gt;" />
+    <XmlPoke Condition="'@(_AppxManifestVer)' != '$(_ManifestVersion)'" XmlInputPath="package.appxmanifest" Query="/f:Package/f:Identity/@Version" Value="$(_ManifestVersion)" Namespaces="&lt;Namespace Prefix='f' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;" />
   </Target>
 
 </Project>

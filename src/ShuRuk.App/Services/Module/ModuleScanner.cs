@@ -19,7 +19,8 @@ public sealed class ModuleScanner
             foreach (var ext in extensions)
             {
                 // Load module metadata from extension / 从扩展加载模块元数据
-                System.Diagnostics.Debug.WriteLine($"ModuleScanner: found extension {ext.Id} from {ext.Package.Id.FamilyName}");
+                System.Diagnostics.Debug.WriteLine(
+                    $"ModuleScanner: found extension {ext.Id} from {ext.Package.Id.FamilyName}");
             }
         }
         catch (Exception ex)

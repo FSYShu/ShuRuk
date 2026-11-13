@@ -13,7 +13,7 @@ internal static class AppConstants
     public const string AppUserModelIdPackaged = "ShuRuk_e6tahm9t1221g!ShuRuk";
     public const string AppDataFolderName = "ShuRuk";
     public const string CrashLogFileName = "crash.log";
-    public const string AppIconPath = "Assets/ShuRuk.ico";
+    public const string AppIconPath = "Assets/app.ico";
     // Self repository as default changelog source in non-test mode / 非测试模式默认日志源为自身仓库
     public const string DefaultChangelogRepoUrl = "FSYShu/ShuRuk";
 
@@ -142,9 +142,9 @@ internal static class AppConstants
         public const string MonitorSortDescending = "MonitorSortDescending";
         public const string TestModeEnabled = "TestModeEnabled";
         public const string TestModeFillData = "TestModeFillData";
+        public const string TestModeCoverageScope = "TestModeCoverageScope";
         public const string ChangelogRepoUrl = "ChangelogRepoUrl";
         public const string ChangelogSectionFilter = "ChangelogSectionFilter";
-
 
     }
 

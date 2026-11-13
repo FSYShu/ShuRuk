@@ -64,7 +64,11 @@ public sealed class LocalizationHelper
     {
         if (!_useResourceLoader) return;
         try { _loader = new ResourceLoader(); }
-        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"ResourceLoader refresh failed: {ex}"); _loader = null; }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"ResourceLoader refresh failed: {ex}");
+            _loader = null;
+        }
     }
 
     private void LoadStrings(string lang)
@@ -174,7 +178,8 @@ public sealed class LocalizationHelper
         }
     }
 
-    private static void ApplyToNamedElement(FrameworkElement element, Dictionary<string, List<(string Property, string Value)>> grouped)
+    private static void ApplyToNamedElement(FrameworkElement element,
+        Dictionary<string, List<(string Property, string Value)>> grouped)
     {
         var name = element.Name;
         if (string.IsNullOrEmpty(name)) return;

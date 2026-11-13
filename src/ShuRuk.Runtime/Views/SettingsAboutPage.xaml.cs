@@ -8,25 +8,55 @@ namespace ShuRuk.Runtime.Views;
 public sealed partial class SettingsAboutPage : Page
 {
     public static readonly DependencyProperty ModuleNameProperty =
-        DependencyProperty.Register(nameof(ModuleName), typeof(string), typeof(SettingsAboutPage), new PropertyMetadata(string.Empty));
+        DependencyProperty.Register(
+            nameof(ModuleName), typeof(string), typeof(SettingsAboutPage),
+            new PropertyMetadata(string.Empty));
 
     public static readonly DependencyProperty ModuleDescriptionProperty =
-        DependencyProperty.Register(nameof(ModuleDescription), typeof(string), typeof(SettingsAboutPage), new PropertyMetadata(string.Empty));
+        DependencyProperty.Register(
+            nameof(ModuleDescription), typeof(string), typeof(SettingsAboutPage),
+            new PropertyMetadata(string.Empty));
 
     public static readonly DependencyProperty ModuleVersionProperty =
-        DependencyProperty.Register(nameof(ModuleVersion), typeof(string), typeof(SettingsAboutPage), new PropertyMetadata(string.Empty));
+        DependencyProperty.Register(
+            nameof(ModuleVersion), typeof(string), typeof(SettingsAboutPage),
+            new PropertyMetadata(string.Empty));
 
     public static readonly DependencyProperty ModuleAuthorProperty =
-        DependencyProperty.Register(nameof(ModuleAuthor), typeof(string), typeof(SettingsAboutPage), new PropertyMetadata(string.Empty));
+        DependencyProperty.Register(
+            nameof(ModuleAuthor), typeof(string), typeof(SettingsAboutPage),
+            new PropertyMetadata(string.Empty));
 
     public static readonly DependencyProperty SettingsItemsProperty =
-        DependencyProperty.Register(nameof(SettingsItems), typeof(IEnumerable<SettingsItem>), typeof(SettingsAboutPage), null);
+        DependencyProperty.Register(
+            nameof(SettingsItems), typeof(IEnumerable<SettingsItem>),
+            typeof(SettingsAboutPage), null);
 
-    public string ModuleName { get => (string)GetValue(ModuleNameProperty); set => SetValue(ModuleNameProperty, value); }
-    public string ModuleDescription { get => (string)GetValue(ModuleDescriptionProperty); set => SetValue(ModuleDescriptionProperty, value); }
-    public string ModuleVersion { get => (string)GetValue(ModuleVersionProperty); set => SetValue(ModuleVersionProperty, value); }
-    public string ModuleAuthor { get => (string)GetValue(ModuleAuthorProperty); set => SetValue(ModuleAuthorProperty, value); }
-    public IEnumerable<SettingsItem> SettingsItems { get => (IEnumerable<SettingsItem>)GetValue(SettingsItemsProperty); set => SetValue(SettingsItemsProperty, value); }
+    public string ModuleName
+    {
+        get => (string)GetValue(ModuleNameProperty);
+        set => SetValue(ModuleNameProperty, value);
+    }
+    public string ModuleDescription
+    {
+        get => (string)GetValue(ModuleDescriptionProperty);
+        set => SetValue(ModuleDescriptionProperty, value);
+    }
+    public string ModuleVersion
+    {
+        get => (string)GetValue(ModuleVersionProperty);
+        set => SetValue(ModuleVersionProperty, value);
+    }
+    public string ModuleAuthor
+    {
+        get => (string)GetValue(ModuleAuthorProperty);
+        set => SetValue(ModuleAuthorProperty, value);
+    }
+    public IEnumerable<SettingsItem> SettingsItems
+    {
+        get => (IEnumerable<SettingsItem>)GetValue(SettingsItemsProperty);
+        set => SetValue(SettingsItemsProperty, value);
+    }
 
     public SettingsAboutPage()
     {

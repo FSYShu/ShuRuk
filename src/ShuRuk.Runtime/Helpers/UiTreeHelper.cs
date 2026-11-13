@@ -27,6 +27,34 @@ public static class UiTreeHelper
     }
 
     /// <summary>
+    /// Depth-first search for first descendant of given type / 深度优先查找首个指定类型后代
+    /// </summary>
+    public static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) return match;
+            if (FindDescendant<T>(child) is T nested) return nested;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Find descendant FrameworkElement by x:Name / 按x:Name查找后代FrameworkElement
+    /// </summary>
+    public static FrameworkElement? FindDescendantByName(DependencyObject root, string name)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is FrameworkElement fe && fe.Name == name) return fe;
+            if (FindDescendantByName(child, name) is FrameworkElement found) return found;
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Enumerate all descendants of <paramref name="parent"/> in the logical tree
     /// 枚举逻辑树中 <paramref name="parent"/> 的所有后代元素。
     /// Walks Panel / Border / ContentControl / ScrollViewer / SelectorBar / ItemsControl

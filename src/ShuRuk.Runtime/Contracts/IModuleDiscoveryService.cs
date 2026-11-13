@@ -4,7 +4,11 @@ namespace ShuRuk.Runtime.Contracts;
 
 public interface IModuleDiscoveryService
 {
-    Task<IReadOnlyList<ModuleDiscoveryEntry>> SearchModulesAsync(string? keyword = null, string? category = null, string? sortBy = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ModuleDiscoveryEntry>> SearchModulesAsync(
+        string? keyword = null,
+        string? category = null,
+        string? sortBy = null,
+        CancellationToken cancellationToken = default);
 
     Task InstallModuleAsync(string repositoryUrl, CancellationToken cancellationToken = default);
 

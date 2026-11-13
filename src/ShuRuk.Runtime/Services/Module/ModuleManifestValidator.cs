@@ -9,7 +9,8 @@ public class ManifestValidationResult
     public IReadOnlyList<string> Errors { get; init; } = Array.Empty<string>();
 
     public static ManifestValidationResult Success() => new() { IsValid = true };
-    public static ManifestValidationResult Failure(IReadOnlyList<string> errors) => new() { IsValid = false, Errors = errors };
+    public static ManifestValidationResult Failure(IReadOnlyList<string> errors)
+        => new() { IsValid = false, Errors = errors };
 }
 
 public partial class ModuleManifestValidator
@@ -51,7 +52,8 @@ public partial class ModuleManifestValidator
             foreach (var perm in manifest.Permissions)
             {
                 if (!ValidPermissions.Contains(perm))
-                    errors.Add($"Invalid permission declared: '{perm}'. Valid permissions: {string.Join(", ", ValidPermissions)}");
+                    errors.Add($"Invalid permission declared: '{perm}'. " +
+                        $"Valid permissions: {string.Join(", ", ValidPermissions)}");
             }
         }
 

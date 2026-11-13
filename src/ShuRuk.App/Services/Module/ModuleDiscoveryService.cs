@@ -26,7 +26,11 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
     public bool IsOffline => _isOffline;
 
-    public ModuleDiscoveryService(HttpClient httpClient, IModuleManager moduleManager, string installPath, string cachePath)
+    public ModuleDiscoveryService(
+        HttpClient httpClient,
+        IModuleManager moduleManager,
+        string installPath,
+        string cachePath)
     {
         _httpClient = httpClient;
         _moduleManager = moduleManager;
@@ -35,7 +39,11 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
         Directory.CreateDirectory(_cachePath);
     }
 
-    public async Task<IReadOnlyList<ModuleDiscoveryEntry>> SearchModulesAsync(string? keyword = null, string? category = null, string? sortBy = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ModuleDiscoveryEntry>> SearchModulesAsync(
+        string? keyword = null,
+        string? category = null,
+        string? sortBy = null,
+        CancellationToken cancellationToken = default)
     {
         var entries = await FetchEntriesAsync(cancellationToken);
 
@@ -49,7 +57,9 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
 
         if (category is not null)
         {
-            entries = entries.Where(e => e.Category?.Equals(category, StringComparison.OrdinalIgnoreCase) ?? false).ToList();
+            entries = entries
+                .Where(e => e.Category?.Equals(category, StringComparison.OrdinalIgnoreCase) ?? false)
+                .ToList();
         }
 
         entries = sortBy?.ToLowerInvariant() switch
@@ -77,7 +87,9 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
         await DownloadAndInstallAsync(manifest, repositoryUrl, cancellationToken);
     }
 
-    public async Task InstallFromDiscoveryAsync(ModuleDiscoveryEntry entry, CancellationToken cancellationToken = default)
+    public async Task InstallFromDiscoveryAsync(
+        ModuleDiscoveryEntry entry,
+        CancellationToken cancellationToken = default)
     {
         var manifest = await FetchManifestFromRepositoryAsync(entry.Repository, cancellationToken);
         if (manifest is null)
@@ -95,7 +107,9 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
         return _moduleManager.UninstallModuleAsync(moduleName, cancellationToken);
     }
 
-    public async Task<ModuleDiscoveryEntry?> CheckUpdateAsync(string moduleName, CancellationToken cancellationToken = default)
+    public async Task<ModuleDiscoveryEntry?> CheckUpdateAsync(
+        string moduleName,
+        CancellationToken cancellationToken = default)
     {
         var installed = _moduleManager.GetInstalledModules()
             .FirstOrDefault(m => m.Name == moduleName);
@@ -110,13 +124,15 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
         return remote.Version != installed.Version ? remote : null;
     }
 
-    public async Task<IReadOnlyList<ModuleDiscoveryEntry>> GetCachedEntriesAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ModuleDiscoveryEntry>> GetCachedEntriesAsync(
+        CancellationToken cancellationToken = default)
     {
         var cacheFile = Path.Combine(_cachePath, AppConstants.DiscoveryCacheFileName);
         if (!File.Exists(cacheFile)) return Array.Empty<ModuleDiscoveryEntry>();
 
         await using var stream = File.OpenRead(cacheFile);
-        var result = await JsonSerializer.DeserializeAsync<List<ModuleDiscoveryEntry>>(stream, ModuleManager.JsonOptions, cancellationToken: cancellationToken);
+        var result = await JsonSerializer.DeserializeAsync<List<ModuleDiscoveryEntry>>(
+            stream, ModuleManager.JsonOptions, cancellationToken: cancellationToken);
         return result ?? new List<ModuleDiscoveryEntry>();
     }
 
@@ -171,7 +187,9 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
         }
     }
 
-    private async Task<ModuleManifest?> FetchManifestFromRepositoryAsync(string repositoryUrl, CancellationToken cancellationToken)
+    private async Task<ModuleManifest?> FetchManifestFromRepositoryAsync(
+        string repositoryUrl,
+        CancellationToken cancellationToken)
     {
         var apiUri = ConvertToApiUrl(repositoryUrl);
         if (apiUri is null) return null;
@@ -187,7 +205,9 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
             if (content is null) return null;
             var json = System.Convert.FromBase64String(content.Replace("\n", ""));
 
-            return await JsonSerializer.DeserializeAsync<ModuleManifest>(new MemoryStream(json), ModuleManager.JsonOptions, cancellationToken: cancellationToken);
+            return await JsonSerializer.DeserializeAsync<ModuleManifest>(
+                new MemoryStream(json), ModuleManager.JsonOptions,
+                cancellationToken: cancellationToken);
         }
         catch
         {
@@ -195,20 +215,27 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
         }
     }
 
-    private async Task DownloadAndInstallAsync(ModuleManifest manifest, string repositoryUrl, CancellationToken cancellationToken)
+    private async Task DownloadAndInstallAsync(
+        ModuleManifest manifest,
+        string repositoryUrl,
+        CancellationToken cancellationToken)
     {
         if (!IsSafeModuleName(manifest.Name))
             throw new InvalidOperationException($"Unsafe module name: '{manifest.Name}'");
 
         var moduleDir = Path.Combine(_installPath, manifest.Name);
         var resolvedDir = Path.GetFullPath(moduleDir);
-        if (!resolvedDir.StartsWith(Path.GetFullPath(_installPath) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        if (!resolvedDir.StartsWith(
+            Path.GetFullPath(_installPath) + Path.DirectorySeparatorChar,
+            StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"Module directory '{moduleDir}' escapes install path.");
 
         Directory.CreateDirectory(resolvedDir);
 
         var manifestJson = JsonSerializer.Serialize(manifest, ModuleManager.JsonOptions);
-        await File.WriteAllTextAsync(Path.Combine(resolvedDir, AppConstants.ManifestFileName), manifestJson, cancellationToken);
+        await File.WriteAllTextAsync(
+            Path.Combine(resolvedDir, AppConstants.ManifestFileName),
+            manifestJson, cancellationToken);
 
         await _moduleManager.RegisterModuleAsync(manifest, resolvedDir, cancellationToken);
         await _moduleManager.InstallModuleAsync(manifest.Name, cancellationToken);
@@ -218,7 +245,9 @@ public class ModuleDiscoveryService : IModuleDiscoveryService
     {
         var cacheFile = Path.Combine(_cachePath, AppConstants.DiscoveryCacheFileName);
         await using var stream = File.Create(cacheFile);
-        await JsonSerializer.SerializeAsync(stream, entries, ModuleManager.JsonOptions, cancellationToken: cancellationToken);
+        await JsonSerializer.SerializeAsync(
+            stream, entries, ModuleManager.JsonOptions,
+            cancellationToken: cancellationToken);
     }
 
     private static string? ConvertToApiUrl(string repositoryUrl)

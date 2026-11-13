@@ -13,7 +13,9 @@ public class AuditLogService
         Directory.CreateDirectory(_logDirectory);
     }
 
-    public async Task LogAsync(string category, string action, string? details = null, string? module = null, CancellationToken cancellationToken = default)
+    public async Task LogAsync(string category, string action,
+        string? details = null, string? module = null,
+        CancellationToken cancellationToken = default)
     {
         var entry = new AuditLogEntry
         {
@@ -40,7 +42,9 @@ public class AuditLogService
         }
     }
 
-    public async Task<IReadOnlyList<AuditLogEntry>> QueryAsync(DateTime date, string? category = null, string? module = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<AuditLogEntry>> QueryAsync(
+        DateTime date, string? category = null, string? module = null,
+        CancellationToken cancellationToken = default)
     {
         var fileName = $"audit_{date:yyyyMMdd}.jsonl";
         var filePath = Path.Combine(_logDirectory, fileName);

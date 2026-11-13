@@ -44,7 +44,9 @@ public class ModuleExecutionBoundary
     /// is advisory and relies on module code voluntarily using the PermissionGuard API. In-process
     /// module code can potentially bypass these checks.
     /// </summary>
-    public async Task<TResult?> ExecuteAsync<TResult>(Func<CancellationToken, Task<TResult>> action, CancellationToken cancellationToken = default)
+    public async Task<TResult?> ExecuteAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> action,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 

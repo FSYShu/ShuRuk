@@ -11,7 +11,9 @@ public sealed partial class HomePage : Page
 
     public HomePage()
     {
-        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
+        // Disabled: Enabled triggers "Element is already the child" COMException in WinUI 3
+        // Disabled:Enabled在WinUI3触发"Element is already the child"异常
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Disabled;
         InitializeComponent();
     }
 }

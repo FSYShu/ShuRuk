@@ -10,7 +10,8 @@ namespace ShuRuk.Runtime.Services.Infrastructure;
 // ShuRuk and module apps read/write the same registry path for unified management.
 // Multi-process sync relies on native RegNotifyChangeKeyValue (writes notify listeners).
 // 基于注册表的配置服务：通过HKCU\Software\ShuRuk\Settings\{scope}共享设置。
-// ShuRuk与模块APP读写同一路径统一管理。多进程同步依赖原生RegNotifyChangeKeyValue(写入通知监听者)。
+// ShuRuk与模块APP读写同一路径统一管理。
+// 多进程同步依赖原生RegNotifyChangeKeyValue(写入通知监听者)。
 public class ConfigurationService : IConfigurationService
 {
     // Registry root for settings / 设置注册表根
@@ -55,7 +56,8 @@ public class ConfigurationService : IConfigurationService
         return Task.FromResult(JsonSerializer.Deserialize<T>(json));
     }
 
-    public Task SetValueAsync<T>(string key, T value, string? module = null, CancellationToken cancellationToken = default)
+    public Task SetValueAsync<T>(string key, T value,
+        string? module = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var scopePath = GetScopePath(module);
@@ -88,7 +90,8 @@ public class ConfigurationService : IConfigurationService
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyDictionary<string, object?>> GetAllValuesAsync(string? module = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyDictionary<string, object?>> GetAllValuesAsync(
+        string? module = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var scopePath = GetScopePath(module);
@@ -102,7 +105,8 @@ public class ConfigurationService : IConfigurationService
                 var raw = keyNode.GetValue(valueName);
                 if (raw is null) continue;
 
-                // Attempt JSON deserialize, fallback to raw string / 尝试JSON反序列化，失败则保留原始字符串
+                // Attempt JSON deserialize, fallback to raw string
+                // / 尝试JSON反序列化，失败则保留原始字符串
                 object? deserialized;
                 try
                 {
@@ -119,7 +123,8 @@ public class ConfigurationService : IConfigurationService
         return Task.FromResult<IReadOnlyDictionary<string, object?>>(result);
     }
 
-    public Task<IAsyncDisposable> WatchChangesAsync(Action<string> onKeyChanged, string? module = null, CancellationToken cancellationToken = default)
+    public Task<IAsyncDisposable> WatchChangesAsync(Action<string> onKeyChanged,
+        string? module = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var scopePath = GetScopePath(module);
@@ -135,8 +140,10 @@ public class ConfigurationService : IConfigurationService
                     ?? WinReg.CurrentUser.CreateSubKey(scopePath, writable: false);
                 while (!cts.Token.IsCancellationRequested)
                 {
-                    // Synchronous block until any value/name/attribute change / 同步阻塞直到任意值/名称/属性变更
-                    RegNotifyChangeKeyValue(keyNode.Handle.DangerousGetHandle(), true, RegNotifyAll, IntPtr.Zero, false);
+                    // Synchronous block until any value/name/attribute change
+                    // / 同步阻塞直到任意值/名称/属性变更
+                    RegNotifyChangeKeyValue(keyNode.Handle.DangerousGetHandle(),
+                        true, RegNotifyAll, IntPtr.Zero, false);
                     if (cts.Token.IsCancellationRequested) break;
                     try { onKeyChanged?.Invoke(scopePath); }
                     catch { /* Swallow callback exceptions / 吞掉回调异常 */ }

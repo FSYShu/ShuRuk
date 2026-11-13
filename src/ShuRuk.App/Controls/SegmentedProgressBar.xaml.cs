@@ -21,7 +21,8 @@ public sealed partial class SegmentedProgressBar : UserControl
     }
 
     public static readonly DependencyProperty SegmentsProperty =
-        DependencyProperty.Register(nameof(Segments), typeof(IList<ProgressSegment>), typeof(SegmentedProgressBar), new PropertyMetadata(null, OnSegmentsChanged));
+        DependencyProperty.Register(nameof(Segments), typeof(IList<ProgressSegment>),
+            typeof(SegmentedProgressBar), new PropertyMetadata(null, OnSegmentsChanged));
 
     public IList<ProgressSegment>? Segments
     {
@@ -30,7 +31,8 @@ public sealed partial class SegmentedProgressBar : UserControl
     }
 
     public static readonly DependencyProperty MaximumProperty =
-        DependencyProperty.Register(nameof(Maximum), typeof(double), typeof(SegmentedProgressBar), new PropertyMetadata(100.0, OnSegmentsChanged));
+        DependencyProperty.Register(nameof(Maximum), typeof(double),
+            typeof(SegmentedProgressBar), new PropertyMetadata(100.0, OnSegmentsChanged));
 
     public double Maximum
     {
@@ -50,7 +52,8 @@ public sealed partial class SegmentedProgressBar : UserControl
         RenderSegments();
     }
 
-    // Compute segment fractions with min clamp and overflow normalization / 计算段比例,含最小值钳制和溢出归一化
+    // Compute segment fractions with min clamp and overflow normalization
+    // / 计算段比例,含最小值钳制和溢出归一化
     private static double[] ComputeEffectiveFractions(IList<ProgressSegment> segments, double maximum)
     {
         var fractions = new double[segments.Count];
@@ -179,7 +182,8 @@ public sealed partial class SegmentedProgressBar : UserControl
     }
 
     // Animate a property to target value, skip if delta is small / 动画属性到目标值,差值过小则跳过
-    private void AnimateProperty(DependencyObject target, string propertyPath, double toValue, Action? onComplete = null)
+    private void AnimateProperty(DependencyObject target, string propertyPath,
+        double toValue, Action? onComplete = null)
     {
         double currentValue = string.Equals(propertyPath, "Width", StringComparison.Ordinal)
             ? ((FrameworkElement)target).Width
@@ -223,5 +227,5 @@ public sealed partial class SegmentedProgressBar : UserControl
 public class ProgressSegment
 {
     public double Value { get; set; }
-    public Brush Brush { get; set; } = new SolidColorBrush(Microsoft.UI.Colors.DodgerBlue);
+    public Brush Brush { get; set; } = (SolidColorBrush)Application.Current.Resources["AccentFillColorDefaultBrush"];
 }

@@ -34,7 +34,9 @@ public class SearchEngine
         _initialized = true;
     }
 
-    public async Task IndexAsync(string documentId, string documentType, string title, string content, string? metadata = null, CancellationToken cancellationToken = default)
+    public async Task IndexAsync(string documentId, string documentType,
+        string title, string content, string? metadata = null,
+        CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
 
@@ -69,7 +71,9 @@ public class SearchEngine
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<SearchResult>> SearchAsync(string query, string? documentType = null, int limit = 50, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<SearchResult>> SearchAsync(
+        string query, string? documentType = null, int limit = 50,
+        CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
 
