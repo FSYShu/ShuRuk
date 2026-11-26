@@ -8,9 +8,7 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
-
             </ResourceDictionary.MergedDictionaries>
-
             <!--
                 Override the TitleBar's internal layout heights so the inner grid
                 scales to 48px to match the custom title bar height. Without this,

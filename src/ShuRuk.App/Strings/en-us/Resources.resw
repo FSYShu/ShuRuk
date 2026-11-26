@@ -83,14 +83,15 @@
 
 
   <!-- ModuleDiscoverPage -->
-  <data name="DiscoverSortRating.Content" xml:space="preserve">
-    <value>Rating</value>
+  <data name="DiscoverSortName.Content" xml:space="preserve">
+    <value>by Name</value>
   </data>
+
   <data name="DiscoverSortDownloads.Content" xml:space="preserve">
-    <value>Downloads</value>
+    <value>by Downloads</value>
   </data>
   <data name="DiscoverSortUpdated.Content" xml:space="preserve">
-    <value>Updated</value>
+    <value>by Updated</value>
   </data>
   <data name="DiscoverOfflineNotice.Title" xml:space="preserve">
     <value>Offline Mode</value>
@@ -270,6 +271,9 @@ This module will be installed from:
   <data name="String_MonitorCommandCancel" xml:space="preserve">
     <value>OK</value>
   </data>
+  <data name="String_MonitorProcessSection" xml:space="preserve">
+    <value>Processes</value>
+  </data>
 
 
 
@@ -340,6 +344,9 @@ This module will be installed from:
   </data>
   <data name="String_DiscoverSortA11y" xml:space="preserve">
     <value>Sort modules</value>
+  </data>
+  <data name="String_SortTooltip" xml:space="preserve">
+    <value>Sort by</value>
   </data>
 
 </root>

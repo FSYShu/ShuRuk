@@ -24,21 +24,34 @@ ShuRuk/                              # main repo (ShuRuk + Runtime + UninstallHe
 ├── src/
 │   ├── ShuRuk.App/                  # App → ShuRuk.exe (MSIX)
 │   │   ├── Assets/                  # 应用资源 / app assets
-│   │   ├── Controls/                # 自定义控件 / custom controls (ModuleNavView)
-│   │   ├── Helpers/                 # 辅助类 / helpers (navigation, theme, window)
-│   │   ├── Models/                  # 数据模型 / data models
-│   │   ├── Services/                # 服务层 / services (ExtensionLoader, HandoverService, ModuleScanner)
+│   │   ├── Constants/               # 常量 / constants
+│   │   ├── Controls/                # 自定义控件 / custom controls
+│   │   ├── Services/                # 服务层 / services
+│   │   │   ├── Module/              # 模块服务 / module services
+│   │   │   ├── Infrastructure/      # 基础设施服务 / infra services
+│   │   │   └── UI/                  # UI 服务 / UI services
 │   │   ├── ViewModels/              # MVVM 视图模型 / MVVM view models
-│   │   ├── Views/                   # 页面 / pages (ModuleHostPage etc.)
+│   │   ├── Views/                   # 页面 / pages
+│   │   ├── Strings/                 # 本地化资源 / localization resources
+│   │   ├── Properties/              # 程序集属性 / assembly properties
 │   │   ├── App.xaml(.cs)            # 应用入口 / app entry
 │   │   ├── MainWindow.xaml(.cs)     # 主窗口 / main window (NavigationView + Frame)
 │   │   ├── Package.appxmanifest     # MSIX 包清单 / MSIX manifest
 │   │   └── ShuRuk.App.csproj
 │   ├── ShuRuk.Runtime/              # Runtime → dll + nupkg + msix
-│   │   ├── Abstractions/            # 公共基类、工具类 / shared base & utilities
-│   │   ├── Contracts/               # WinRT 导出接口 / WinRT exported interfaces (IModuleExtensionInfo)
-│   │   ├── Controls/                # 通用控件 / common controls (MarqueeText, SubModuleOverviewCard)
-│   │   ├── Views/                   # 通用页面 / common pages (home, settings, changelog)
+│   │   ├── Core/                    # 核心 / core
+│   │   ├── Contracts/               # 契约接口 / contracts
+│   │   ├── Models/                  # 数据模型 / models
+│   │   ├── Helpers/                 # 辅助类 / helpers
+│   │   ├── Services/                # 服务实现 / services
+│   │   │   ├── Module/              # 模块服务 / module services
+│   │   │   ├── Registry/            # 注册表服务 / registry services
+│   │   │   ├── Security/            # 安全服务 / security services
+│   │   │   ├── Infrastructure/      # 基础设施服务 / infra services
+│   │   │   └── Changelog/           # 更新日志服务 / changelog services
+│   │   ├── Controls/                # 通用控件 / common controls
+│   │   ├── Views/                   # 通用页面 / common pages
+│   │   ├── Strings/                 # 本地化资源 / localization resources
 │   │   └── ShuRuk.Runtime.csproj    # 打包输出 nupkg + msix
 │   └── ShuRuk.UninstallHelper/      # 卸载辅助程序 / uninstall helper (ref-count + runtime cleanup)
 └── README.md

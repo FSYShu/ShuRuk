@@ -7,32 +7,38 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <!-- Single-row layout: content fills entire area, top bar floats above / 单行布局：内容占满全部，顶栏浮在上层 -->
+    <!-- Single-row layout: content fills entire area, top bar floats above -->
+    <!-- 单行布局：内容占满全部，顶栏浮在上层 -->
     <Grid>
         <!-- Content area / 内容区 - bottom layer / 底层 -->
         <Frame
             x:Name="ContentFrame"
             Margin="0"
             IsNavigationStackEnabled="False" />
-        <!-- Floating top bar / 悬浮顶栏 - top layer, mica material / 上层，云母材质 -->
+        <!-- Floating top bar / 悬浮顶栏 - top layer / 上层 -->
         <Border
             x:Name="TopBar"
             Margin="16,16,16,0"
             VerticalAlignment="Top"
-            CornerRadius="8"
-            Background="{ThemeResource SystemControlTransientBackgroundBrush}"
+            CornerRadius="{StaticResource OverlayCornerRadius}"
+            Background="{ThemeResource AcrylicBackgroundFillColorBaseBrush}"
             BorderBrush="{ThemeResource ControlElevationBorderBrush}"
-            BorderThickness="1"
-            Padding="12,6">
-            <Grid>
+            BorderThickness="1">
+            <Grid
+                x:Name="TopBarGrid"
+                CornerRadius="{StaticResource OverlayCornerRadius}"
+                Background="{ThemeResource ControlFillColorDefaultBrush}"
+                Padding="6,0">
+
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="240" />
+
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <SelectorBar
                     x:Name="SubBar"
                     AutomationProperties.Name="Module tab bar"
+                    AutomationProperties.AutomationId="ModuleSubBar"
                     Grid.Column="0"
                     VerticalAlignment="Center"
                     SelectionChanged="SubBar_SelectionChanged">
@@ -53,32 +59,43 @@
                     </SelectorBarItem>
                 </SelectorBar>
 
-                <AutoSuggestBox
-                    x:Name="SearchBox"
+                <StackPanel
+                    x:Name="SearchSortPanel"
                     Grid.Column="1"
-                    VerticalAlignment="Center"
-                    MinHeight="36"
-                    MaxHeight="36"
-                    Margin="12,0,0,0"
-                    x:Uid="ModulePageSearchBox"
-                    QueryIcon="Find"
-                    TextChanged="SearchBox_TextChanged" />
+                    Orientation="Horizontal"
+                    VerticalAlignment="Center">
+                    <StackPanel.RenderTransform>
+                        <TranslateTransform x:Name="SearchSortTransform" X="0" />
+                    </StackPanel.RenderTransform>
+                    <AutoSuggestBox
+                        x:Name="SearchBox"
+                        Width="240"
+                        Margin="0"
+                        x:Uid="ModulePageSearchBox"
+                        AutomationProperties.AutomationId="ModuleSearchBox"
+                        QueryIcon="Find"
+                        TextChanged="SearchBox_TextChanged" />
 
-                <DropDownButton
-                    x:Name="SortButton"
-                    Grid.Column="2"
-                    VerticalAlignment="Center"
-                    Margin="12,0,0,0"
-                    Visibility="Collapsed"
-                    Content="{x:Bind SortRatingText}">
-                    <DropDownButton.Flyout>
-                        <MenuFlyout Placement="BottomEdgeAlignedRight">
-                            <MenuFlyoutItem Text="{x:Bind SortRatingText}" Tag="rating" Click="SortMenuItem_Click" />
-                            <MenuFlyoutItem Text="{x:Bind SortDownloadsText}" Tag="downloads" Click="SortMenuItem_Click" />
-                            <MenuFlyoutItem Text="{x:Bind SortUpdatedText}" Tag="updated" Click="SortMenuItem_Click" />
-                        </MenuFlyout>
-                    </DropDownButton.Flyout>
-                </DropDownButton>
+                    <DropDownButton
+                        x:Name="SortButton"
+                        VerticalAlignment="Center"
+                        Margin="6,0,0,0"
+                        AutomationProperties.AutomationId="ModuleSortButton"
+                        ToolTipService.ToolTip="{x:Bind SortTooltipText}">
+                        <DropDownButton.Content>
+                            <FontIcon Glyph="&#xE8CB;" />
+                        </DropDownButton.Content>
+
+                        
+                        <DropDownButton.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <RadioMenuFlyoutItem Text="{x:Bind SortNameText}" GroupName="SortGroup" Tag="name" IsChecked="True" Click="SortMenuItem_Click" />
+                                <RadioMenuFlyoutItem Text="{x:Bind SortDownloadsText}" GroupName="SortGroup" Tag="downloads" Click="SortMenuItem_Click" />
+                                <RadioMenuFlyoutItem Text="{x:Bind SortUpdatedText}" GroupName="SortGroup" Tag="updated" Click="SortMenuItem_Click" />
+                            </MenuFlyout>
+                        </DropDownButton.Flyout>
+                    </DropDownButton>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

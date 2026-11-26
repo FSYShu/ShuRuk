@@ -23,7 +23,7 @@
             IsPaneToggleButtonVisible="True"
             PaneToggleRequested="AppTitleBar_PaneToggleRequested">
             <TitleBar.IconSource>
-                <ImageIconSource ImageSource="/Assets/ShuRuk.ico" />
+                <ImageIconSource ImageSource="/Assets/Square44x44Logo.targetsize-256.png" />
             </TitleBar.IconSource>
         </TitleBar>
 
@@ -40,13 +40,15 @@
             CompactPaneLength="48">
 
             <NavigationView.MenuItems>
-                <NavigationViewItem x:Name="NavHome" x:Uid="NavHome" Content="Home" Tag="home">
+                <NavigationViewItem x:Name="NavHome" x:Uid="NavHome" Content="Home" Tag="home"
+                    AutomationProperties.AutomationId="NavHomeItem">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE80F;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem x:Name="NavModules" x:Uid="NavModules" Content="Modules" Tag="modules">
+                <NavigationViewItem x:Name="NavModules" x:Uid="NavModules" Content="Modules" Tag="modules"
+                    AutomationProperties.AutomationId="NavModulesItem">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE7B8;" />
                     </NavigationViewItem.Icon>
@@ -56,7 +58,8 @@
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem x:Name="NavChangelog" x:Uid="NavChangelog" Content="Changelog" Tag="changelog">
+                <NavigationViewItem x:Name="NavChangelog" x:Uid="NavChangelog" Content="Changelog" Tag="changelog"
+                    AutomationProperties.AutomationId="NavChangelogItem">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xECC5;" />
                     </NavigationViewItem.Icon>
@@ -64,7 +67,8 @@
 
                 <NavigationViewItemSeparator />
 
-                <NavigationViewItem x:Name="NavMonitor" x:Uid="NavMonitor" Content="Monitor" Tag="monitor">
+                <NavigationViewItem x:Name="NavMonitor" x:Uid="NavMonitor" Content="Monitor" Tag="monitor"
+                    AutomationProperties.AutomationId="NavMonitorItem">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE9D9;" />
                     </NavigationViewItem.Icon>

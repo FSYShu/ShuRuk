@@ -2,9 +2,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
-using ShuRuk.Runtime.Abstractions;
-using ShuRuk.Runtime.Abstractions.Interfaces;
+using ShuRuk.Runtime.Core;
+using ShuRuk.Runtime.Contracts;
 using ShuRuk.Runtime.Helpers;
+using ShuRuk.Runtime.Models;
 using System.IO;
 using System.Reflection;
 using System.Text.Json;
@@ -19,39 +20,69 @@ public sealed partial class SettingsPage : Page
     private readonly IAppContext _appContext;
     private bool _initializing = true;
 
-    public string PageTitleText => RuntimeLocalizationHelper.GetString("String_SettingsPageTitle");
-    public string LanguageSectionHeader => RuntimeLocalizationHelper.GetString("String_SettingsSectionLanguage");
-    public string LanguageHeader => RuntimeLocalizationHelper.GetString("String_SettingsLanguageHeader");
-    public string LanguageDescription => RuntimeLocalizationHelper.GetString("String_SettingsLanguageDescription");
-    public string ThemeHeader => RuntimeLocalizationHelper.GetString("String_SettingsThemeHeader");
-    public string ThemeDescription => RuntimeLocalizationHelper.GetString("String_SettingsThemeDescription");
-    public string TestModeHeader => RuntimeLocalizationHelper.GetString("String_SettingsTestModeHeader");
-    public string TestModeDescription => RuntimeLocalizationHelper.GetString("String_SettingsTestModeDescription");
-    public string TestModeFillHeader => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillHeader");
-    public string TestModeFillDescription => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillDescription");
-    public string TestModeFillEmpty => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillEmpty");
-    public string TestModeFillFull => RuntimeLocalizationHelper.GetString("String_SettingsTestModeFillFull");
-    public string ChangelogRepoHeader => RuntimeLocalizationHelper.GetString("String_SettingsChangelogRepoHeader");
-    public string ChangelogRepoDescription => RuntimeLocalizationHelper.GetString("String_SettingsChangelogRepoDescription");
-    public string ChangelogSectionHeader => RuntimeLocalizationHelper.GetString("String_SettingsChangelogSectionHeader");
-    public string ChangelogSectionDescription => RuntimeLocalizationHelper.GetString("String_SettingsChangelogSectionDescription");
+    public string PageTitleText => LocalizationHelper.Runtime.GetString("String_SettingsPageTitle");
+    public string LanguageSectionHeader => LocalizationHelper.Runtime.GetString("String_SettingsSectionLanguage");
+    public string LanguageHeader => LocalizationHelper.Runtime.GetString("String_SettingsLanguageHeader");
+    public string LanguageDescription => LocalizationHelper.Runtime.GetString("String_SettingsLanguageDescription");
+    public string ThemeHeader => LocalizationHelper.Runtime.GetString("String_SettingsThemeHeader");
+    public string ThemeDescription => LocalizationHelper.Runtime.GetString("String_SettingsThemeDescription");
+    public string TestModeHeader => LocalizationHelper.Runtime.GetString("String_SettingsTestModeHeader");
+    public string TestModeDescription => LocalizationHelper.Runtime.GetString("String_SettingsTestModeDescription");
+    public string TestModeFillHeader => LocalizationHelper.Runtime.GetString("String_SettingsTestModeFillHeader");
+    public string TestModeFillDescription =>
+        LocalizationHelper.Runtime.GetString("String_SettingsTestModeFillDescription");
+    public string TestModeFillEmpty => LocalizationHelper.Runtime.GetString("String_SettingsTestModeFillEmpty");
+    public string TestModeFillFull => LocalizationHelper.Runtime.GetString("String_SettingsTestModeFillFull");
+    public string TestModeCoverageHeader =>
+        LocalizationHelper.Runtime.GetString("String_SettingsTestModeCoverageHeader");
+    public string TestModeCoverageDescription =>
+        LocalizationHelper.Runtime.GetString("String_SettingsTestModeCoverageDescription");
+    public string TestModeCoverageMonitor =>
+        LocalizationHelper.Runtime.GetString("String_SettingsTestModeCoverageMonitor");
+    public string TestModeCoverageInstalled =>
+        LocalizationHelper.Runtime.GetString("String_SettingsTestModeCoverageInstalled");
+    public string TestModeCoverageDiscover =>
+        LocalizationHelper.Runtime.GetString("String_SettingsTestModeCoverageDiscover");
+    public string TestModeCoverageChangelog =>
+        LocalizationHelper.Runtime.GetString("String_SettingsTestModeCoverageChangelog");
+    public string TestModeCoverageAll => LocalizationHelper.Runtime.GetString("String_SettingsTestModeCoverageAll");
+    public string TestModeCoverageNone => LocalizationHelper.Runtime.GetString("String_SettingsTestModeCoverageNone");
+    public string TestModeCoveragePagesCount =>
+        LocalizationHelper.Runtime.GetString("String_SettingsTestModeCoveragePagesCount");
+    public string ChangelogRepoHeader =>
+        LocalizationHelper.Runtime.GetString("String_SettingsChangelogRepoHeader");
+    public string ChangelogRepoDescription =>
+        LocalizationHelper.Runtime.GetString("String_SettingsChangelogRepoDescription");
+    public string ChangelogSectionHeader =>
+        LocalizationHelper.Runtime.GetString("String_SettingsChangelogSectionHeader");
+    public string ChangelogSectionDescription =>
+        LocalizationHelper.Runtime.GetString("String_SettingsChangelogSectionDescription");
 
-    public string RestartButtonText => RuntimeLocalizationHelper.GetString("SettingsRestartButton.Content");
-    public string AboutSectionHeader => RuntimeLocalizationHelper.GetString("String_SettingsSectionAbout");
+    public string RestartButtonText => LocalizationHelper.Runtime.GetString("SettingsRestartButton.Content");
+    public string AboutSectionHeader => LocalizationHelper.Runtime.GetString("String_SettingsSectionAbout");
     public string AppNameHeader => _appContext.AppTitle;
     public string AppSubtitle => _appContext.AppSubtitle;
-    public string AppVersionDescription => RuntimeLocalizationHelper.GetString("String_SettingsAppVersionFormat")
+    public string AppVersionDescription => LocalizationHelper.Runtime.GetString("String_SettingsAppVersionFormat")
         .Replace("{0}", _appContext.AppVersion);
-    public string SdkVersionDescription => RuntimeLocalizationHelper.GetString("String_SettingsSdkVersionFormat")
+    public string SdkVersionDescription => LocalizationHelper.Runtime.GetString("String_SettingsSdkVersionFormat")
         .Replace("{0}", _sdkVersion ?? "unknown");
-    public string SdkVersionHeader => RuntimeLocalizationHelper.GetString("String_SettingsSdkVersionHeader");
-    public string ToolkitVersionDescription => RuntimeLocalizationHelper.GetString("String_SettingsToolkitVersionFormat")
-        .Replace("{0}", _toolkitVersion ?? "unknown");
-    public string ToolkitVersionHeader => RuntimeLocalizationHelper.GetString("String_SettingsToolkitVersionHeader");
+    public string SdkVersionHeader =>
+        LocalizationHelper.Runtime.GetString("String_SettingsSdkVersionHeader");
+    public string ToolkitVersionDescription =>
+        LocalizationHelper.Runtime.GetString("String_SettingsToolkitVersionFormat")
+            .Replace("{0}", _toolkitVersion ?? "unknown");
+    public string ToolkitVersionHeader => LocalizationHelper.Runtime.GetString("String_SettingsToolkitVersionHeader");
+    public string DotnetToolkitVersionDescription =>
+        LocalizationHelper.Runtime.GetString("String_SettingsDotnetToolkitVersionFormat")
+            .Replace("{0}", _dotnetToolkitVersion ?? "unknown");
+    public string DotnetToolkitVersionHeader =>
+        LocalizationHelper.Runtime.GetString("String_SettingsDotnetToolkitVersionHeader");
 
     // Read NuGet package versions from .deps.json at runtime / 运行时从 deps.json 读取 NuGet 包版本
     private static readonly string? _sdkVersion = TryGetPackageVersion("Microsoft.WindowsAppSDK");
-    private static readonly string? _toolkitVersion = TryGetPackageVersion("CommunityToolkit.WinUI.Controls.SettingsControls");
+    private static readonly string? _toolkitVersion =
+        TryGetPackageVersion("CommunityToolkit.WinUI.Controls.SettingsControls");
+    private static readonly string? _dotnetToolkitVersion = TryGetPackageVersion("CommunityToolkit.Mvvm");
 
     private static string? TryGetPackageVersion(string packageName)
     {
@@ -98,9 +129,9 @@ public sealed partial class SettingsPage : Page
             var theme = _themeService.AvailableThemes[i];
             var displayName = theme.Code switch
             {
-                RuntimeConstants.Themes.System => RuntimeLocalizationHelper.GetString("String_ThemeFollowSystem"),
-                RuntimeConstants.Themes.Light => RuntimeLocalizationHelper.GetString("String_ThemeLight"),
-                RuntimeConstants.Themes.Dark => RuntimeLocalizationHelper.GetString("String_ThemeDark"),
+                RuntimeConstants.Themes.System => LocalizationHelper.Runtime.GetString("String_ThemeFollowSystem"),
+                RuntimeConstants.Themes.Light => LocalizationHelper.Runtime.GetString("String_ThemeLight"),
+                RuntimeConstants.Themes.Dark => LocalizationHelper.Runtime.GetString("String_ThemeDark"),
                 _ => theme.DisplayName
             };
             ThemeComboBox.Items.Add(displayName);
@@ -112,8 +143,13 @@ public sealed partial class SettingsPage : Page
         // TestMode / 测试模式
         TestModeToggle.IsOn = _testModeService.IsEnabled;
         TestModeFillCombo.SelectedIndex = _testModeService.IsFillDataEnabled ? 1 : 0;
+        InitializeCoverageScope();
         ChangelogRepoTextBox.Text = _testModeService.ChangelogRepoUrl;
         ChangelogSectionTextBox.Text = _testModeService.ChangelogSectionFilter;
+        // Disable repo/section when empty state / 空状态时禁用仓库和章节过滤
+        bool fillData = _testModeService.IsFillDataEnabled;
+        ChangelogRepoTextBox.IsEnabled = fillData;
+        ChangelogSectionTextBox.IsEnabled = fillData;
 
         UpdateFillCardVisibility();
 
@@ -134,7 +170,7 @@ public sealed partial class SettingsPage : Page
         {
             var lang = _languageService.AvailableLanguages[i];
             var displayName = lang.Code == RuntimeConstants.Languages.System
-                ? RuntimeLocalizationHelper.GetString("String_LangFollowSystem")
+                ? LocalizationHelper.Runtime.GetString("String_LangFollowSystem")
                 : lang.DisplayName;
             LanguageComboBox.Items.Add(displayName);
             if (lang.Code == selectedCode)
@@ -210,7 +246,95 @@ public sealed partial class SettingsPage : Page
     {
         if (_initializing) return;
         // Index 1 = fill data, 0 = empty state / 索引1=填充数据,0=空状态
-        await _testModeService.SetFillDataEnabledAsync(TestModeFillCombo.SelectedIndex == 1);
+        bool fillData = TestModeFillCombo.SelectedIndex == 1;
+        await _testModeService.SetFillDataEnabledAsync(fillData);
+        // Disable repo/section settings when empty state (no data to filter)
+        // / 空状态时禁用仓库和章节过滤设置(无数据可过滤)
+        ChangelogRepoTextBox.IsEnabled = fillData;
+        ChangelogSectionTextBox.IsEnabled = fillData;
+    }
+
+    // Initialize coverage scope items from service state / 从服务状态初始化覆盖范围项
+    private void InitializeCoverageScope()
+    {
+        var scope = _testModeService.CoverageScope;
+        MonitorItem.IsChecked = (scope & TestModeCoverage.Monitor) == TestModeCoverage.Monitor;
+        InstalledItem.IsChecked = (scope & TestModeCoverage.Installed) == TestModeCoverage.Installed;
+        DiscoverItem.IsChecked = (scope & TestModeCoverage.Discover) == TestModeCoverage.Discover;
+        ChangelogItem.IsChecked = (scope & TestModeCoverage.Changelog) == TestModeCoverage.Changelog;
+        UpdateSelectAllState();
+        UpdateCoverageScopeSummary();
+    }
+
+    // Update SelectAll item state based on individual items / 根据子项状态更新全选项
+    private void UpdateSelectAllState()
+    {
+        bool allChecked = MonitorItem.IsChecked == true &&
+            InstalledItem.IsChecked == true &&
+            DiscoverItem.IsChecked == true &&
+            ChangelogItem.IsChecked == true;
+        CoverageSelectAllItem.IsChecked = allChecked;
+    }
+
+    // Update summary text on the coverage button / 更新覆盖范围按钮摘要文本
+    private void UpdateCoverageScopeSummary()
+    {
+        var scope = _testModeService.CoverageScope;
+        if (scope == TestModeCoverage.All)
+        {
+            CoverageScopeText.Text = TestModeCoverageAll;
+        }
+        else if (scope == TestModeCoverage.None)
+        {
+            CoverageScopeText.Text = TestModeCoverageNone;
+        }
+        else
+        {
+            int count = 0;
+            if ((scope & TestModeCoverage.Monitor) == TestModeCoverage.Monitor) count++;
+            if ((scope & TestModeCoverage.Installed) == TestModeCoverage.Installed) count++;
+            if ((scope & TestModeCoverage.Discover) == TestModeCoverage.Discover) count++;
+            if ((scope & TestModeCoverage.Changelog) == TestModeCoverage.Changelog) count++;
+            CoverageScopeText.Text = string.Format(TestModeCoveragePagesCount, count);
+        }
+    }
+
+    // SelectAll click: toggle all items / 全选点击:切换所有子项
+    private void CoverageSelectAll_Click(object sender, RoutedEventArgs e)
+    {
+        if (_initializing) return;
+        _initializing = true;
+        bool allChecked = MonitorItem.IsChecked == true &&
+            InstalledItem.IsChecked == true &&
+            DiscoverItem.IsChecked == true &&
+            ChangelogItem.IsChecked == true;
+        MonitorItem.IsChecked = !allChecked;
+        InstalledItem.IsChecked = !allChecked;
+        DiscoverItem.IsChecked = !allChecked;
+        ChangelogItem.IsChecked = !allChecked;
+        _initializing = false;
+        ApplyCoverageScope();
+    }
+
+    // Individual item click: update select-all state and scope / 子项点击:更新全选状态和范围
+    private void CoverageItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (_initializing) return;
+        UpdateSelectAllState();
+        ApplyCoverageScope();
+    }
+
+    // Apply current item state to service / 将当前项状态应用到服务
+    private async void ApplyCoverageScope()
+    {
+        var scope = TestModeCoverage.None;
+        if (MonitorItem.IsChecked == true) scope |= TestModeCoverage.Monitor;
+        if (InstalledItem.IsChecked == true) scope |= TestModeCoverage.Installed;
+        if (DiscoverItem.IsChecked == true) scope |= TestModeCoverage.Discover;
+        if (ChangelogItem.IsChecked == true) scope |= TestModeCoverage.Changelog;
+
+        await _testModeService.SetCoverageScopeAsync(scope);
+        UpdateCoverageScopeSummary();
     }
 
     private async void ChangelogRepoTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -225,19 +349,16 @@ public sealed partial class SettingsPage : Page
         await _testModeService.SetChangelogSectionFilterAsync(ChangelogSectionTextBox.Text);
     }
 
-
     // Expand/collapse test mode expander based on toggle state / 根据开关状态展开/折叠测试模式
     private void UpdateFillCardVisibility()
     {
         TestModeExpander.IsExpanded = TestModeToggle.IsOn;
     }
 
-
-
     private void ShowRestartInfoBar()
     {
-        RestartInfoBar.Title = RuntimeLocalizationHelper.GetString("SettingsLanguageRestartTitle.Text");
-        RestartInfoBar.Message = RuntimeLocalizationHelper.GetString("SettingsLanguageRestartHint.Text");
+        RestartInfoBar.Title = LocalizationHelper.Runtime.GetString("SettingsLanguageRestartTitle.Text");
+        RestartInfoBar.Message = LocalizationHelper.Runtime.GetString("SettingsLanguageRestartHint.Text");
         RestartInfoBar.Visibility = Visibility.Visible;
         RestartInfoBar.Opacity = 0;
         RestartInfoBar.IsOpen = true;

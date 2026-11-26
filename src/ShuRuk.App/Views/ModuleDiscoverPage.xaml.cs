@@ -4,12 +4,17 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using ShuRuk.App;
-using ShuRuk.App.Abstractions.Interfaces;
-using ShuRuk.App.Helpers;
 
-using ShuRuk.Runtime.Abstractions.Interfaces;
-using ShuRuk.Runtime.Abstractions.Models;
-using ShuRuk.Runtime.Abstractions.Services;
+using ShuRuk.App.Constants;
+using ShuRuk.Runtime.Core;
+using ShuRuk.Runtime.Helpers;
+
+using ShuRuk.Runtime.Contracts;
+using ShuRuk.Runtime.Models;
+using ShuRuk.Runtime.Services.Module;
+using ShuRuk.Runtime.Services.Registry;
+using ShuRuk.Runtime.Services.Security;
+using ShuRuk.Runtime.Services.Infrastructure;
 
 namespace ShuRuk.App.Views;
 
@@ -42,10 +47,10 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
     private ITestModeService? _testModeService;
     private bool _isLoaded;
 
-    public string SortRatingText => LocalizationHelper.GetString("DiscoverSortRating.Content");
-    public string SortDownloadsText => LocalizationHelper.GetString("DiscoverSortDownloads.Content");
-    public string SortUpdatedText => LocalizationHelper.GetString("DiscoverSortUpdated.Content");
-    public string SortA11yName => LocalizationHelper.GetString("String_DiscoverSortA11y");
+    public string SortRatingText => LocalizationHelper.App.GetString("DiscoverSortRating.Content");
+    public string SortDownloadsText => LocalizationHelper.App.GetString("DiscoverSortDownloads.Content");
+    public string SortUpdatedText => LocalizationHelper.App.GetString("DiscoverSortUpdated.Content");
+    public string SortA11yName => LocalizationHelper.App.GetString("String_DiscoverSortA11y");
 
     // Constructor: init and wire load/unload / 构造函数:初始化并挂载加载/卸载事件
     public ModuleDiscoverPage()
@@ -59,8 +64,8 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
     // Apply localization, subscribe test mode, load entries / 应用本地化、订阅测试模式、加载条目
     private async void OnPageLoaded(object sender, RoutedEventArgs e)
     {
-        LocalizationHelper.ApplyUidResources(this);
-        LoadingText.Text = LocalizationHelper.GetString("String_DiscoverLoading");
+        LocalizationHelper.App.ApplyUidResources(this);
+        LoadingText.Text = LocalizationHelper.App.GetString("String_DiscoverLoading");
 
         // Subscribe to test mode changes / 订阅测试模式变化
         _testModeService = AppContextAccessor.Current.Services.GetService<ITestModeService>();
@@ -122,7 +127,7 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
         }
     }
 
-    private string _currentSortTag = "rating";
+    private string _currentSortTag = "name";
 
     // Get current sort tag / 获取当前排序标签
     private string? CurrentSortBy() => _currentSortTag;
@@ -164,11 +169,12 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
         };
     }
 
-    // Load discover entries from API or test data with offline fallback / 从API或测试数据加载发现条目,含离线回退
+    // Load discover entries from API or test data with offline fallback
+    // 从API或测试数据加载发现条目,含离线回退
     private async Task LoadDiscoverAsync(string? keyword = null, string? sortBy = null)
     {
         // Show loading state for async fetch / 异步获取时显示加载状态
-        var isTestMode = _testModeService?.IsEnabled == true;
+        var isTestMode = _testModeService?.IsPageCovered(TestModeCoverage.Discover) == true;
         if (!isTestMode)
         {
             LoadingOverlay.Visibility = Visibility.Visible;
@@ -257,7 +263,6 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
         }
     }
 
-
     // Item click: confirm install dialog and refresh / 条目点击:确认安装对话框并刷新
     private async void DiscoverGridView_ItemClick(object sender, ItemClickEventArgs e)
     {
@@ -265,17 +270,18 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
 
         var discovery = AppContextAccessor.Current.Services.GetRequiredService<IModuleDiscoveryService>();
 
-
         var confirmDialog = new ContentDialog
         {
-            Title = LocalizationHelper.GetStringFormatted("String_DiscoverDialogInstallConfirmTitleFormat", card.DisplayName),
-            Content = LocalizationHelper.GetStringFormatted(
+            Title = LocalizationHelper.App.GetStringFormatted(
+                "String_DiscoverDialogInstallConfirmTitleFormat",
+                card.DisplayName),
+            Content = LocalizationHelper.App.GetStringFormatted(
                 "String_DiscoverDialogInstallConfirmContentFormat",
                 card.DisplayName,
-                card.Description ?? LocalizationHelper.GetString("String_NotAvailable"),
+                card.Description ?? LocalizationHelper.App.GetString("String_NotAvailable"),
                 card.Entry.Repository),
-            PrimaryButtonText = LocalizationHelper.GetString("String_DiscoverDialogInstallPrimary"),
-            CloseButtonText = LocalizationHelper.GetString("String_DiscoverDialogCancel"),
+            PrimaryButtonText = LocalizationHelper.App.GetString("String_DiscoverDialogInstallPrimary"),
+            CloseButtonText = LocalizationHelper.App.GetString("String_DiscoverDialogCancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = XamlRoot
         };
@@ -292,9 +298,9 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
             {
                 var errorDialog = new ContentDialog
                 {
-                    Title = LocalizationHelper.GetString("String_DiscoverDialogInstallFailedTitle"),
+                    Title = LocalizationHelper.App.GetString("String_DiscoverDialogInstallFailedTitle"),
                     Content = ex.Message,
-                    CloseButtonText = LocalizationHelper.GetString("String_Ok"),
+                    CloseButtonText = LocalizationHelper.App.GetString("String_Ok"),
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = XamlRoot
                 };
@@ -303,7 +309,8 @@ public sealed partial class ModuleDiscoverPage : Page, ISearchablePage
         }
     }
 
-    // Recompute max columns on resize so centered grid stays page-width-bound / 尺寸变化时重算列数,使居中网格仍受页面宽度约束
+    // Recompute max columns on resize so centered grid stays page-width-bound
+    // 尺寸变化时重算列数,使居中网格仍受页面宽度约束
     private void DiscoverGridView_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         GridViewLayoutHelper.UpdateMaxColumns(DiscoverGridView, AppConstants.ModuleCardWidth);

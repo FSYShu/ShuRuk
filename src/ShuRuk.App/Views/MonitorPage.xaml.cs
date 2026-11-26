@@ -4,21 +4,32 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using ShuRuk.App;
-using ShuRuk.App.Helpers;
+using ShuRuk.Runtime.Helpers;
+using ShuRuk.App.Constants;
+using ShuRuk.Runtime.Core;
 
 using ShuRuk.App.Controls;
-using ShuRuk.App.Services;
-using ShuRuk.Runtime.Abstractions.Models;
-using ShuRuk.Runtime.Abstractions.Interfaces;
-using ShuRuk.Runtime.Abstractions.Services;
+using ShuRuk.App.Services.Module;
+using ShuRuk.Runtime.Services.Changelog;
+using ShuRuk.App.Services.Infrastructure;
+using ShuRuk.App.Services.UI;
+using ShuRuk.Runtime.Models;
+using ShuRuk.Runtime.Contracts;
+using ShuRuk.Runtime.Services.Module;
+using ShuRuk.Runtime.Services.Registry;
+using ShuRuk.Runtime.Services.Security;
+using ShuRuk.Runtime.Services.Infrastructure;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 
+
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace ShuRuk.App.Views;
 
-public class MonitorEntryViewModel : System.ComponentModel.INotifyPropertyChanged
+public partial class MonitorEntryViewModel : ObservableObject
 {
     public required string ModuleName { get; init; }
     public required string RawModuleName { get; init; }
@@ -30,22 +41,17 @@ public class MonitorEntryViewModel : System.ComponentModel.INotifyPropertyChange
     public required ModuleState State { get; init; }
     public bool IsAltRow { get; set; }
 
-
-    private bool _isSelected;
-    public bool IsSelected
-    {
-        get => _isSelected;
-        set { if (_isSelected != value) { _isSelected = value; PropertyChanged?.Invoke(this, new(nameof(IsSelected))); } }
-    }
-
-    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
 }
-
 
 public sealed partial class MonitorPage : Page
 {
-    private static readonly double TotalMemoryMB = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (AppConstants.ByteUnitBase * AppConstants.ByteUnitBase);
+    private static readonly double TotalMemoryMB =
+        GC.GetGCMemoryInfo().TotalAvailableMemoryBytes /
+        (AppConstants.ByteUnitBase * AppConstants.ByteUnitBase);
     private bool _isFirstLoad = true;
+    private bool _isRefreshing;
     // Track theme to detect change while page away / 跟踪主题以检测页面离开期间的变化
     private ElementTheme _lastTheme;
     private string _sortBy = AppConstants.SortColumns.Cpu;
@@ -59,7 +65,11 @@ public sealed partial class MonitorPage : Page
     private ITestModeService? _testModeService;
     private readonly ObservableCollection<MonitorEntryViewModel> _entries = [];
 
-    // Constructor: init localization, config, bindings, events / 构造函数:初始化本地化、配置、绑定、事件
+    public string RestartProcessA11yName => LocalizationHelper.App.GetString("String_MonitorRestartProcess");
+    public string StopProcessA11yName => LocalizationHelper.App.GetString("String_MonitorStopProcess");
+
+    // Constructor: init localization, config, bindings, events
+    // / 构造函数:初始化本地化、配置、绑定、事件
     public MonitorPage()
     {
         NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
@@ -69,13 +79,13 @@ public sealed partial class MonitorPage : Page
         _testModeService = App.Services.GetService<ITestModeService>();
         MonitorListView.ItemsSource = _entries;
 
-
         Loaded += OnPageLoaded;
         Unloaded += OnPageUnloaded;
         ActualThemeChanged += OnActualThemeChanged;
     }
 
-    // Theme changed: regenerate list containers for alt row brushes / 主题变更:重新生成列表容器以刷新交错行
+    // Theme changed: regenerate list containers for alt row brushes
+    // / 主题变更:重新生成列表容器以刷新交错行
     private void OnActualThemeChanged(FrameworkElement sender, object args)
     {
         _lastTheme = sender.ActualTheme;
@@ -85,7 +95,8 @@ public sealed partial class MonitorPage : Page
         foreach (var item in snapshot) _entries.Add(item);
     }
 
-    // Page loaded: start monitor, wait data, init refresh timer / 页面加载:启动监控、等待数据、初始化刷新计时器
+    // Page loaded: start monitor, wait data, init refresh timer
+    // / 页面加载:启动监控、等待数据、初始化刷新计时器
     private async void OnPageLoaded(object sender, RoutedEventArgs e)
     {
         _monitor = App.Services.GetService<StatusMonitor>();
@@ -111,7 +122,7 @@ public sealed partial class MonitorPage : Page
         {
             _isFirstLoad = false;
             await LoadSortPreference();
-            LoadingText.Text = LocalizationHelper.GetString("String_MonitorLoading");
+            LoadingText.Text = LocalizationHelper.App.GetString("String_MonitorLoading");
 
             for (int i = 0; i < AppConstants.MonitorDataWaitRetries; i++)
             {
@@ -120,17 +131,20 @@ public sealed partial class MonitorPage : Page
                     break;
             }
 
-            // Hide overlay before LoadData so empty state can show / 先隐藏加载层再加载数据,使空状态可立即显示
+            // Hide overlay before LoadData so empty state can show
+            // / 先隐藏加载层再加载数据,使空状态可立即显示
             LoadingOverlay.Visibility = Visibility.Collapsed;
             LoadData();
             _lastTheme = ActualTheme;
         }
         else if (ActualTheme != _lastTheme)
         {
-            // Theme changed while page was away, refresh alt row brushes / 离开期间主题变化,刷新交错行画刷
+            // Theme changed while page was away, refresh alt row brushes
+            // / 离开期间主题变化,刷新交错行画刷
             _lastTheme = ActualTheme;
             MonitorListView.ItemsSource = null;
-            MonitorListView.ItemsSource = _entries;
+        MonitorListView.ItemsSource = _entries;
+
         }
 
         _refreshTimer = new DispatcherTimer
@@ -208,16 +222,18 @@ public sealed partial class MonitorPage : Page
         UpdateFromSnapshot(snapshot);
     }
 
-    // Build entries from snapshot, sort, restore selection, update cards / 从快照构建条目、排序、恢复选中、更新卡片
+    // Build entries from snapshot, sort, restore selection, update cards
+    // / 从快照构建条目、排序、恢复选中、更新卡片
     private void UpdateFromSnapshot(IReadOnlyList<ModuleResourceUsage> snapshot)
     {
+        _isRefreshing = true;
         var selectedKey = (MonitorListView.SelectedItem as MonitorEntryViewModel) is { } sel
             ? $"{sel.ModuleName}:{sel.Pid}" : null;
 
         var entries = snapshot.Select(s => new MonitorEntryViewModel
         {
             ModuleName = s.ModuleName == StatusMonitor.HostProcessName
-                ? LocalizationHelper.GetString("String_MonitorHostProcess")
+                ? LocalizationHelper.App.GetString("String_MonitorHostProcess")
                 : s.ModuleName,
             RawModuleName = s.ModuleName,
             Pid = s.Pid,
@@ -265,6 +281,8 @@ public sealed partial class MonitorPage : Page
             _sortIndicatorsApplied = true;
             UpdateSortIndicators();
         }
+
+        _isRefreshing = false;
     }
 
     // Update empty state visibility with fade-in / 更新空状态可见性(含淡入动画)
@@ -323,7 +341,6 @@ public sealed partial class MonitorPage : Page
                 break;
         }
     }
-
 
     // Update sort arrow glyphs with show/hide animation / 更新排序箭头字形(含显示/隐藏动画)
     private void UpdateSortIndicators()
@@ -408,23 +425,34 @@ public sealed partial class MonitorPage : Page
         if (_cpuName is not null) return _cpuName;
         try
         {
-            using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\CentralProcessor\0");
+            using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                @"HARDWARE\DESCRIPTION\System\CentralProcessor\0");
             _cpuName = key?.GetValue("ProcessorNameString") as string ?? "CPU";
         }
         catch { _cpuName = "CPU"; }
         return _cpuName;
     }
 
-
-
     private static string? _memoryInfo;
     // DDR memory type lookup table / DDR内存类型查找表
     private static readonly Dictionary<int, string> _memoryTypeNames = new()
     {
-        [20] = "DDR", [21] = "DDR2", [22] = "DDR2 FB-DIMM", [24] = "DDR3",
-        [25] = "FBD2", [26] = "DDR4", [27] = "LPDDR", [28] = "LPDDR2",
-        [29] = "LPDDR3", [30] = "LPDDR4", [32] = "HBM", [33] = "HBM2",
-        [34] = "DDR5", [35] = "LPDDR5", [36] = "LPDDR5X", [37] = "HBM3",
+        [20] = "DDR",
+        [21] = "DDR2",
+        [22] = "DDR2 FB-DIMM",
+        [24] = "DDR3",
+        [25] = "FBD2",
+        [26] = "DDR4",
+        [27] = "LPDDR",
+        [28] = "LPDDR2",
+        [29] = "LPDDR3",
+        [30] = "LPDDR4",
+        [32] = "HBM",
+        [33] = "HBM2",
+        [34] = "DDR5",
+        [35] = "LPDDR5",
+        [36] = "LPDDR5X",
+        [37] = "HBM3",
     };
 
     // Get memory type and speed via WMI (cached) / 通过WMI获取内存类型和速度(缓存)
@@ -433,7 +461,8 @@ public sealed partial class MonitorPage : Page
         if (_memoryInfo is not null) return _memoryInfo;
         try
         {
-            using var searcher = new System.Management.ManagementObjectSearcher("SELECT SMBIOSMemoryType, Speed FROM Win32_PhysicalMemory");
+            using var searcher = new System.Management.ManagementObjectSearcher(
+                "SELECT SMBIOSMemoryType, Speed FROM Win32_PhysicalMemory");
             int memoryType = 0;
             uint speed = 0;
             foreach (var obj in searcher.Get())
@@ -463,20 +492,23 @@ public sealed partial class MonitorPage : Page
         return _memoryInfo;
     }
 
+    // Harmonized chart palette (ECharts v5 default) / 协调图表色板(ECharts v5 默认)
     private static readonly SolidColorBrush[] SegmentBrushes =
     [
-        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x00, 0x78, 0xD4)),
-        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x10, 0x7C, 0x10)),
-        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xBF, 0x57, 0x00)),
-        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x8B, 0x5A, 0xD2)),
-        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xE7, 0x4C, 0x3C)),
-        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x00, 0xB2, 0x94)),
-        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xF0, 0xAD, 0x4E)),
-        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x5B, 0x9B, 0xD5)),
+        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x54, 0x70, 0xC6)),
+        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x91, 0xCC, 0x75)),
+        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFA, 0xC8, 0x58)),
+        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xEE, 0x66, 0x66)),
+        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x73, 0xC0, 0xDE)),
+        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x3B, 0xA2, 0x72)),
+        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFC, 0x84, 0x52)),
+        new(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x9A, 0x60, 0xB4)),
     ];
 
-    private static readonly SolidColorBrush _stoppedBrush = new(Microsoft.UI.ColorHelper.FromArgb(0x60, 0x80, 0x80, 0x80));
-    private static readonly SolidColorBrush _nonShuRukBrush = new(Microsoft.UI.ColorHelper.FromArgb(0x80, 0x80, 0x80, 0x80));
+    private static readonly SolidColorBrush _stoppedBrush =
+        new(Microsoft.UI.ColorHelper.FromArgb(0x60, 0x80, 0x80, 0x80));
+    private static readonly SolidColorBrush _nonShuRukBrush =
+        new(Microsoft.UI.ColorHelper.FromArgb(0x80, 0x80, 0x80, 0x80));
 
     [DllImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -585,8 +617,11 @@ public sealed partial class MonitorPage : Page
         CpuCardValue.Text = $"{Math.Min(totalCpu, 100):0.0}%";
         CpuCardDetail.Text = $"{GetCpuName()} · {Environment.ProcessorCount} cores";
 
+        // Sort segments by value descending for stable visual order / 按值降序排列段,视觉顺序稳定
         var cpuSegments = snapshot
-            .Select((s, i) => new ProgressSegment { Value = s.CpuUsagePercent, Brush = SegmentBrushes[i % SegmentBrushes.Length] })
+            .Select(s => new ProgressSegment { Value = s.CpuUsagePercent })
+            .OrderByDescending(s => s.Value)
+            .Select((s, i) => { s.Brush = SegmentBrushes[i % SegmentBrushes.Length]; return s; })
             .ToList();
 
         if (!isTestMode)
@@ -609,7 +644,9 @@ public sealed partial class MonitorPage : Page
         {
             MemoryCardValue.Text = "—";
             var memInfoEmpty = GetMemoryInfo();
-            MemoryCardDetail.Text = FormatBytes((long)(TotalMemoryMB * AppConstants.ByteUnitBase * AppConstants.ByteUnitBase)) + (string.IsNullOrEmpty(memInfoEmpty) ? "" : $" · {memInfoEmpty}");
+            MemoryCardDetail.Text = FormatBytes(
+                (long)(TotalMemoryMB * AppConstants.ByteUnitBase * AppConstants.ByteUnitBase)) +
+                (string.IsNullOrEmpty(memInfoEmpty) ? "" : $" · {memInfoEmpty}");
             MemoryProgressBar.Segments = [];
             MemoryProgressBar.Maximum = 100;
             return;
@@ -617,11 +654,15 @@ public sealed partial class MonitorPage : Page
 
         MemoryCardValue.Text = FormatBytes(totalMemory);
         var memInfo = GetMemoryInfo();
-        MemoryCardDetail.Text = FormatBytes((long)(TotalMemoryMB * AppConstants.ByteUnitBase * AppConstants.ByteUnitBase)) + (string.IsNullOrEmpty(memInfo) ? "" : $" · {memInfo}");
+        MemoryCardDetail.Text = FormatBytes(
+            (long)(TotalMemoryMB * AppConstants.ByteUnitBase * AppConstants.ByteUnitBase)) +
+            (string.IsNullOrEmpty(memInfo) ? "" : $" · {memInfo}");
         var memMax = TotalMemoryMB * AppConstants.ByteUnitBase * AppConstants.ByteUnitBase;
 
         var memSegments = snapshot
-            .Select((s, i) => new ProgressSegment { Value = s.MemoryUsageBytes / memMax * 100, Brush = SegmentBrushes[i % SegmentBrushes.Length] })
+            .Select(s => new ProgressSegment { Value = s.MemoryUsageBytes / memMax * 100 })
+            .OrderByDescending(s => s.Value)
+            .Select((s, i) => { s.Brush = SegmentBrushes[i % SegmentBrushes.Length]; return s; })
             .ToList();
 
         if (!isTestMode)
@@ -650,8 +691,8 @@ public sealed partial class MonitorPage : Page
             return;
         }
 
-        ModuleCardValue.Text = $"{runningCount} {LocalizationHelper.GetString("String_MonitorModuleRunning")}";
-        ModuleCardDetail.Text = $"{installedCount} {LocalizationHelper.GetString("String_MonitorModuleInstalled")}";
+        ModuleCardValue.Text = $"{runningCount} {LocalizationHelper.App.GetString("String_MonitorModuleRunning")}";
+        ModuleCardDetail.Text = $"{installedCount} {LocalizationHelper.App.GetString("String_MonitorModuleInstalled")}";
         var moduleSegments = new List<ProgressSegment>();
         if (runningCount > 0)
             moduleSegments.Add(new ProgressSegment { Value = runningCount, Brush = SegmentBrushes[0] });
@@ -678,8 +719,20 @@ public sealed partial class MonitorPage : Page
     private void AnimateSortTransition()
     {
         var ease = new QuadraticEase();
-        var fadeOut = new DoubleAnimation { From = 1, To = 0, Duration = TimeSpan.FromMilliseconds(AppConstants.SortFadeOutMs), EasingFunction = ease };
-        var slideOut = new DoubleAnimation { From = 0, To = -AppConstants.SortSlideDistance, Duration = TimeSpan.FromMilliseconds(AppConstants.SortFadeOutMs), EasingFunction = ease };
+        var fadeOut = new DoubleAnimation
+        {
+            From = 1,
+            To = 0,
+            Duration = TimeSpan.FromMilliseconds(AppConstants.SortFadeOutMs),
+            EasingFunction = ease
+        };
+        var slideOut = new DoubleAnimation
+        {
+            From = 0,
+            To = -AppConstants.SortSlideDistance,
+            Duration = TimeSpan.FromMilliseconds(AppConstants.SortFadeOutMs),
+            EasingFunction = ease
+        };
         Storyboard.SetTarget(fadeOut, MonitorListView);
         Storyboard.SetTargetProperty(fadeOut, "Opacity");
         Storyboard.SetTarget(slideOut, ListViewTranslate);
@@ -692,8 +745,20 @@ public sealed partial class MonitorPage : Page
             LoadData();
             UpdateSortIndicators();
 
-            var fadeIn = new DoubleAnimation { From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(AppConstants.SortFadeInMs), EasingFunction = ease };
-            var slideIn = new DoubleAnimation { From = AppConstants.SortSlideDistance, To = 0, Duration = TimeSpan.FromMilliseconds(AppConstants.SortFadeInMs), EasingFunction = ease };
+            var fadeIn = new DoubleAnimation
+            {
+                From = 0,
+                To = 1,
+                Duration = TimeSpan.FromMilliseconds(AppConstants.SortFadeInMs),
+                EasingFunction = ease
+            };
+            var slideIn = new DoubleAnimation
+            {
+                From = AppConstants.SortSlideDistance,
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(AppConstants.SortFadeInMs),
+                EasingFunction = ease
+            };
             Storyboard.SetTarget(fadeIn, MonitorListView);
             Storyboard.SetTargetProperty(fadeIn, "Opacity");
             Storyboard.SetTarget(slideIn, ListViewTranslate);
@@ -708,13 +773,18 @@ public sealed partial class MonitorPage : Page
 
     // Valid sort columns for validation / 有效排序列(用于验证)
     private static readonly string[] _validSortColumns =
-        [AppConstants.SortColumns.Name, AppConstants.SortColumns.Pid, AppConstants.SortColumns.Cpu, AppConstants.SortColumns.Memory];
+        [AppConstants.SortColumns.Name, AppConstants.SortColumns.Pid,
+         AppConstants.SortColumns.Cpu, AppConstants.SortColumns.Memory];
 
     // Load sort preference from config / 从配置加载排序偏好
     private async Task LoadSortPreference()
     {
-        var sortBy = await _config.GetValueAsync<string>(AppConstants.ConfigKeys.MonitorSortBy, AppConstants.ConfigKeys.AppConfigModule);
-        var sortDesc = await _config.GetValueAsync<bool>(AppConstants.ConfigKeys.MonitorSortDescending, AppConstants.ConfigKeys.AppConfigModule);
+        var sortBy = await _config.GetValueAsync<string>(
+            AppConstants.ConfigKeys.MonitorSortBy,
+            AppConstants.ConfigKeys.AppConfigModule);
+        var sortDesc = await _config.GetValueAsync<bool>(
+            AppConstants.ConfigKeys.MonitorSortDescending,
+            AppConstants.ConfigKeys.AppConfigModule);
         if (!string.IsNullOrEmpty(sortBy) && _validSortColumns.Contains(sortBy))
             _sortBy = sortBy;
         _sortDescending = sortDesc;
@@ -723,33 +793,40 @@ public sealed partial class MonitorPage : Page
     // Save current sort preference to config / 保存当前排序偏好到配置
     private async Task SaveSortPreference()
     {
-        await _config.SetValueAsync(AppConstants.ConfigKeys.MonitorSortBy, _sortBy, AppConstants.ConfigKeys.AppConfigModule);
-        await _config.SetValueAsync(AppConstants.ConfigKeys.MonitorSortDescending, _sortDescending, AppConstants.ConfigKeys.AppConfigModule);
+        await _config.SetValueAsync(
+            AppConstants.ConfigKeys.MonitorSortBy,
+            _sortBy,
+            AppConstants.ConfigKeys.AppConfigModule);
+        await _config.SetValueAsync(
+            AppConstants.ConfigKeys.MonitorSortDescending,
+            _sortDescending,
+            AppConstants.ConfigKeys.AppConfigModule);
     }
 
     // Apply localized strings to all headers and cards / 对所有表头和卡片应用本地化文本
     private void ApplyLocalization()
     {
-        HeaderName.Text = LocalizationHelper.GetString("String_MonitorHeaderName");
-        HeaderPid.Text = LocalizationHelper.GetString("String_MonitorHeaderPid");
-        HeaderCpu.Text = LocalizationHelper.GetString("String_MonitorHeaderCpu");
-        HeaderMemory.Text = LocalizationHelper.GetString("String_MonitorHeaderMemory");
+        HeaderName.Text = LocalizationHelper.App.GetString("String_MonitorHeaderName");
+        HeaderPid.Text = LocalizationHelper.App.GetString("String_MonitorHeaderPid");
+        HeaderCpu.Text = LocalizationHelper.App.GetString("String_MonitorHeaderCpu");
+        HeaderMemory.Text = LocalizationHelper.App.GetString("String_MonitorHeaderMemory");
+        ProcessSectionTitle.Text = LocalizationHelper.App.GetString("String_MonitorProcessSection");
 
         CpuCardIcon.Glyph = "\ueea1";
-        CpuCardTitle.Text = LocalizationHelper.GetString("String_MonitorCpuCardTitle");
+        CpuCardTitle.Text = LocalizationHelper.App.GetString("String_MonitorCpuCardTitle");
         MemoryCardIcon.Glyph = "\ueea0";
-        MemoryCardTitle.Text = LocalizationHelper.GetString("String_MonitorMemoryCardTitle");
+        MemoryCardTitle.Text = LocalizationHelper.App.GetString("String_MonitorMemoryCardTitle");
         ModuleCardIcon.Glyph = "\ue7b8";
-        ModuleCardTitle.Text = LocalizationHelper.GetString("String_MonitorModuleCardTitle");
+        ModuleCardTitle.Text = LocalizationHelper.App.GetString("String_MonitorModuleCardTitle");
 
-        LoadingText.Text = LocalizationHelper.GetString("String_MonitorLoading");
+        LoadingText.Text = LocalizationHelper.App.GetString("String_MonitorLoading");
 
         // Empty state text / 空状态文本
-        MonitorEmptyTitle.Text = LocalizationHelper.GetString("String_MonitorEmptyTitle");
-        MonitorEmptyDescription.Text = LocalizationHelper.GetString("String_MonitorEmptyDescription");
+        MonitorEmptyTitle.Text = LocalizationHelper.App.GetString("String_MonitorEmptyTitle");
+        MonitorEmptyDescription.Text = LocalizationHelper.App.GetString("String_MonitorEmptyDescription");
 
-        RestartProcessButton.Label = LocalizationHelper.GetString("String_MonitorRestartProcess");
-        StopProcessButton.Label = LocalizationHelper.GetString("String_MonitorStopProcess");
+        RestartProcessButton.Label = LocalizationHelper.App.GetString("String_MonitorRestartProcess");
+        StopProcessButton.Label = LocalizationHelper.App.GetString("String_MonitorStopProcess");
     }
 
     // Header hover enter: set subtle background / 表头悬停进入:设置微妙背景色
@@ -781,9 +858,26 @@ public sealed partial class MonitorPage : Page
     private void HeaderName_Tapped(object sender, TappedRoutedEventArgs e) => ToggleSort(AppConstants.SortColumns.Name);
     private void HeaderPid_Tapped(object sender, TappedRoutedEventArgs e) => ToggleSort(AppConstants.SortColumns.Pid);
     private void HeaderCpu_Tapped(object sender, TappedRoutedEventArgs e) => ToggleSort(AppConstants.SortColumns.Cpu);
-    private void HeaderMemory_Tapped(object sender, TappedRoutedEventArgs e) => ToggleSort(AppConstants.SortColumns.Memory);
+    private void HeaderMemory_Tapped(object sender, TappedRoutedEventArgs e) =>
+        ToggleSort(AppConstants.SortColumns.Memory);
 
-    // Selection changed: update IsSelected flags and command bar / 选择变更:更新IsSelected标志和命令栏
+    // Find child element by name in visual tree / 在可视化树中按名称查找子元素
+    private static T? FindElementByName<T>(DependencyObject parent, string name) where T : FrameworkElement
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T fe && fe.Name == name)
+                return fe;
+            var result = FindElementByName<T>(child, name);
+            if (result is not null)
+                return result;
+        }
+        return null;
+    }
+
+    // Selection changed: update IsSelected flags, command bar, animate indicator
+    // / 选择变更:更新IsSelected标志、命令栏、指示器动画
     private void MonitorListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (MonitorListView.ItemsSource is not System.Collections.IList items) return;
@@ -795,6 +889,33 @@ public sealed partial class MonitorPage : Page
         }
 
         UpdateCommandBarState(selected);
+
+        if (_isRefreshing || selected is null) return;
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            var container = MonitorListView.ContainerFromItem(selected) as ListViewItem;
+            if (container is null) return;
+            var indicator = FindElementByName<Border>(container, "SelectionIndicator");
+            if (indicator is null) return;
+
+            var scale = indicator.RenderTransform as ScaleTransform;
+            if (scale is null) return;
+
+            scale.ScaleY = 0;
+            var anim = new DoubleAnimation
+            {
+                From = 0,
+                To = 1,
+                Duration = TimeSpan.FromMilliseconds(120),
+                EasingFunction = new QuadraticEase()
+            };
+            Storyboard.SetTarget(anim, scale);
+            Storyboard.SetTargetProperty(anim, "ScaleY");
+            var sb = new Storyboard();
+            sb.Children.Add(anim);
+            sb.Begin();
+        });
     }
 
     // Clear selection when tapping blank area / 点击空白区域清除选择
@@ -820,11 +941,13 @@ public sealed partial class MonitorPage : Page
         }
 
         // Enable restart for any installed module / 已安装模块均可重启(启动)
-        RestartProcessButton.IsEnabled = selected.State is not (ModuleState.Discovered or ModuleState.Validated or ModuleState.Uninstalled);
+        RestartProcessButton.IsEnabled = selected.State is not
+            (ModuleState.Discovered or ModuleState.Validated or ModuleState.Uninstalled);
         StopProcessButton.IsEnabled = selected.State is ModuleState.Running or ModuleState.Paused;
     }
 
-    // Restart selected module: stop then start, show error on failure / 重启选中模块:停止再启动,失败显示错误
+    // Restart selected module: stop then start, show error on failure
+    // / 重启选中模块:停止再启动,失败显示错误
     private async void RestartProcessButton_Click(object sender, RoutedEventArgs e)
     {
         var selected = MonitorListView.SelectedItem as MonitorEntryViewModel;
@@ -844,9 +967,9 @@ public sealed partial class MonitorPage : Page
         {
             var dialog = new ContentDialog
             {
-                Title = LocalizationHelper.GetString("String_MonitorRestartFailedTitle"),
+                Title = LocalizationHelper.App.GetString("String_MonitorRestartFailedTitle"),
                 Content = $"{selected.ModuleName}: {ex.Message}",
-                CloseButtonText = LocalizationHelper.GetString("String_MonitorCommandCancel"),
+                CloseButtonText = LocalizationHelper.App.GetString("String_MonitorCommandCancel"),
                 XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
@@ -874,9 +997,9 @@ public sealed partial class MonitorPage : Page
         {
             var dialog = new ContentDialog
             {
-                Title = LocalizationHelper.GetString("String_MonitorStopFailedTitle"),
+                Title = LocalizationHelper.App.GetString("String_MonitorStopFailedTitle"),
                 Content = $"{selected.ModuleName}: {ex.Message}",
-                CloseButtonText = LocalizationHelper.GetString("String_MonitorCommandCancel"),
+                CloseButtonText = LocalizationHelper.App.GetString("String_MonitorCommandCancel"),
                 XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
@@ -891,7 +1014,8 @@ public sealed partial class MonitorPage : Page
 public class AltRowBrushConverter : IValueConverter
 {
     // Light: #08000000 (~3% black) / Dark: #04FFFFFF (~1.6% white) / 浅色#08000000 深色#04FFFFFF
-    private static readonly SolidColorBrush _lightBrush = new(Microsoft.UI.ColorHelper.FromArgb(0x06, 0x00, 0x00, 0x00));
+    private static readonly SolidColorBrush _lightBrush =
+        new(Microsoft.UI.ColorHelper.FromArgb(0x06, 0x00, 0x00, 0x00));
     private static readonly SolidColorBrush _darkBrush = new(Microsoft.UI.ColorHelper.FromArgb(0x04, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush _transparent = new(Microsoft.UI.Colors.Transparent);
 

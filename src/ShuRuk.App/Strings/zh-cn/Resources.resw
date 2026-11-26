@@ -83,14 +83,15 @@
 
 
   <!-- ModuleDiscoverPage -->
-  <data name="DiscoverSortRating.Content" xml:space="preserve">
-    <value>评分</value>
+  <data name="DiscoverSortName.Content" xml:space="preserve">
+    <value>按名称</value>
   </data>
+
   <data name="DiscoverSortDownloads.Content" xml:space="preserve">
-    <value>下载量</value>
+    <value>按下载量</value>
   </data>
   <data name="DiscoverSortUpdated.Content" xml:space="preserve">
-    <value>更新时间</value>
+    <value>按更新时间</value>
   </data>
   <data name="DiscoverOfflineNotice.Title" xml:space="preserve">
     <value>离线模式</value>
@@ -270,6 +271,9 @@
   <data name="String_MonitorCommandCancel" xml:space="preserve">
     <value>确定</value>
   </data>
+  <data name="String_MonitorProcessSection" xml:space="preserve">
+    <value>进程</value>
+  </data>
 
 
 
@@ -340,6 +344,9 @@
   </data>
   <data name="String_DiscoverSortA11y" xml:space="preserve">
     <value>排序模块</value>
+  </data>
+  <data name="String_SortTooltip" xml:space="preserve">
+    <value>排序方式</value>
   </data>
 
 </root>

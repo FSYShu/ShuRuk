@@ -9,9 +9,15 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using ShuRuk.App.Views;
 using ShuRuk.App;
-using ShuRuk.App.Helpers;
-using ShuRuk.App.Services;
-using ShuRuk.Runtime.Abstractions.Interfaces;
+using ShuRuk.App.Constants;
+using ShuRuk.Runtime.Core;
+using ShuRuk.Runtime.Models;
+using ShuRuk.App.Services.Module;
+using ShuRuk.Runtime.Services.Changelog;
+using ShuRuk.App.Services.Infrastructure;
+using ShuRuk.App.Services.UI;
+using ShuRuk.Runtime.Contracts;
+using ShuRuk.Runtime.Helpers;
 
 using System.Runtime.InteropServices;
 using WinRT.Interop;
@@ -26,8 +32,6 @@ public sealed partial class MainWindow : Window
     private Frame ContentFrame = null!;
     private string? _lastSidebarTag = null;
     private readonly Stack<string> _history = new();
-
-
 
     // Initialize main window: backdrop, title bar, nav, theme / 初始化主窗口:背景、标题栏、导航、主题
     public MainWindow()
@@ -67,12 +71,21 @@ public sealed partial class MainWindow : Window
 
         InitializeComponent();
         SetTitleBar(AppTitleBar);
-        
+
         AppTitleBar.Loaded += AppTitleBar_Loaded;
         AppTitleBar.SizeChanged += AppTitleBar_SizeChanged;
 
         var languageService = App.Services.GetRequiredService<LanguageService>();
         languageService.LanguageChanged += OnLanguageChanged;
+
+        // Subscribe to test mode changes to reload changelog page
+        // / 订阅测试模式变化以重新加载更新日志页
+        var testModeService = App.Services.GetService<ITestModeService>();
+        if (testModeService is not null)
+        {
+            testModeService.TestModeChanged += OnTestModeChanged;
+            testModeService.FillDataChanged += OnTestModeChanged;
+        }
 
         var themeService = App.Services.GetRequiredService<ThemeService>();
         var initialTheme = themeService.ToElementTheme();
@@ -106,7 +119,7 @@ public sealed partial class MainWindow : Window
             NavView.SelectedItem = NavView.MenuItems[0];
         _suppressNavigation = false;
         NavigateTo("home", pushHistory: false);
-        LocalizationHelper.ApplyUidResources(NavView);
+        LocalizationHelper.App.ApplyUidResources(NavView);
 
         NavView.Loaded += NavView_Loaded;
 
@@ -120,7 +133,8 @@ public sealed partial class MainWindow : Window
         SizeChanged += MainWindow_SizeChanged;
     }
 
-    // Invalidate layout on resize to refresh MicaBackdrop without rebuilding / 缩放时仅刷新布局,不重建MicaBackdrop对象避免闪烁
+    // Invalidate layout on resize to refresh MicaBackdrop without rebuilding
+    // / 缩放时仅刷新布局,不重建MicaBackdrop对象避免闪烁
     private void MainWindow_SizeChanged(object sender, WindowSizeChangedEventArgs e)
     {
         if (Content is not FrameworkElement root) return;
@@ -128,7 +142,8 @@ public sealed partial class MainWindow : Window
         root.InvalidateArrange();
     }
 
-    // Refresh built-in nav items when NavigationView finishes loading / 导航视图加载完成时刷新内置导航项
+    // Refresh built-in nav items when NavigationView finishes loading
+    // / 导航视图加载完成时刷新内置导航项
     private void NavView_Loaded(object sender, RoutedEventArgs e)
     {
         RefreshNavBuiltInItems();
@@ -191,7 +206,8 @@ public sealed partial class MainWindow : Window
             root.RequestedTheme = theme;
         }
 
-        // Apply title bar dark mode and reload MonitorPage in one dispatch / 一次调度应用标题栏暗色模式并重载监控页
+        // Apply title bar dark mode and reload MonitorPage in one dispatch
+        // / 一次调度应用标题栏暗色模式并重载监控页
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
             if (Content is FrameworkElement r)
@@ -209,7 +225,8 @@ public sealed partial class MainWindow : Window
         });
     }
 
-    // Cache IsCustomizationSupported result (constant per session) / 缓存标题栏自定义支持结果(会话内不变)
+    // Cache IsCustomizationSupported result (constant per session)
+    // / 缓存标题栏自定义支持结果(会话内不变)
     private static readonly bool _titleBarCustomizationSupported = AppWindowTitleBar.IsCustomizationSupported();
 
     // Apply DWM dark mode and title bar button colors / 应用DWM暗色模式及标题栏按钮颜色
@@ -238,10 +255,10 @@ public sealed partial class MainWindow : Window
             titleBar.ButtonPressedBackgroundColor = pressedBg;
             titleBar.ButtonBackgroundColor = Colors.Transparent;
             titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-            titleBar.ButtonInactiveForegroundColor = ColorHelper.FromArgb(AppConstants.TitleBarInactiveFgAlpha, fgColor.R, fgColor.G, fgColor.B);
+            titleBar.ButtonInactiveForegroundColor =
+                ColorHelper.FromArgb(AppConstants.TitleBarInactiveFgAlpha, fgColor.R, fgColor.G, fgColor.B);
         }
     }
-
 
     [DllImport("dwmapi.dll", PreserveSig = true)]
     private static extern int DwmSetWindowAttribute(IntPtr hWnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
@@ -270,8 +287,8 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"AppTitleBar_LayoutUpdated: {ex}"); }
     }
 
-
-    // Resize back/pane toggle buttons and clear text min-widths / 调整返回/面板按钮尺寸并清除文本最小宽度
+    // Resize back/pane toggle buttons and clear text min-widths
+    // / 调整返回/面板按钮尺寸并清除文本最小宽度
     private void ApplyTitleBarTemplateOverrides()
     {
         try
@@ -291,7 +308,8 @@ public sealed partial class MainWindow : Window
                 button.VerticalAlignment = VerticalAlignment.Center;
                 button.Padding = new Thickness(0);
 
-                // Clear pressed background on disabled back button's RootGrid / 清除禁用返回键RootGrid的按下背景
+                // Clear pressed background on disabled back button's RootGrid
+                // / 清除禁用返回键RootGrid的按下背景
                 if (button.Name == "PART_BackButton" && !button.IsEnabled)
                 {
                     foreach (var grid in UiTreeHelper.EnumerateVisualChildren<Grid>(button))
@@ -324,10 +342,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-
-
-
-    // ── TitleBar events ───────────────────────────────────────────
+    // ── TitleBar events ──────────────────────────
 
     // Language changed: refresh nav items and re-apply resources / 语言变更:刷新导航项并重新应用资源
     private void OnLanguageChanged()
@@ -336,21 +351,59 @@ public sealed partial class MainWindow : Window
         {
             RefreshNavItems();
             RefreshNavBuiltInItems();
-            LocalizationHelper.ApplyUidResources(NavView);
+            LocalizationHelper.App.ApplyUidResources(NavView);
         });
+    }
+
+    // Test mode changed: update provider and reload changelog if current page
+    // / 测试模式变更:更新提供者并重载更新日志页(若为当前页)
+    private void OnTestModeChanged(object? sender, bool _)
+    {
+        var testModeService = App.Services.GetService<ITestModeService>();
+        if (testModeService is null) return;
+
+        // Update changelog provider based on new test mode state
+        // / 根据新测试模式状态更新更新日志提供者
+        RuntimeServices.ChangelogDataProvider =
+            !testModeService.IsPageCovered(TestModeCoverage.Changelog) ||
+            testModeService.IsFillDataEnabled
+                ? new GitHubChangelogDataProvider()
+                : null;
+
+        // Reload ChangelogPage if it's the current page / 当前为更新日志页时重新加载
+        if (ContentFrame.Content is ShuRuk.Runtime.Views.ChangelogPage)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                var repoUrl = testModeService.IsEnabled && !string.IsNullOrWhiteSpace(testModeService.ChangelogRepoUrl)
+                    ? testModeService.ChangelogRepoUrl
+                    : AppConstants.DefaultChangelogRepoUrl;
+                var parameter = new ShuRuk.Runtime.Models.ChangelogPageParameter
+                {
+                    RepoUrl = repoUrl,
+                    SectionFilter = string.IsNullOrEmpty(testModeService.ChangelogSectionFilter)
+                        ? null
+                        : testModeService.ChangelogSectionFilter
+                };
+                // Force re-navigate to create new page instance / 强制重新导航创建新页面实例
+                ContentFrame.Navigate(typeof(ShuRuk.Runtime.Views.ChangelogPage), parameter);
+            });
+        }
     }
 
     // Update localized content for nav menu items / 更新导航菜单项的本地化内容
     private void RefreshNavItems()
     {
-        foreach (var item in NavView.MenuItems.OfType<NavigationViewItem>().Concat(NavView.FooterMenuItems.OfType<NavigationViewItem>()))
+        foreach (var item in NavView.MenuItems.OfType<NavigationViewItem>()
+            .Concat(NavView.FooterMenuItems.OfType<NavigationViewItem>()))
         {
             item.Content = item.Tag?.ToString() switch
             {
-                var t when t == AppConstants.NavTags.Home => LocalizationHelper.GetString("NavHome.Content"),
-                var t when t == AppConstants.NavTags.Modules => LocalizationHelper.GetString("NavModules.Content"),
-                var t when t == AppConstants.NavTags.Changelog => LocalizationHelper.GetString("NavChangelog.Content"),
-                var t when t == AppConstants.NavTags.Monitor => LocalizationHelper.GetString("NavMonitor.Content"),
+                var t when t == AppConstants.NavTags.Home => LocalizationHelper.App.GetString("NavHome.Content"),
+                var t when t == AppConstants.NavTags.Modules => LocalizationHelper.App.GetString("NavModules.Content"),
+                var t when t == AppConstants.NavTags.Changelog =>
+                    LocalizationHelper.App.GetString("NavChangelog.Content"),
+                var t when t == AppConstants.NavTags.Monitor => LocalizationHelper.App.GetString("NavMonitor.Content"),
                 _ => item.Content
             };
         }
@@ -359,10 +412,10 @@ public sealed partial class MainWindow : Window
     // Update settings item and back/pane button tooltips / 更新设置项及返回/面板按钮提示
     private void RefreshNavBuiltInItems()
     {
-        var settingsText = LocalizationHelper.GetString("String_NavSettings");
-        var backText = LocalizationHelper.GetString("String_NavBack");
-        var paneOpenText = LocalizationHelper.GetString("String_NavPaneOpen");
-        var paneCloseText = LocalizationHelper.GetString("String_NavPaneClose");
+        var settingsText = LocalizationHelper.App.GetString("String_NavSettings");
+        var backText = LocalizationHelper.App.GetString("String_NavBack");
+        var paneOpenText = LocalizationHelper.App.GetString("String_NavPaneOpen");
+        var paneCloseText = LocalizationHelper.App.GetString("String_NavPaneClose");
 
         if (NavView.SettingsItem is NavigationViewItem settingsNavItem)
         {
@@ -405,7 +458,6 @@ public sealed partial class MainWindow : Window
         }
     }
 
-
     // Toggle nav pane open/close from title bar / 从标题栏切换导航面板开/关
     private void AppTitleBar_PaneToggleRequested(TitleBar sender, object args)
     {
@@ -428,7 +480,7 @@ public sealed partial class MainWindow : Window
         NavigateTo(previousTag, pushHistory: false);
     }
 
-    // ── NavigationView events ─────────────────────────────────────
+    // ── NavigationView events ────────────────────────────
 
     private bool _suppressNavigation;
 
@@ -465,13 +517,13 @@ public sealed partial class MainWindow : Window
             NavigateTo(tag);
     }
 
-
     // Navigate to page by tag with history and error fallback / 按标签导航页面,含历史记录与错误回退
     public void NavigateTo(string tag, bool pushHistory = true, object? parameter = null)
     {
 
         // Module/submodule navigation routes to host page / 模块/子模块导航路由到承载页
-        Type? pageType = tag.StartsWith("module:", StringComparison.Ordinal) || tag.StartsWith("submodule:", StringComparison.Ordinal)
+        Type? pageType = tag.StartsWith("module:", StringComparison.Ordinal) ||
+            tag.StartsWith("submodule:", StringComparison.Ordinal)
             ? typeof(ModulePage)
             : tag switch
             {
@@ -513,16 +565,23 @@ public sealed partial class MainWindow : Window
             _suppressNavigation = false;
         }
 
-        // Auto-construct changelog parameter from test mode config / 从测试模式配置自动构造更新日志参数
+        // Auto-construct changelog parameter from test mode config
+        // / 从测试模式配置自动构造更新日志参数
         if (tag == "changelog" && parameter is null)
         {
             var testMode = App.Services.GetService<ITestModeService>();
             if (testMode is not null)
             {
-                parameter = new ShuRuk.Runtime.Views.ChangelogPageParameter
+                // Non-test mode uses self repo as default source / 非测试模式使用自身仓库为默认日志源
+                var repoUrl = testMode.IsEnabled && !string.IsNullOrWhiteSpace(testMode.ChangelogRepoUrl)
+                    ? testMode.ChangelogRepoUrl
+                    : AppConstants.DefaultChangelogRepoUrl;
+                parameter = new ShuRuk.Runtime.Models.ChangelogPageParameter
                 {
-                    RepoUrl = testMode.ChangelogRepoUrl,
-                    SectionFilter = string.IsNullOrEmpty(testMode.ChangelogSectionFilter) ? null : testMode.ChangelogSectionFilter
+                    RepoUrl = repoUrl,
+                    SectionFilter = string.IsNullOrEmpty(testMode.ChangelogSectionFilter)
+                        ? null
+                        : testMode.ChangelogSectionFilter
                 };
             }
         }
@@ -560,10 +619,13 @@ public sealed partial class MainWindow : Window
         EnqueueTitleBarFix();
     }
 
-    // Schedule a low-priority override to run after TitleBar updates / 低优先级调度,确保在TitleBar更新后执行
+    // Schedule a low-priority override to run after TitleBar updates
+    // / 低优先级调度,确保在TitleBar更新后执行
     private void EnqueueTitleBarFix()
     {
-        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, ApplyTitleBarTemplateOverrides);
+        DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            ApplyTitleBarTemplateOverrides);
     }
 
     // Show error dialog when navigation fails / 导航失败时显示错误对话框
@@ -575,7 +637,7 @@ public sealed partial class MainWindow : Window
             {
                 Title = "导航失败",
                 Content = $"无法导航到 {tag}:\n{ex}",
-                CloseButtonText = LocalizationHelper.GetString("String_Ok"),
+                CloseButtonText = LocalizationHelper.App.GetString("String_Ok"),
                 XamlRoot = NavView.XamlRoot
             };
             await dialog.ShowAsync();
@@ -603,12 +665,13 @@ public sealed partial class MainWindow : Window
 
     }
 
-    // Populate installed modules as nav items with sub-module children / 填充已安装模块为导航条目，子模块为子条目
+    // Populate installed modules as nav items with sub-module children
+    // / 填充已安装模块为导航条目，子模块为子条目
     public void PopulateModuleNavItems()
     {
         try
         {
-            var manager = App.Services.GetRequiredService<ShuRuk.Runtime.Abstractions.Interfaces.IModuleManager>();
+            var manager = App.Services.GetRequiredService<ShuRuk.Runtime.Contracts.IModuleManager>();
             var modules = manager.GetInstalledModules();
 
             // Remove existing dynamic module items / 移除已有的动态模块条目
@@ -637,7 +700,12 @@ public sealed partial class MainWindow : Window
                         {
                             Content = sub.Name,
                             Tag = $"submodule:{sub.ModuleId}",
-                            Icon = new FontIcon { Glyph = sub.Light ? AppConstants.SubModuleLightIconGlyph : AppConstants.ModuleIconGlyph }
+                            Icon = new FontIcon
+                            {
+                                Glyph = sub.Light
+                                    ? AppConstants.SubModuleLightIconGlyph
+                                    : AppConstants.ModuleIconGlyph
+                            }
                         });
                     }
                 }
@@ -651,7 +719,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // ── Window sizing / subclassing ───────────────────────────────
+    // ── Window sizing / subclassing ──────────────────────
 
     private int _minWidth = 800;
     private int _minHeight = 600;
@@ -669,8 +737,11 @@ public sealed partial class MainWindow : Window
         SetWindowSubclass(_hWnd, _subclassProc, IntPtr.Zero, out _subclassId);
     }
 
-    // Subclass wndproc: clamp min size via WM_GETMINMAXINFO / 子类化窗口过程:通过WM_GETMINMAXINFO限制最小尺寸
-    private IntPtr SubclassWndProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData)
+    // Subclass wndproc: clamp min size via WM_GETMINMAXINFO
+    // / 子类化窗口过程:通过WM_GETMINMAXINFO限制最小尺寸
+    private IntPtr SubclassWndProc(
+        IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam,
+        IntPtr uIdSubclass, IntPtr dwRefData)
     {
         if (uMsg == AppConstants.WmGetMinMaxInfo)
         {
@@ -685,7 +756,9 @@ public sealed partial class MainWindow : Window
     }
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate IntPtr SUBCLASSPROC(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData);
+    private delegate IntPtr SUBCLASSPROC(
+        IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam,
+        IntPtr uIdSubclass, IntPtr dwRefData);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT
@@ -705,7 +778,9 @@ public sealed partial class MainWindow : Window
     }
 
     [DllImport("comctl32.dll", SetLastError = true)]
-    private static extern bool SetWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, IntPtr uIdSubclass, out IntPtr pdwRefData);
+    private static extern bool SetWindowSubclass(
+        IntPtr hWnd, SUBCLASSPROC pfnSubclass,
+        IntPtr uIdSubclass, out IntPtr pdwRefData);
 
     [DllImport("comctl32.dll")]
     private static extern IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);

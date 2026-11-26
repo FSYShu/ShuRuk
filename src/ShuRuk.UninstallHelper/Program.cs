@@ -74,7 +74,10 @@ internal static class Program
             ?? Registry.CurrentUser.CreateSubKey(RuntimeRegKey, writable: true);
 
         // Remove this package from InstalledApps / 从已安装列表移除本包
-        var existing = (string[]?)key.GetValue(InstalledAppsValue, Array.Empty<string>(), RegistryValueOptions.DoNotExpandEnvironmentNames);
+        var existing = (string[]?)key.GetValue(
+            InstalledAppsValue,
+            Array.Empty<string>(),
+            RegistryValueOptions.DoNotExpandEnvironmentNames);
         var updated = (existing ?? Array.Empty<string>())
             .Where(p => !string.Equals(p, packageFullName, StringComparison.OrdinalIgnoreCase))
             .ToArray();

@@ -1,4 +1,4 @@
-using ShuRuk.Runtime.Abstractions.Models;
+using ShuRuk.Runtime.Models;
 
 namespace ShuRuk.App.ViewModels;
 
@@ -11,7 +11,6 @@ public class ModuleCardViewModel
     public required string StateText { get; init; }
     public required ModuleSource Source { get; init; }
     public required ModuleState State { get; init; }
-
 
     // Extended display properties / 扩展显示属性
     public string Version { get; init; } = string.Empty;

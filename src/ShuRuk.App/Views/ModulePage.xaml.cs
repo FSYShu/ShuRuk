@@ -1,12 +1,23 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using ShuRuk.App;
-using ShuRuk.App.Abstractions.Interfaces;
-using ShuRuk.App.Helpers;
+using ShuRuk.Runtime.Helpers;
+using ShuRuk.App.Constants;
+using ShuRuk.Runtime.Core;
 
 namespace ShuRuk.App.Views;
+
+/// <summary>
+/// Implemented by pages that can be filtered by a search keyword.
+/// / 可按搜索关键词过滤的页面契约。
+/// </summary>
+internal interface ISearchablePage
+{
+    void ApplyFilter(string keyword);
+}
 
 public sealed partial class ModulePage : Page
 {
@@ -15,13 +26,19 @@ public sealed partial class ModulePage : Page
     private bool _isShowingDetail = false;
     // SubBar index to return to from detail / 从详情页返回的目标 SubBar 索引
     private int _detailReturnIndex = 0;
+    // Whether this is the first navigation (skip panel animation) / 是否首次导航(跳过面板动画)
+    private bool _isFirstNav = true;
+    // Whether initial panel offset has been set / 初始面板偏移是否已设置
+    private bool _initialOffsetSet = false;
 
-    public string TabBarA11yName => LocalizationHelper.GetString("String_ModulePageTabBarA11y");
-    public string InstalledTabA11yName => LocalizationHelper.GetString("ModulePageInstalledTab.Content");
-    public string DiscoverTabA11yName => LocalizationHelper.GetString("ModulePageDiscoverTab.Content");
-    public string SortRatingText => LocalizationHelper.GetString("DiscoverSortRating.Content");
-    public string SortDownloadsText => LocalizationHelper.GetString("DiscoverSortDownloads.Content");
-    public string SortUpdatedText => LocalizationHelper.GetString("DiscoverSortUpdated.Content");
+    public string TabBarA11yName => LocalizationHelper.App.GetString("String_ModulePageTabBarA11y");
+    public string InstalledTabA11yName => LocalizationHelper.App.GetString("ModulePageInstalledTab.Content");
+    public string DiscoverTabA11yName => LocalizationHelper.App.GetString("ModulePageDiscoverTab.Content");
+    public string SortNameText => LocalizationHelper.App.GetString("DiscoverSortName.Content");
+
+    public string SortDownloadsText => LocalizationHelper.App.GetString("DiscoverSortDownloads.Content");
+    public string SortUpdatedText => LocalizationHelper.App.GetString("DiscoverSortUpdated.Content");
+    public string SortTooltipText => LocalizationHelper.App.GetString("String_SortTooltip");
 
     // Constructor: enable cache, wire events / 构造函数:启用缓存、挂载事件
     public ModulePage()
@@ -30,15 +47,15 @@ public sealed partial class ModulePage : Page
         InitializeComponent();
         Loaded += ModulePage_Loaded;
         ContentFrame.Navigated += ContentFrame_Navigated;
-
+        SortButton.SizeChanged += SortButton_SizeChanged;
     }
 
     // Apply localization and navigate to first tab on load / 加载时应用本地化并导航到首个标签
     private void ModulePage_Loaded(object sender, RoutedEventArgs e)
     {
-        LocalizationHelper.ApplyUidResources(this);
+        LocalizationHelper.App.ApplyUidResources(this);
 
-        SearchBox.PlaceholderText = LocalizationHelper.GetString("String_SearchModules");
+        SearchBox.PlaceholderText = LocalizationHelper.App.GetString("String_SearchModules");
 
         if (ContentFrame.Content is null && SubBar.SelectedItem is SelectorBarItem first)
         {
@@ -61,7 +78,8 @@ public sealed partial class ModulePage : Page
 
     // Pattern adapted from the official WinUI Gallery SelectorBarPage sample:
     // Frame.Navigate(pageType, null, new SlideNavigationTransitionInfo { Effect = ... })
-    // Navigate to installed/discover page with slide or drill-in / 导航到已安装/发现页,含滑动或钻取动画
+    // Navigate to installed/discover page with slide or drill-in
+    // 导航到已安装/发现页,含滑动或钻取动画
     private void NavigateToIndex(int currentIndex, bool animate, bool useDrillIn = false)
     {
         Type? pageType = currentIndex switch
@@ -116,8 +134,23 @@ public sealed partial class ModulePage : Page
         // Hide top bar (selector + search) on detail page / 详情页隐藏顶栏（选择器+搜索）
         TopBar.Visibility = isDetail ? Visibility.Collapsed : Visibility.Visible;
 
-        // Show sort button only on discover page / 仅发现页显示排序按钮
-        SortButton.Visibility = (e.Content is ModuleDiscoverPage && !isDetail) ? Visibility.Visible : Visibility.Collapsed;
+        // SortButton always visible, no show/hide animation / 排序按钮始终可见,无需显示隐藏动画
+
+        // Slide SearchSortPanel: discover=into view, installed=SortButton off-screen
+        // 滑动搜索排序面板:发现页入画,已安装页SortButton出画
+        if (!isDetail)
+        {
+            if (_isFirstNav)
+            {
+                // Skip animation on first nav, let SizeChanged set the offset
+                // 首次导航跳过动画,由SizeChanged设置偏移
+                _isFirstNav = false;
+            }
+            else
+            {
+                AnimateSearchSortPanelSlide(e.Content is ModuleDiscoverPage);
+            }
+        }
 
         // Update MainWindow back button state / 更新主窗口返回按钮状态
         UpdateMainWindowBackButton();
@@ -154,14 +187,56 @@ public sealed partial class ModulePage : Page
         }
     }
 
+
+    // SortButton laid out: set initial panel offset once / 排序按钮布局完成:设置初始面板偏移
+    private void SortButton_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (!_initialOffsetSet && SortButton.ActualWidth > 0)
+        {
+            _initialOffsetSet = true;
+            SearchSortTransform.X = SortButton.ActualWidth + 6;
+        }
+    }
+
+    // Slide SearchSortPanel: discover=left (into view), installed=right (SortButton off-screen)
+    // 滑动搜索排序面板:发现页左移入画,已安装页右移使SortButton出画
+    private void AnimateSearchSortPanelSlide(bool isDiscover, bool animate = true)
+    {
+        // Offset = SortButton ActualWidth + left margin(6); fallback to DesiredSize if not yet laid out
+        // 偏移量=SortButton实际宽度+左边距6;未布局时用DesiredSize回退
+        double sortWidth = SortButton.ActualWidth > 0
+            ? SortButton.ActualWidth
+            : SortButton.DesiredSize.Width;
+        double offset = sortWidth + 6;
+        double targetX = isDiscover ? 0 : offset;
+
+        if (!animate)
+        {
+            SearchSortTransform.X = targetX;
+            return;
+        }
+
+        var anim = new DoubleAnimation
+        {
+            To = targetX,
+            Duration = new Duration(TimeSpan.FromMilliseconds(300)),
+            EasingFunction = new CubicEase()
+        };
+        Storyboard.SetTarget(anim, SearchSortTransform);
+        Storyboard.SetTargetProperty(anim, "X");
+        var sb = new Storyboard();
+        sb.Children.Add(anim);
+        sb.Begin();
+    }
+
     // Sort menu item clicked: apply sort to discover page / 排序菜单项点击:对发现页应用排序
     private void SortMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not MenuFlyoutItem item) return;
-        SortButton.Content = item.Text;
+
         if (ContentFrame.Content is ModuleDiscoverPage discover)
         {
-            discover.ApplySort(item.Tag?.ToString() ?? AppConstants.DiscoverSort.Rating);
+            discover.ApplySort(item.Tag?.ToString() ?? AppConstants.DiscoverSort.Name);
         }
     }
 

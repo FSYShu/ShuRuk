@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:settings="using:CommunityToolkit.WinUI.Controls"
+    xmlns:local="using:ShuRuk.Runtime.Views"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -11,26 +12,29 @@
         <StackPanel Spacing="20">
             <!-- About / 功能介绍 -->
             <StackPanel Spacing="8">
-                <TextBlock x:Name="RuntimeAboutTitle" Text="About" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBlock
+                    x:Name="RuntimeAboutTitle"
+                    x:Uid="RuntimeAboutTitle"
+                    Style="{StaticResource SubtitleTextBlockStyle}" />
                 <Border Background="{ThemeResource CardBackgroundBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1" CornerRadius="8" Padding="16">
+                        BorderThickness="1" CornerRadius="{StaticResource OverlayCornerRadius}" Padding="16">
                     <StackPanel Spacing="8">
                         <TextBlock Text="{x:Bind ModuleName, Mode=OneWay}"
-                                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
                         <TextBlock Text="{x:Bind ModuleDescription, Mode=OneWay}"
-                                   Style="{ThemeResource BodyTextBlockStyle}"
+                                   Style="{StaticResource BodyTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap" />
                         <StackPanel Orientation="Horizontal" Spacing="24">
-                            <TextBlock Style="{ThemeResource CaptionTextBlockStyle}"
+                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}">
-                                <Run x:Name="RuntimeAboutVersion" Text="Version: " />
+                                <Run x:Name="RuntimeAboutVersion" />
                                 <Run Text="{x:Bind ModuleVersion, Mode=OneWay}" />
                             </TextBlock>
-                            <TextBlock Style="{ThemeResource CaptionTextBlockStyle}"
+                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}">
-                                <Run x:Name="RuntimeAboutAuthor" Text="Author: " />
+                                <Run x:Name="RuntimeAboutAuthor" />
                                 <Run Text="{x:Bind ModuleAuthor, Mode=OneWay}" />
                             </TextBlock>
                         </StackPanel>
@@ -40,15 +44,18 @@
 
             <!-- Settings / 设置项 -->
             <StackPanel Spacing="4">
-                <TextBlock x:Name="RuntimeAboutSettings" Text="Settings" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBlock
+                    x:Name="RuntimeAboutSettings"
+                    x:Uid="RuntimeAboutSettings"
+                    Style="{StaticResource SubtitleTextBlockStyle}" />
                 <ItemsRepeater ItemsSource="{x:Bind SettingsItems, Mode=OneWay}">
                     <ItemsRepeater.Layout>
                         <StackLayout Spacing="4" />
                     </ItemsRepeater.Layout>
                     <ItemsRepeater.ItemTemplate>
-                        <DataTemplate>
-                            <settings:SettingsCard Header="{Binding Header}" Description="{Binding Description}">
-                                <ContentControl Content="{Binding Content}" IsTabStop="False" />
+                        <DataTemplate x:DataType="local:SettingsItem">
+                            <settings:SettingsCard Header="{x:Bind Header}" Description="{x:Bind Description}">
+                                <ContentControl Content="{x:Bind Content}" IsTabStop="False" />
                             </settings:SettingsCard>
                         </DataTemplate>
                     </ItemsRepeater.ItemTemplate>

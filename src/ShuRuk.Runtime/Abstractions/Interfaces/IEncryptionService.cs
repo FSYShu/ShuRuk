@@ -1,7 +1,0 @@
-namespace ShuRuk.Runtime.Abstractions.Interfaces;
-
-public interface IEncryptionService
-{
-    byte[] Protect(byte[] data);
-    byte[] Unprotect(byte[] data);
-}

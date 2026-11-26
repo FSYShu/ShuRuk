@@ -4,12 +4,17 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using ShuRuk.App;
-using ShuRuk.App.Abstractions.Interfaces;
-using ShuRuk.App.Helpers;
+
+using ShuRuk.App.Constants;
+using ShuRuk.Runtime.Core;
 using ShuRuk.App.ViewModels;
-using ShuRuk.Runtime.Abstractions.Models;
-using ShuRuk.Runtime.Abstractions.Interfaces;
-using ShuRuk.Runtime.Abstractions.Services;
+using ShuRuk.Runtime.Models;
+using ShuRuk.Runtime.Contracts;
+using ShuRuk.Runtime.Services.Module;
+using ShuRuk.Runtime.Services.Registry;
+using ShuRuk.Runtime.Services.Security;
+using ShuRuk.Runtime.Services.Infrastructure;
+using ShuRuk.Runtime.Helpers;
 
 namespace ShuRuk.App.Views;
 
@@ -31,8 +36,7 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
     // Apply localization, subscribe test mode, load modules / 应用本地化、订阅测试模式、加载模块
     private void OnPageLoaded(object sender, RoutedEventArgs e)
     {
-        LocalizationHelper.ApplyUidResources(this);
-
+        LocalizationHelper.App.ApplyUidResources(this);
 
         // Subscribe to test mode changes / 订阅测试模式变化
         _testModeService = AppContextAccessor.Current.Services.GetService<ITestModeService>();
@@ -64,7 +68,6 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
         await LoadInstalledAsync();
     }
 
-
     // Load installed modules or test data into card list / 加载已安装模块或测试数据到卡片列表
     private async Task LoadInstalledAsync()
     {
@@ -72,7 +75,7 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
 
         // Use test data when test mode is enabled / 测试模式开启时使用测试数据
         var testModeService = App.Services.GetService<ITestModeService>();
-        if (testModeService?.IsEnabled == true)
+        if (testModeService?.IsPageCovered(TestModeCoverage.Installed) == true)
         {
             LoadTestModules();
             ApplyFilter(_currentKeyword);
@@ -98,8 +101,8 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
                     DisplayName = manifest.DisplayName,
                     Description = manifest.Description,
                     SourceBadge = manifest.Source == ModuleSource.BuiltIn
-                        ? LocalizationHelper.GetString("String_ModuleDetailSourceBuiltIn")
-                        : LocalizationHelper.GetString("String_ModuleDetailSourceExternal"),
+                        ? LocalizationHelper.App.GetString("String_ModuleDetailSourceBuiltIn")
+                        : LocalizationHelper.App.GetString("String_ModuleDetailSourceExternal"),
                     StateText = state.ToString(),
                     Source = manifest.Source,
                     State = state,
@@ -125,8 +128,8 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
                 DisplayName = info.DisplayName,
                 Description = info.Description,
                 SourceBadge = info.Source == ModuleSource.BuiltIn
-                    ? LocalizationHelper.GetString("String_ModuleDetailSourceBuiltIn")
-                    : LocalizationHelper.GetString("String_ModuleDetailSourceExternal"),
+                    ? LocalizationHelper.App.GetString("String_ModuleDetailSourceBuiltIn")
+                    : LocalizationHelper.App.GetString("String_ModuleDetailSourceExternal"),
                 StateText = info.State.ToString(),
                 Source = info.Source,
                 State = info.State,
@@ -177,7 +180,8 @@ public sealed partial class ModuleInstalledPage : Page, ISearchablePage
         FindParentModulePage()?.SwitchToDiscoverTab();
     }
 
-    // Recompute max columns on resize so centered grid stays page-width-bound / 尺寸变化时重算列数,使居中网格仍受页面宽度约束
+    // Recompute max columns on resize so centered grid stays page-width-bound
+    // / 尺寸变化时重算列数,使居中网格仍受页面宽度约束
     private void InstalledGridView_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         GridViewLayoutHelper.UpdateMaxColumns(InstalledGridView, AppConstants.ModuleCardWidth);
