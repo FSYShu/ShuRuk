@@ -26,6 +26,12 @@ packages/
 # Build stubs / 构建桩
 build-stubs/
 
+# WinApp CLI / WinApp工具链
+.winapp/
+
+# Security / 安全扫描
+.security/
+
 # Environment / 环境
 global.json
 
