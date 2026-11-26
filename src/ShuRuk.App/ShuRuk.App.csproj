@@ -6,7 +6,7 @@
     <RootNamespace>ShuRuk.App</RootNamespace>
     <AssemblyName>ShuRuk</AssemblyName>
     <VersionMajor>0</VersionMajor>
-    <VersionMinor>1</VersionMinor>
+    <VersionMinor>2</VersionMinor>
     <VersionPatch>0</VersionPatch>
     <Version>$(VersionMajor).$(VersionMinor).$(VersionPatch)</Version>
     <Platforms>x86;x64;ARM64</Platforms>

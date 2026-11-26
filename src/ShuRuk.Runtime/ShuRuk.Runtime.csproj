@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
@@ -23,7 +23,7 @@
     <PackageId>ShuRuk.Runtime</PackageId>
     <!-- Version components: change these three to bump version / 版本分量：改这三个数字即可升版本 -->
     <VersionMajor>0</VersionMajor>
-    <VersionMinor>1</VersionMinor>
+    <VersionMinor>2</VersionMinor>
     <VersionPatch>0</VersionPatch>
     <Version>$(VersionMajor).$(VersionMinor).$(VersionPatch)</Version>
     <Authors>FSYShu</Authors>
