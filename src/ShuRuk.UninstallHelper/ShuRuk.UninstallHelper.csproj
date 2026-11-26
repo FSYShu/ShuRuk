@@ -6,7 +6,7 @@
     <RootNamespace>ShuRuk.UninstallHelper</RootNamespace>
     <AssemblyName>ShuRukUninstallHelper</AssemblyName>
     <VersionMajor>1</VersionMajor>
-    <VersionMinor>0</VersionMinor>
+    <VersionMinor>1</VersionMinor>
     <VersionPatch>0</VersionPatch>
     <Version>$(VersionMajor).$(VersionMinor).$(VersionPatch)</Version>
     <ImplicitUsings>enable</ImplicitUsings>
