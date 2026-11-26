@@ -24,6 +24,13 @@ public sealed partial class ChangelogPage : Page
     {
         base.OnNavigatedTo(e);
 
+        // Show loading overlay immediately: the page is already visible during
+        // async operations below, so without this the content area appears blank.
+        // / 立即显示加载遮罩:下面的异步操作期间页面已可见,
+        // 不设置此遮罩则内容区会空白无加载动画。
+        IsLoading = true;
+        LoadingText = LocalizationHelper.Runtime.GetString("RuntimeChangelogLoading");
+
         // Apply localized empty state text / 应用本地化空状态文字
         EmptyTitle = LocalizationHelper.Runtime.GetString("RuntimeChangelogEmptyTitle");
         EmptyDescription = LocalizationHelper.Runtime.GetString("RuntimeChangelogEmptyDescription");
@@ -31,9 +38,10 @@ public sealed partial class ChangelogPage : Page
         ChangelogEntry.ExpandText = LocalizationHelper.Runtime.GetString("RuntimeChangelogExpand");
         ChangelogEntry.CollapseText = LocalizationHelper.Runtime.GetString("RuntimeChangelogCollapse");
 
+
         // Read navigation parameter / 读取导航参数
         var param = e.Parameter as ChangelogPageParameter;
-        var repoUrl = param?.RepoUrl ?? "microsoft/PowerToys";
+        var repoUrl = param?.RepoUrl ?? string.Empty;
         var sectionFilter = param?.SectionFilter;
         ViewModel.CurrentRepoUrl = repoUrl;
         ViewModel.CurrentSectionFilter = sectionFilter;
@@ -56,6 +64,7 @@ public sealed partial class ChangelogPage : Page
         if (provider is null || !provider.IsAvailable ||
             (testMode is not null && testMode.IsPageCovered(TestModeCoverage.Changelog) && !testMode.IsFillDataEnabled))
         {
+            IsLoading = false;
             Entries = [];
             return;
         }
@@ -65,28 +74,20 @@ public sealed partial class ChangelogPage : Page
         var cache = await ViewModel.LoadCacheAsync();
         if (cache is not null && cache.Entries.Count > 0)
         {
+
             // Wait for ScrollViewer ViewportHeight > 0 before assigning Entries
             // / 等ScrollViewer ViewportHeight>0再赋值Entries
-            // Navigation transition (FromBottom) keeps ViewportHeight=0 until animation ends
-            // / 导航过渡(FromBottom)期间ViewportHeight=0
-            // ItemsRepeater virtualization skips realization when ViewportHeight=0 -> blank page
-            // / ViewportHeight=0时ItemsRepeater虚拟化跳过实现->空白
-            // OnEntriesChanged also polls InvalidateMeasure as a backstop if ViewportHeight settles later
-            // / OnEntriesChanged亦轮询InvalidateMeasure兜底视口延迟就绪
             var cachedEntries = cache.Entries;
             var latestTag = cache.LatestTag;
-            ChangelogCacheService.NavLog(
-                $"CACHE path: entries={cachedEntries.Count} " +
-                $"scrollH={ChangelogScrollViewer.ActualHeight:F1} " +
-                $"viewportH={ChangelogScrollViewer.ViewportHeight:F1}");
+
             Action assignEntries = () =>
             {
-                ChangelogCacheService.NavLog(
-                    $"CACHE assignEntries: scrollH={ChangelogScrollViewer.ActualHeight:F1} " +
-                    $"viewportH={ChangelogScrollViewer.ViewportHeight:F1} " +
-                    $"repeaterH={ChangelogRepeater.ActualHeight:F1}");
-                Entries = cachedEntries;
+                // Trigger FadeOut via IsLoading=false BEFORE assigning Entries,
+                // so the overlay begins fading while cards render underneath.
+                // / 先通过IsLoading=false触发淡出再赋值Entries,
+                // 让遮罩开始淡出同时卡片在下方渲染
                 IsLoading = false;
+                Entries = cachedEntries;
             };
             if (ChangelogScrollViewer.ViewportHeight > 0)
             {
@@ -106,10 +107,6 @@ public sealed partial class ChangelogPage : Page
                     }
                 };
                 ChangelogScrollViewer.SizeChanged += onSizeChanged;
-                // Fallback: force assign after 500ms if SizeChanged never fires
-                // / 兜底:500ms后SizeChanged未触发则强制赋值
-                // OnEntriesChanged poll will handle realization once ViewportHeight becomes positive
-                // / 赋值后OnEntriesChanged轮询会在ViewportHeight变正时触发实现
                 var fallback = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
                 fallback.Tick += (_, _) =>
                 {
@@ -130,8 +127,7 @@ public sealed partial class ChangelogPage : Page
             // No cache: streaming load with progressive display / 无缓存:流式加载渐进显示
             _loadStartTime = DateTime.UtcNow;
             _isLoadingOverlayActive = true;
-            IsLoading = true;
-            LoadingText = LocalizationHelper.Runtime.GetString("RuntimeChangelogLoading");
+
             try
             {
                 var allEntries = new List<ChangelogEntry>();
@@ -147,8 +143,7 @@ public sealed partial class ChangelogPage : Page
                             firstBatch = false;
                             HideLoadingAndRevealAfterMinTime();
                         }
-                        // Add to source and filtered list, let LoadMore handle display
-                        // / 添加到源和过滤列表,由LoadMore控制显示
+                        // Add to source and filtered list / 添加到源和过滤列表
                         foreach (var entry in batch)
                         {
                             ChangelogViewModel.PrepareEntry(entry);
@@ -161,8 +156,10 @@ public sealed partial class ChangelogPage : Page
                         // Show content only after loading overlay hidden / 仅加载遮罩隐藏后才显示内容
                         if (!_isLoadingOverlayActive)
                         {
-                            if (_displayItems.Count < ChangelogViewModel.InitialLoadCount)
-                                ViewModel.LoadMore(isInitial: true);
+                            // Assign card modes and load all items / 分配卡片模式并加载全部条目
+                            ViewModel.AssignCardModes();
+                            if (_displayItems.Count == 0)
+                                ViewModel.LoadAll();
                             UpdateNavButtons();
                             UpdateEmptyState();
                         }
@@ -170,14 +167,19 @@ public sealed partial class ChangelogPage : Page
                 });
                 HideLoadingAndRevealAfterMinTime();
                 await ViewModel.SaveCacheAsync(allEntries);
+                // After streaming load: trigger incremental check to fetch ETag and any newer entries
+                // / 流式加载后:触发增量检查获取ETag和更新的条目
+                if (allEntries.Count > 0)
+                {
+                    var latestTag = allEntries[0].Version;
+                    _ = ViewModel.CheckForNewReleasesAsync(provider, latestTag, null);
+                }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
                     $"ChangelogPage fetch failed: {ex}");
                 _isLoadingOverlayActive = false;
-                // Partial batch may have loaded before failure: keep it + InfoBar
-                // / 失败前可能已加载部分批次:保留+InfoBar
                 if (_sourceEntries.Count > 0)
                 {
                     HideLoadingAndRevealAfterMinTime();
@@ -197,11 +199,8 @@ public sealed partial class ChangelogPage : Page
     {
         var provider = RuntimeServices.ChangelogDataProvider;
         var testMode = RuntimeServices.TestModeService;
-        // Test mode empty state: show loading animation then keep empty
-        // / 测试模式空状态:显示加载动画后保持空状态
         var isTestEmptyState = testMode is not null && testMode.IsEnabled && !testMode.IsFillDataEnabled;
 
-        // Reuse loading overlay instead of in-button animation / 复用加载遮罩而非按钮内动画
         _loadStartTime = DateTime.UtcNow;
         _isLoadingOverlayActive = true;
         IsLoading = true;
@@ -210,7 +209,6 @@ public sealed partial class ChangelogPage : Page
 
         if (isTestEmptyState)
         {
-            // Min display time then restore empty state / 最小展示时间后恢复空状态
             await Task.Delay(MinLoadTimeMs);
             _isLoadingOverlayActive = false;
             IsLoading = false;
@@ -230,11 +228,10 @@ public sealed partial class ChangelogPage : Page
 
         try
         {
-            // Delete cache file for current repo+filter / 删除当前仓库+过滤的缓存文件
             ChangelogCacheService.DeleteCache(ViewModel.CurrentRepoUrl, ViewModel.CurrentSectionFilter);
-
-            // Clear current display before streaming reload / 流式重新加载前清空当前显示
             _cardHeightCache.Clear();
+            _expandedHistoryEntry = null;
+            ClearStickyOverlays();
             ViewModel.ClearAll();
 
             var allEntries = new List<ChangelogEntry>();
@@ -255,26 +252,23 @@ public sealed partial class ChangelogPage : Page
                             _allEntries.Add(entry);
                         }
                     }
-                    // Show content only after loading overlay hidden / 仅加载遮罩隐藏后才显示内容
                     if (!_isLoadingOverlayActive)
                     {
-                        if (_displayItems.Count < ChangelogViewModel.InitialLoadCount)
-                            ViewModel.LoadMore(isInitial: true);
+                        ViewModel.AssignCardModes();
+                        if (_displayItems.Count == 0)
+                            ViewModel.LoadAll();
                         UpdateNavButtons();
                         UpdateEmptyState();
                     }
                 });
             });
             await ViewModel.SaveCacheAsync(allEntries);
-            // Refresh succeeded: dismiss any stale cache InfoBar / 刷新成功:关闭残留缓存InfoBar
             HideCacheInfoBar();
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Changelog refresh failed: {ex}");
             _isLoadingOverlayActive = false;
-            // Partial batch may have loaded before failure: keep it + InfoBar
-            // / 失败前可能已加载部分批次:保留+InfoBar
             if (_sourceEntries.Count > 0)
             {
                 HideLoadingAndRevealAfterMinTime();
@@ -309,37 +303,22 @@ public sealed partial class ChangelogPage : Page
     // Hide overlay after min time then reveal content / 最小时间后隐藏遮罩并显示内容
     private void HideLoadingAndRevealAfterMinTime() => RunAfterMinTime(RevealContent);
 
-    // Reveal content: clear overlay flag, hide overlay, show cards
-    // (guarded against double-call)
-    // / 显示内容:清遮罩标志,隐藏遮罩,显示卡片(防止重复调用)
+    // Reveal content: clear overlay flag, hide overlay, load all items
+    // / 显示内容:清遮罩标志,隐藏遮罩,加载全部条目
     private void RevealContent()
     {
         if (!_isLoadingOverlayActive) return;
         _isLoadingOverlayActive = false;
         IsLoading = false;
 
-        int prevCount = _displayItems.Count;
-        ViewModel.LoadMore();
-        // Defer to next frame: let MarqueeText initialize before card animation
-        // / 延迟到下一帧:让跑马灯在卡片动画前初始化
+        // Assign card modes and load all items / 分配卡片模式并加载全部条目
+        ViewModel.AssignCardModes();
+        if (_displayItems.Count == 0)
+            ViewModel.LoadAll();
         DispatcherQueue.TryEnqueue(() =>
         {
-            for (int i = prevCount; i < _displayItems.Count; i++)
-            {
-                try
-                {
-                    if (ChangelogRepeater.GetOrCreateElement(i) is FrameworkElement fe)
-                    {
-                        PlaySlideInAnimation(fe, CardSlideDistance, SlideInAnimMs);
-                        RefreshMarqueeInCard(fe);
-                    }
-                }
-                catch { }
-            }
             UpdateEmptyState();
             UpdateNavButtons();
-            // Link styles now applied per-MTB via Loaded/SizeChanged events (no batch traversal)
-            // / 链接样式现在通过每个MTB的Loaded/SizeChanged事件应用(无需批量遍历)
             CreateTimer(150, () =>
             {
                 EnsureCardsVisible();
@@ -374,26 +353,24 @@ public sealed partial class ChangelogPage : Page
         if (sender is not MenuFlyoutItem item) return;
         _filterTag = item.Tag?.ToString() ?? ChangelogViewModel.FilterTagAll;
         FilterButton.Content = item.Text;
-        // Persist preference / 持久化偏好
         await ViewModel.SavePrefsAsync();
-        // Ignore during init before source data loaded / 初始化时源数据未加载则忽略
         if (_sourceEntries.Count == 0) return;
+        _expandedHistoryEntry = null;
         ViewModel.ApplyFilter();
+        // Load all items after filter applied / 过滤后加载全部条目
+        ClearStickyOverlays();
+        ViewModel.LoadAll();
     }
 
     // Toggle image visibility in all markdown blocks / 切换所有markdown块的图片可见性
     private async void ShowImagesToggle_Click(object sender, RoutedEventArgs e)
     {
         _showImages = ShowImagesToggle.IsChecked == true;
-        // Update tooltip to reflect current state
-        // / 更新提示反映当前状态
         ToolTipService.SetToolTip(ShowImagesToggle,
             LocalizationHelper.Runtime.GetString(
                 _showImages ? "RuntimeChangelogHideImages" : "RuntimeChangelogShowImages"));
-        // Persist preference / 持久化偏好
         await ViewModel.SavePrefsAsync();
 
-        // Show progress indicator, disable button during update / 更新期间显示进度指示并禁用按钮
         ShowImagesIcon.Visibility = Visibility.Collapsed;
         ShowImagesProgress.Visibility = Visibility.Visible;
         ShowImagesProgress.IsActive = true;
@@ -401,7 +378,6 @@ public sealed partial class ChangelogPage : Page
 
         await ViewModel.UpdateAllImageVisibilityAsync();
 
-        // Restore button state / 恢复按钮状态
         ShowImagesProgress.IsActive = false;
         ShowImagesProgress.Visibility = Visibility.Collapsed;
         ShowImagesIcon.Visibility = Visibility.Visible;
@@ -411,10 +387,8 @@ public sealed partial class ChangelogPage : Page
     private void UpdateEmptyState()
     {
         var hasEntries = _allEntries.Count > 0;
-        // Empty state only when no entries and no error / 无条目且无错误时才显示空状态
         var showEmpty = !hasEntries && ErrorState.Visibility != Visibility.Visible;
         if (showEmpty) FadeIn(EmptyState); else FadeOut(EmptyState);
-        // Hide error state when entries exist / 有条目时隐藏错误状态
         if (hasEntries) FadeOut(ErrorState);
     }
 
@@ -422,7 +396,6 @@ public sealed partial class ChangelogPage : Page
     private void ShowErrorState(string message)
     {
         ErrorTitleText.Text = LocalizationHelper.Runtime.GetString("RuntimeChangelogErrorTitle");
-        // Localized description + technical detail / 本地化描述+技术详情
         ErrorDescriptionText.Text = LocalizationHelper.Runtime.GetString("RuntimeChangelogErrorDescription");
         FadeOut(EmptyState);
         FadeIn(ErrorState);
@@ -436,7 +409,6 @@ public sealed partial class ChangelogPage : Page
             if (loading)
             {
                 FadeIn(page.LoadingOverlay);
-                // Hide empty/error states while loading to avoid overlap / 加载时隐藏空/错误状态避免叠加
                 FadeOut(page.EmptyState);
                 FadeOut(page.ErrorState);
             }

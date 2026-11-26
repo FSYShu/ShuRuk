@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using ShuRuk.Runtime.Controls;
 using ShuRuk.Runtime.Helpers;
 using ShuRuk.Runtime.Models;
-using ShuRuk.Runtime.Services.Changelog;
+
 using ShuRuk.Runtime.ViewModels;
 
 namespace ShuRuk.Runtime.Views;
@@ -20,20 +20,13 @@ public sealed partial class ChangelogPage : Page
     // / 待测量溢出条目集合;防止布局循环重入
     private readonly HashSet<ChangelogEntry> _pendingOverflowMeasure = [];
 
-    // Load more items: split-frame add spreads MarkdownTextBlock render cost across frames
-    // / 加载更多:分帧添加分散MarkdownTextBlock渲染开销
-    // (LoadMore logic is in ViewModel; this wraps with re-entrancy guard)
-    // / (LoadMore逻辑在ViewModel中;此处包装防重入)
-    private bool _isLoadingMore;
-
-    private void LoadMore(bool defer = true)
-    {
-        if (_isLoadingMore) return;
-        _isLoadingMore = true;
-        ViewModel.LoadMore(defer);
-        // Clear flag after short delay to allow batch rendering / 短暂延迟后清除标志允许批次渲染
-        CreateTimer(50, () => _isLoadingMore = false);
-    }
+    // Currently expanded history card entry (only one at a time)
+    // / 当前展开的 history 卡片条目(同一时间仅一个)
+    private ChangelogEntry? _expandedHistoryEntry;
+    // True while a history card's expander animation is in progress;
+    // prevents auto-collapse from misfiring during the ~300ms expand animation
+    // / history 卡片展开动画进行中为 true;防止 ~300ms 展开动画期间自动收起误触发
+    private bool _isExpandingHistory;
 
     private static void OnEntriesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
@@ -49,19 +42,26 @@ public sealed partial class ChangelogPage : Page
             {
                 // Fallback ReleaseName to Version for old cache without name / 旧缓存无name时回退到版本号
                 if (string.IsNullOrWhiteSpace(entry.ReleaseName)) entry.ReleaseName = entry.Version;
-                if (entry.Segments is null || entry.Segments.Count == 0)
-                {
-                    entry.Segments = ChangelogSegment.Parse(entry.Notes);
-                    entry.InitializeVisibleSegments();
-                }
+                // Always re-parse to ensure correct segment order (text/image alternating)
+                // / 始终重新解析确保正确的段顺序(文字图片交替)
+                entry.Segments = ChangelogSegment.Parse(entry.Notes);
+                entry.InitializeVisibleSegments();
+                // Subscribe to PropertyChanged for IsExpanded changes
+                // (Expander Expanding/Collapsed events don't fire with TwoWay binding)
+                // / 订阅PropertyChanged监听IsExpanded变化
+                // (Expander的Expanding/Collapsed事件在TwoWay绑定下不触发)
+                entry.PropertyChanged += page.OnEntryPropertyChanged;
             }
             page.ViewModel.ApplyFilter();
+            // Assign card modes and load all items at once / 分配卡片模式并一次性加载全部条目
+            page.ViewModel.AssignCardModes();
+            page.ViewModel.LoadAll();
+            // Refresh localized properties after data load (localization may load after bindings)
+            // / 数据加载后刷新本地化属性(本地化可能在绑定后加载)
+            foreach (var entry in page.ViewModel.SourceEntries)
+                entry.RefreshLocalization();
             // Reset StackLayout to clear polluted firstRealizedItemOffset from navigation transition
             // / 重置StackLayout清除导航过渡污染的firstRealizedItemOffset
-            // StackLayout caches the offset; InvalidateArrange/re-attach ItemsSource do NOT reset it,
-            // / StackLayout缓存该偏移;InvalidateArrange/re-attach ItemsSource均不重置,
-            // leaving cards arranged at large negative Y (-11000+) off-screen after transition ends.
-            // / 致过渡结束后卡片被排到巨大负Y(-11000+)视口外.
             page.ChangelogRepeater.Layout = new StackLayout();
             // Sync DropDownButton content with restored filter tag / 同步DropDownButton显示与恢复的过滤标签
             page.FilterButton.Content = page._filterTag == ChangelogViewModel.FilterTagExcludePrerelease
@@ -69,38 +69,17 @@ public sealed partial class ChangelogPage : Page
             page.UpdateNavButtons();
             // Hide error state only when data successfully loaded / 仅成功加载数据时隐藏错误状态
             if (page.ViewModel.SourceEntries.Count > 0) FadeOut(page.ErrorState);
-            ChangelogCacheService.NavLog(
-                $"OnEntriesChanged: display={page._displayItems.Count} " +
-                $"scrollH={page.ChangelogScrollViewer.ActualHeight:F1} " +
-                $"viewportH={page.ChangelogScrollViewer.ViewportHeight:F1} " +
-                $"repeaterH={page.ChangelogRepeater.ActualHeight:F1} " +
-                $"children={VisualTreeHelper.GetChildrenCount(page.ChangelogRepeater)}");
+
             // Force layout next frame: ItemsRepeater virtualization may skip realization
             // / 下一帧强制布局:ItemsRepeater虚拟化可能跳过实现
-            // when ScrollViewer ViewportHeight not yet settled on sync Entries assignment
-            // / 同步赋值Entries时ScrollViewer视口高度未稳定
-            // During SlideNavigationTransition the RealizationRect may stay empty even though ActualHeight>0,
-            // / 导航滑动过渡期间即使ActualHeight>0,RealizationRect可能仍为空,
-            // so a single InvalidateMeasure is insufficient — poll until children appear or timeout.
-            // / 故单次InvalidateMeasure不够——需轮询直到子元素出现或超时
             page.DispatcherQueue.TryEnqueue(() =>
             {
                 page.ForceFullLayout();
-                // Force scroll to top: InvalidateArrange may leave cards at wrong positions
-                // / 强制滚动到顶部:InvalidateArrange可能使卡片位置错误
                 page.ChangelogScrollViewer.ChangeView(null, 0, null, true);
-                // Light layout nudge after sync ChangeView (was full ForceFullLayout)
-                // / 同步ChangeView后轻量布局推动(原为完整ForceFullLayout)
                 page.ChangelogRepeater.InvalidateMeasure();
                 page.ChangelogScrollViewer.UpdateLayout();
-                // Force scroll to top: InvalidateArrange may leave cards at wrong positions
-                // / 强制滚动到顶部:InvalidateArrange可能使卡片位置错误
                 page.ChangelogScrollViewer.ChangeView(null, 0, null, true);
                 page.ForceFullLayout();
-                // Check if first card is positioned off-screen; if so, StackLayout internal state is corrupt
-                // / 检查首卡片是否在视口外;若是,StackLayout内部状态已损坏
-                // Re-attach ItemsSource to force ItemsRepeater to reset its layout state
-                // / 重新绑定ItemsSource以强制ItemsRepeater重置布局状态
                 try
                 {
                     int checkCount = VisualTreeHelper.GetChildrenCount(page.ChangelogRepeater);
@@ -128,7 +107,7 @@ public sealed partial class ChangelogPage : Page
                 {
                     var poll = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
                     int attempts = 0;
-                    const int maxAttempts = 10; // 50ms * 10 = 500ms / 轮询500ms
+                    const int maxAttempts = 10;
                     poll.Tick += (_, _) =>
                     {
                         attempts++;
@@ -151,10 +130,6 @@ public sealed partial class ChangelogPage : Page
                             page.EnsureCardsVisible();
                             return;
                         }
-                        // Only full ForceFullLayout on first 2 ticks; lighter invalidation otherwise
-                        // / 仅前2次完整ForceFullLayout;其余轻量失效
-                        // Reduces UI thread contention: most ticks just nudge layout, not force full pass
-                        // / 减少UI线程争用:多数tick仅推动布局非强制完整pass
                         if (attempts <= 2)
                             page.ForceFullLayout();
                         else
@@ -165,7 +140,6 @@ public sealed partial class ChangelogPage : Page
                     };
                     poll.Start();
                 }
-                // Fallback: ensure cards visible after layout fixes / 兜底:布局修复后确保卡片可见
                 page.EnsureCardsVisible();
             });
         }
@@ -173,10 +147,6 @@ public sealed partial class ChangelogPage : Page
 
     // Check whether ContentPanel and realized cards have non-zero size
     // / 检查ContentPanel和已实现卡片是否有非零尺寸
-    // Navigation transition may skip Arrange on ContentPanel itself (not just cards),
-    // / 导航过渡可能跳过ContentPanel本身的Arrange(不只是卡片),
-    // leaving ContentPanel with BoundingRectangle 0,0,0,0 even though ScrollViewer is laid out.
-    // / 导致ContentPanel BoundingRectangle=0,0,0,0即使ScrollViewer已布局。
     private bool CardsLayoutIncomplete()
     {
         if (ContentPanel.ActualWidth == 0 || ContentPanel.ActualHeight == 0) return true;
@@ -212,6 +182,12 @@ public sealed partial class ChangelogPage : Page
         {
             int idx = ChangelogRepeater.GetElementIndex(element);
             if (idx >= 0) _cardHeightCache[idx] = e.NewSize.Height;
+            // Cache collapsed history card height for nav optimization (fixed height, no need to re-measure)
+            // / 缓存折叠 history 卡片高度供导航优化(高度固定,无需重新测量)
+            if (idx >= 0 && idx < _displayItems.Count
+                && _displayItems[idx].CardMode == CardMode.HistoryVersion && !_displayItems[idx].IsExpanded
+                && _collapsedOtherCardHeight == 0)
+                _collapsedOtherCardHeight = e.NewSize.Height;
             // Re-evaluate floating collapse button when expanded card height changes (markdown async render)
             // / 展开卡片高度变化时重新评估浮动收起按钮(markdown异步渲染)
             if (idx == _lastExpandedIndex && _lastExpandedEntry is not null && _lastExpandedEntry.IsExpanded)
@@ -220,30 +196,23 @@ public sealed partial class ChangelogPage : Page
         catch { }
     }
 
-    // Measure card content overflow via ScrollViewer extent vs viewport
-    // / 通过ScrollViewer范围与视口比较测量卡片内容溢出
-    private void CardScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (sender is not ScrollViewer sv) return;
-        ScheduleOverflowMeasure(sv);
-    }
-
-    // Content (ItemsRepeater) size changed: re-measure after async markdown render
-    // / 内容尺寸变化:异步markdown渲染后重新测量
+    // Content (ItemsRepeater) size changed: re-measure overflow after async markdown render
+    // / 内容尺寸变化:异步markdown渲染后重新测量溢出
     private void CardContent_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (sender is not FrameworkElement content) return;
-
-        // Walk up visual tree to find enclosing ScrollViewer / 向上遍历可视化树查找包裹的ScrollViewer
+        // Find CardContentGrid ancestor to compare content height vs MaxHeight
+        // / 查找CardContentGrid祖先比较内容高度与MaxHeight
         DependencyObject? node = content;
-        ScrollViewer? sv = null;
         while (node is not null)
         {
-            if (node is ScrollViewer found) { sv = found; break; }
+            if (node is Grid g && g.Name == "CardContentGrid")
+            {
+                ScheduleOverflowMeasureFromGrid(g, content);
+                return;
+            }
             node = VisualTreeHelper.GetParent(node);
         }
-        if (sv is null) return;
-        ScheduleOverflowMeasure(sv);
     }
 
     // Resolve ChangelogEntry from a card-internal element via repeater index
@@ -271,71 +240,80 @@ public sealed partial class ChangelogPage : Page
         return null;
     }
 
-    // Defer measurement to next layout pass so ExtentHeight reflects final render
-    // / 延迟到下一布局帧测量,确保ExtentHeight反映最终渲染
-    private void ScheduleOverflowMeasure(ScrollViewer sv, ChangelogEntry? knownEntry = null)
+    // Defer overflow measurement: measure content's natural height vs CardContentGrid MaxHeight
+    // / 延迟溢出测量:测量内容自然高度与CardContentGrid MaxHeight比较
+    // content.ActualHeight is constrained by parent MaxHeight, so we use Measure
+    // with infinite height to get the natural unconstrained height
+    // / content.ActualHeight受父级MaxHeight约束,故用Measure无限高度获取自然高度
+    private void ScheduleOverflowMeasureFromGrid(Grid cardGrid, FrameworkElement content)
     {
-        ChangelogEntry? entry = knownEntry ?? sv.DataContext as ChangelogEntry ?? GetEntryFromCardElement(sv);
+        ChangelogEntry? entry = GetEntryFromCardElement(cardGrid);
         if (entry is null) return;
         if (entry.IsExpanded) return;
+        if (entry.CardMode == CardMode.HistoryVersion) return;
         if (!_pendingOverflowMeasure.Add(entry)) return;
         var entryRef = entry;
-        sv.DispatcherQueue.TryEnqueue(() =>
+        var cardGridRef = cardGrid;
+        var contentRef = content;
+        cardGrid.DispatcherQueue.TryEnqueue(() =>
         {
             _pendingOverflowMeasure.Remove(entryRef);
             if (entryRef.IsExpanded) return;
-            // Guard against virtualization container recycling: sv may now show a different card
-            // / 防止虚拟化容器回收:sv可能已切换到其他卡片
-            if (sv.DataContext is ChangelogEntry dc && !ReferenceEquals(dc, entryRef)) return;
-            entryRef.MeasuredOverflow = sv.ExtentHeight > sv.ActualHeight + 1;
+            if (entryRef.CardMode == CardMode.HistoryVersion) return;
+            // Measure content with infinite height to get natural unconstrained height
+            // / 用无限高度测量内容获取自然不受约束的高度
+            double availableWidth = cardGridRef.ActualWidth > 0
+                ? cardGridRef.ActualWidth - cardGridRef.Padding.Left - cardGridRef.Padding.Right
+                : double.PositiveInfinity;
+            contentRef.Measure(new Windows.Foundation.Size(availableWidth, double.PositiveInfinity));
+            double naturalHeight = contentRef.DesiredSize.Height;
+            entryRef.MeasuredOverflow = naturalHeight > ChangelogEntry.CollapsedMaxHeight + 1;
         });
     }
 
-    // Card appear animation / 卡片出现动画
+    // Card appear: no slide-in animation to avoid Storyboard GC pressure during scroll
+    // / 卡片出现:无滑入动画避免滚动时Storyboard GC压力
     private void CardGrid_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement element) return;
         // Track height changes for nav offset cache / 追踪高度变化供导航偏移缓存
         element.SizeChanged += CardGrid_SizeChanged;
 
-        // Fallback measure FIRST: resolve entry via repeater index and schedule overflow check
-        // / 兜底测量优先:通过repeater索引解析条目并调度溢出检查
-        // Must run before animation which may throw and block subsequent code
-        // / 必须在动画前执行,动画可能抛异常阻断后续代码
+        int cardIdx = -1;
+        try { cardIdx = ChangelogRepeater.GetElementIndex(element); } catch { }
+
+        // Schedule overflow check via CardContentGrid / 通过CardContentGrid调度溢出检查
         try
         {
-            int cardIdx = ChangelogRepeater.GetElementIndex(element);
-            var cardSv = UiTreeHelper.FindDescendant<ScrollViewer>(element);
-            if (cardIdx >= 0 && cardIdx < _displayItems.Count && cardSv is ScrollViewer sv)
-                ScheduleOverflowMeasure(sv, _displayItems[cardIdx]);
+            if (cardIdx >= 0 && cardIdx < _displayItems.Count
+                && UiTreeHelper.FindDescendantByName(element, "CardContentGrid") is Grid cardGrid
+                && UiTreeHelper.FindDescendantByName(cardGrid, "FeaturedContentRepeater") is ItemsRepeater content)
+                ScheduleOverflowMeasureFromGrid(cardGrid, content);
         }
         catch { }
 
+        // Virtualization recovery: if a re-realized history card has IsExpanded=true
+        // but is not the tracked expanded entry, collapse it to prevent dual expansion
+        // / 虚拟化恢复:重新实现的 history 卡片 IsExpanded=true 但不是追踪的展开条目时,收起它
+        if (cardIdx >= 0 && cardIdx < _displayItems.Count)
+        {
+            var loadedEntry = _displayItems[cardIdx];
+            if (loadedEntry.CardMode == CardMode.HistoryVersion && loadedEntry.IsExpanded
+                && !ReferenceEquals(loadedEntry, _expandedHistoryEntry))
+            {
+                loadedEntry.IsExpanded = false;
+            }
+        }
+
+        // Ensure visible immediately — no animation during scroll / 滚动时立即可见——无动画
         if (!_isLoadingOverlayActive)
         {
-            if (_isNavigating)
-            {
-                // Navigation-induced realization (virtualization re-cycle): show immediately
-                // / 导航触发的实现(虚拟化回收):立即显示
-                // without slide-in, else RenderTransform.Y=16 pollutes TransformToVisual
-                // / 否则RenderTransform.Y=16污染TransformToVisual
-                // and shifts the card mid-version / 并使卡片停在版本中间
-                element.Opacity = 1;
-                if (element.RenderTransform is TranslateTransform tt) tt.Y = 0;
-                ChangelogCacheService.NavLog($"CardGrid_Loaded: NAV mode, set Opacity=1 Y=0");
-            }
-            else
-            {
-                // Scroll-loaded card: animate directly / 滚动加载的卡片:直接动画
-                ChangelogCacheService.NavLog($"CardGrid_Loaded: slide-in animation (Y={CardSlideDistance})");
-                PlaySlideInAnimation(element, CardSlideDistance, SlideInAnimMs);
-            }
+            element.Opacity = 1;
+            if (element.RenderTransform is TranslateTransform tt) tt.Y = 0;
         }
     }
 
     // Ensure all realized cards are visible after layout fixes / 布局修复后确保所有已实现卡片可见
-    // Loading may set Opacity=0; if Loaded doesn't fire (re-attach timing), cards stay invisible
-    // / Loading可能设Opacity=0;若Loaded未触发(re-attach时序),卡片保持不可见
     private void EnsureCardsVisible()
     {
         if (_isLoadingOverlayActive) return;
@@ -343,7 +321,10 @@ public sealed partial class ChangelogPage : Page
         for (int i = 0; i < count; i++)
         {
             if (VisualTreeHelper.GetChild(ChangelogRepeater, i) is FrameworkElement fe && fe.Opacity < 1)
-                PlaySlideInAnimation(fe, CardSlideDistance, SlideInAnimMs);
+            {
+                fe.Opacity = 1;
+                if (fe.RenderTransform is TranslateTransform tt) tt.Y = 0;
+            }
         }
     }
 
@@ -358,7 +339,8 @@ public sealed partial class ChangelogPage : Page
         }
     }
 
-    // Fade in element with opacity + upward float (CubicEase) / 淡入并向上浮入(CubicEase缓动)
+    // Fade in element with opacity + upward float (CubicEase EaseOut)
+    // / 淡入元素:透明度+上浮(CubicEase EaseOut)
     private static void FadeIn(FrameworkElement element)
     {
         if (element.Visibility == Visibility.Visible && element.Opacity >= 1) return;
@@ -384,7 +366,7 @@ public sealed partial class ChangelogPage : Page
             From = PanelSlideDistance,
             To = 0,
             Duration = TimeSpan.FromMilliseconds(StateAnimMs),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            EasingFunction = easing
         };
         Storyboard.SetTarget(yAnim, tt);
         Storyboard.SetTargetProperty(yAnim, "Y");
@@ -392,7 +374,8 @@ public sealed partial class ChangelogPage : Page
         sb.Begin();
     }
 
-    // Fade out element then collapse (CubicEase EaseIn) / 淡出元素后折叠(CubicEase缓入)
+    // Fade out element then collapse (CubicEase EaseIn)
+    // / 淡出元素后折叠(CubicEase EaseIn)
     private static void FadeOut(FrameworkElement element)
     {
         if (element.Visibility == Visibility.Collapsed) return;

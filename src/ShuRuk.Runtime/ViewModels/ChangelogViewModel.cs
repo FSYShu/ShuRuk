@@ -8,8 +8,8 @@ using ShuRuk.Runtime.Services.Changelog;
 namespace ShuRuk.Runtime.ViewModels;
 
 /// <summary>
-/// Manages changelog data state: collections, filtering, incremental loading, and background updates.
-/// / 管理更新日志数据状态:集合、过滤、增量加载和后台更新。
+/// Manages changelog data state: collections, filtering, and background updates.
+/// / 管理更新日志数据状态:集合、过滤和后台更新。
 /// </summary>
 public sealed class ChangelogViewModel
 {
@@ -18,12 +18,9 @@ public sealed class ChangelogViewModel
     public List<ChangelogEntry> SourceEntries { get; } = [];
     public ObservableCollection<ChangelogEntry> DisplayItems { get; } = [];
 
-    // Max items per incremental load (reduced from 4 to 2 for less per-frame render pressure)
-    // / 每次增量加载的最大数量(从4减到2降低单帧渲染压力)
-    public const int BatchSize = 2;
-    // Initial load count: show more items on first load for immediate content
-    // / 初始加载数量:首次加载更多条目以立即显示内容
-    public const int InitialLoadCount = 8;
+    // Number of featured cards: 1 if latest is stable, 2 if latest is prerelease
+    // / featured卡片数:最新为stable时1个,最新为prerelease时2个
+    public int FeaturedCount { get; private set; } = 1;
 
     // Filter tag constants / 过滤标签常量
     public const string FilterTagAll = "all";
@@ -84,52 +81,94 @@ public sealed class ChangelogViewModel
         entry.InitializeVisibleSegments();
     }
 
+
+    // Featured indices: index 0 (latest) + first non-prerelease entry (may be same)
+    // / Featured索引: index 0(最新) + 第一个非prerelease条目(可能相同)
+    private readonly HashSet<int> _featuredIndices = [];
+
+    // Set CardMode for all entries: featured = latest + first stable, others = rest
+    // / 设置所有条目的 CardMode: featured = 最新 + 第一个 stable, history = 其余
+    public void AssignCardModes()
+    {
+        _featuredIndices.Clear();
+        if (AllEntries.Count == 0) return;
+
+        // Index 0 is always featured / index 0 始终为featured
+        _featuredIndices.Add(0);
+
+        // If index 0 is prerelease, find first non-prerelease as second featured
+        // / 如果index 0是prerelease,找第一个非prerelease作为第二个featured
+        if (AllEntries[0].IsPrerelease)
+        {
+            for (int i = 1; i < AllEntries.Count; i++)
+            {
+                if (!AllEntries[i].IsPrerelease)
+                {
+                    _featuredIndices.Add(i);
+                    break;
+                }
+            }
+        }
+
+        FeaturedCount = _featuredIndices.Count;
+        bool firstHistorySet = false;
+        for (int i = 0; i < AllEntries.Count; i++)
+        {
+            var isFeatured = _featuredIndices.Contains(i);
+            AllEntries[i].CardMode = isFeatured ? CardMode.Featured : CardMode.HistoryVersion;
+            // Only the first history card shows the "History versions" label
+            // / 仅第一个 history 卡片显示"历史版本"标签
+            if (!isFeatured && !firstHistorySet)
+            {
+                AllEntries[i].IsFirstHistory = true;
+                firstHistorySet = true;
+            }
+            else
+            {
+                AllEntries[i].IsFirstHistory = false;
+            }
+        }
+
+        // Reorder: featured entries first (preserving original order), then history entries
+        // / 重排:featured 条目在前(保持原始顺序),history 条目在后
+        var featuredList = new List<ChangelogEntry>();
+        var otherList = new List<ChangelogEntry>();
+        foreach (var entry in AllEntries)
+        {
+            if (entry.CardMode == CardMode.Featured)
+                featuredList.Add(entry);
+            else
+                otherList.Add(entry);
+        }
+        AllEntries.Clear();
+        AllEntries.AddRange(featuredList);
+        AllEntries.AddRange(otherList);
+    }
+
     // Filter by tag (exclude pre-release if chosen) / 按标签过滤
+    // Clears display; caller must call LoadAll to load items / 清空显示;调用方须调LoadAll加载条目
     public void ApplyFilter()
     {
         var excludePrerelease = FilterTag == FilterTagExcludePrerelease;
         AllEntries.Clear();
-        // Inline filter avoids LINQ iterator allocation / 内联过滤避免LINQ迭代器分配
         foreach (var entry in SourceEntries)
             if (!excludePrerelease || !entry.IsPrerelease)
                 AllEntries.Add(entry);
+        AssignCardModes();
         DisplayItems.Clear();
-        LoadMore(isInitial: true);
         DataChanged?.Invoke();
     }
 
-    // Load more items: split-frame add spreads MarkdownTextBlock render cost across frames
-    // / 加载更多:分帧添加分散MarkdownTextBlock渲染开销
-    // defer=true: first half sync, second half deferred 30ms (scroll/initial load)
-    // / defer=true:前半同步后半延迟30ms(滚动/初始加载)
-    // defer=false: all sync (ScrollToItem needs items immediately)
-    // / defer=false:全部同步(ScrollToItem需立即获取条目)
-    // isInitial=true: load InitialLoadCount items instead of BatchSize for first display
-    // / isInitial=true:首次加载InitialLoadCount条而非BatchSize
-    public void LoadMore(bool defer = true, bool isInitial = false)
+    // Load all items at once: featured cards with content, history cards with titles only
+    // / 一次性加载全部条目:featured 卡片有内容,history 卡片仅标题
+    // CardMode determines VisibleSegments: featured=limited, history=empty
+    // / CardMode 决定 VisibleSegments:featured=有限,history=空
+    public void LoadAll()
     {
-        var count = isInitial ? InitialLoadCount : BatchSize;
-        var toLoad = Math.Min(count, AllEntries.Count - DisplayItems.Count);
-        if (toLoad <= 0) return;
-
-        if (defer && toLoad > 1)
+        foreach (var entry in AllEntries)
         {
-            // First half sync for immediate response / 前半同步保持即时响应
-            int syncCount = toLoad / 2;
-            for (int i = 0; i < syncCount; i++)
-                DisplayItems.Add(AllEntries[DisplayItems.Count]);
-            // Second half deferred to next frame to avoid blocking UI / 后半延迟到下一帧避免阻塞UI
-            int remaining = toLoad - syncCount;
-            CreateTimer(30, () =>
-            {
-                for (int i = 0; i < remaining && DisplayItems.Count < AllEntries.Count; i++)
-                    DisplayItems.Add(AllEntries[DisplayItems.Count]);
-            });
-        }
-        else
-        {
-            for (int i = 0; i < toLoad; i++)
-                DisplayItems.Add(AllEntries[DisplayItems.Count]);
+            entry.InitializeVisibleSegments();
+            DisplayItems.Add(entry);
         }
     }
 
@@ -193,6 +232,31 @@ public sealed class ChangelogViewModel
                     {
                         AllEntries.Insert(0, entry);
                         DisplayItems.Insert(0, entry);
+                    }
+                }
+
+                // Re-assign card modes after new entries / 新条目后重新分配卡片模式
+                AssignCardModes();
+
+                // Initialize visible segments for all entries / 初始化所有条目的可见段
+                foreach (var entry in AllEntries)
+                    entry.InitializeVisibleSegments();
+
+                // Sync DisplayItems order to match AllEntries using Move (preserves scroll position)
+                // / 用Move同步DisplayItems顺序以匹配AllEntries(保持滚动位置)
+                // Avoids Clear+Add which resets ScrollableHeight to 0 and loses scroll position
+                // / 避免Clear+Add导致ScrollableHeight归零丢失滚动位置
+                for (int i = 0; i < AllEntries.Count; i++)
+                {
+                    if (i >= DisplayItems.Count) break;
+                    if (ReferenceEquals(AllEntries[i], DisplayItems[i])) continue;
+                    for (int j = i + 1; j < DisplayItems.Count; j++)
+                    {
+                        if (ReferenceEquals(AllEntries[i], DisplayItems[j]))
+                        {
+                            DisplayItems.Move(j, i);
+                            break;
+                        }
                     }
                 }
 

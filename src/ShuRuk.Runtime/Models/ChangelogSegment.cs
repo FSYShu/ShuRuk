@@ -166,6 +166,10 @@ public sealed class ChangelogSegment : INotifyPropertyChanged
         return "https://github.com/" + url;
     }
 
+    // Regex to match HTML comments: <!-- ... --> / 匹配HTML注释
+    private static readonly Regex HtmlCommentRegex =
+        new(@"<!--[\s\S]*?-->", RegexOptions.Compiled);
+
     // Regex to match markdown images: ![alt](url) / 匹配markdown图片的正则
     private static readonly Regex ImageRegex = new(@"!\[([^\]]*)\]\(([^)]+)\)", RegexOptions.Compiled);
     // Regex to match <img> tags: <img src="url"> / 匹配img标签的正则
@@ -188,17 +192,16 @@ public sealed class ChangelogSegment : INotifyPropertyChanged
         return InvalidAutolinkRegex.Replace(markdown, "&lt;$1&gt;");
     }
 
-    // Parse markdown into merged text segment + image segments / 将markdown解析为合并文字段+图片段
-    // All text between images is merged into a single segment to reduce MTB count
-    // / 图片间所有文字合并为单个段以减少MTB数量
-    // Images are appended after text; for changelogs this preserves readability
-    // / 图片追加在文字后;对changelog保持可读性
-    // This also fixes reference-style link definitions being split across segments
-    // / 同时修复参考式链接定义被分割到不同段的问题
+    // Parse markdown into alternating text and image segments preserving original order
+    // / 将markdown解析为交替的文字和图片段,保持原始顺序
+    // Consecutive text between images is merged into one segment to reduce MTB count
+    // / 图片间连续文字合并为单个段以减少MTB数量
     public static List<ChangelogSegment> Parse(string markdown)
     {
         var segments = new List<ChangelogSegment>();
         if (string.IsNullOrEmpty(markdown)) return segments;
+        // Strip HTML comments before parsing / 解析前移除HTML注释
+        markdown = HtmlCommentRegex.Replace(markdown, string.Empty);
         // Convert <img> tags to markdown image syntax for unified parsing
         // / 统一转换img标签为markdown图片语法
         markdown = ImgTagRegex.Replace(markdown, m => $"![]({m.Groups[1].Value})");
@@ -206,48 +209,32 @@ public sealed class ChangelogSegment : INotifyPropertyChanged
         // / 转义非合法URI的<...>防止AutolinkInline崩溃
         markdown = EscapeInvalidAutolinks(markdown);
 
-        // Collect all text parts and image URLs separately / 分别收集所有文字部分和图片URL
-        var textBuilder = new StringBuilder();
-        var images = new List<(string url, string alt)>();
         int lastEnd = 0;
-
         foreach (Match m in ImageRegex.Matches(markdown))
         {
-            // Text before image / 图片前的文字
+            // Text before image (merged into one segment) / 图片前的文字(合并为一个段)
             if (m.Index > lastEnd)
             {
                 var text = markdown[lastEnd..m.Index];
                 if (!string.IsNullOrWhiteSpace(text))
-                {
-                    if (textBuilder.Length > 0)
-                        textBuilder.Append("\n\n");
-                    textBuilder.Append(text.Trim());
-                }
+                    segments.Add(new ChangelogSegment { MarkdownText = text.Trim() });
             }
-            // Image / 图片
-            images.Add((m.Groups[2].Value.Trim(), m.Groups[1].Value.Trim()));
+            // Image segment in original position / 图片段保持原始位置
+            segments.Add(new ChangelogSegment
+            {
+                ImageUrl = m.Groups[2].Value.Trim(),
+                AltText = m.Groups[1].Value.Trim()
+            });
             lastEnd = m.Index + m.Length;
         }
 
-        // Remaining text / 剩余文字
+        // Remaining text after last image / 最后图片后的剩余文字
         if (lastEnd < markdown.Length)
         {
             var text = markdown[lastEnd..];
             if (!string.IsNullOrWhiteSpace(text))
-            {
-                if (textBuilder.Length > 0)
-                    textBuilder.Append("\n\n");
-                textBuilder.Append(text.Trim());
-            }
+                segments.Add(new ChangelogSegment { MarkdownText = text.Trim() });
         }
-
-        // Add merged text segment (if any) / 添加合并文字段(如有)
-        if (textBuilder.Length > 0)
-            segments.Add(new ChangelogSegment { MarkdownText = textBuilder.ToString() });
-
-        // Add image segments after text / 在文字后添加图片段
-        foreach (var (url, alt) in images)
-            segments.Add(new ChangelogSegment { ImageUrl = url, AltText = alt });
 
         // Fallback: no segments parsed, use raw markdown / 无段时用原始markdown
         if (segments.Count == 0 && !string.IsNullOrWhiteSpace(markdown))

@@ -501,12 +501,29 @@ internal static class MarkdownStyler
     public static void OnLoading(CommunityToolkit.WinUI.Controls.MarkdownTextBlock mtb, bool isDark, DispatcherQueue dq)
         => ConfigureTheme(mtb, isDark, false, dq);
 
-    // Called on MarkdownTextBlock Loaded: trigger style application via batch queue
-    // / MarkdownTextBlock Loaded时:通过批处理队列触发样式应用
-    // Earlier than SizeChanged (fires after markdown render), reduces flash
-    // / 比SizeChanged更早(在markdown渲染后触发),减少闪烁
+    // Called on MarkdownTextBlock Loaded: enqueue to batch queue only (no immediate traversal)
+    // / Loaded时:仅加入批处理队列(不立即遍历可视化树)
+    // Immediate traversal blocks UI thread when multiple MTBs enter viewport during scroll
+    // / 滚动时多个MTB进入视口,立即遍历阻塞UI线程
     public static void OnLoaded(CommunityToolkit.WinUI.Controls.MarkdownTextBlock mtb, bool isDark, DispatcherQueue dq)
-        => ScheduleApplyAll(mtb, isDark, dq);
+    {
+        _pendingApply.Enqueue(new PendingApply
+        {
+            MtbRef = new WeakReference<CommunityToolkit.WinUI.Controls.MarkdownTextBlock>(mtb),
+            IsDark = isDark,
+            Dq = dq,
+            NeedCode = true,
+            NeedLink = true,
+            NeedTable = true,
+            Attempt = 0
+        });
+        if (_batchTimer is null)
+        {
+            _batchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(RetryIntervalMs) };
+            _batchTimer.Tick += BatchTimer_Tick;
+            _batchTimer.Start();
+        }
+    }
 
     // Called on MarkdownTextBlock ActualThemeChanged: force re-render
     // / MarkdownTextBlock主题变化时:强制重渲染

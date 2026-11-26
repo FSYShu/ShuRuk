@@ -107,6 +107,9 @@
   <data name="RuntimeChangelogCacheMessage" xml:space="preserve">
     <value>Network request failed, showing locally cached changelog</value>
   </data>
+  <data name="RuntimeChangelogHistoryVersions" xml:space="preserve">
+    <value>History Versions</value>
+  </data>
 
   <!-- MonitorPage -->
   <data name="RuntimeMonitorHostProcess" xml:space="preserve">

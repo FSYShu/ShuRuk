@@ -146,6 +146,10 @@ public sealed partial class SettingsPage : Page
         InitializeCoverageScope();
         ChangelogRepoTextBox.Text = _testModeService.ChangelogRepoUrl;
         ChangelogSectionTextBox.Text = _testModeService.ChangelogSectionFilter;
+        // Disable repo/section when empty state / 空状态时禁用仓库和章节过滤
+        bool fillData = _testModeService.IsFillDataEnabled;
+        ChangelogRepoTextBox.IsEnabled = fillData;
+        ChangelogSectionTextBox.IsEnabled = fillData;
 
         UpdateFillCardVisibility();
 
@@ -242,7 +246,12 @@ public sealed partial class SettingsPage : Page
     {
         if (_initializing) return;
         // Index 1 = fill data, 0 = empty state / 索引1=填充数据,0=空状态
-        await _testModeService.SetFillDataEnabledAsync(TestModeFillCombo.SelectedIndex == 1);
+        bool fillData = TestModeFillCombo.SelectedIndex == 1;
+        await _testModeService.SetFillDataEnabledAsync(fillData);
+        // Disable repo/section settings when empty state (no data to filter)
+        // / 空状态时禁用仓库和章节过滤设置(无数据可过滤)
+        ChangelogRepoTextBox.IsEnabled = fillData;
+        ChangelogSectionTextBox.IsEnabled = fillData;
     }
 
     // Initialize coverage scope items from service state / 从服务状态初始化覆盖范围项

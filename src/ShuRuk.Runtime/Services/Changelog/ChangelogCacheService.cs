@@ -125,19 +125,4 @@ public static class ChangelogCacheService
         catch { }
     }
 
-    // Nav debug log to %LOCALAPPDATA%\ShuRuk\nav_log.txt / 导航调试日志
-    // Nav debug log toggle: set true to enable file logging / 导航调试日志开关:设true启用文件日志
-    public static readonly bool NavLogEnabled = true;
-    public static void NavLog(string msg)
-    {
-        if (!NavLogEnabled) return;
-        try
-        {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ShuRuk");
-            Directory.CreateDirectory(dir);
-            File.AppendAllText(Path.Combine(dir, "nav_log.txt"),
-                $"{DateTime.Now:HH:mm:ss.fff} {msg}\n");
-        }
-        catch { }
-    }
 }

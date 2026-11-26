@@ -110,7 +110,10 @@ public sealed class GitHubChangelogDataProvider : IChangelogDataProvider
             {
                 request.Headers.IfNoneMatch.Add(new System.Net.Http.Headers.EntityTagHeaderValue(ifNoneMatch));
             }
-            using var response = await _httpClient.SendAsync(request);
+
+            // Retry on transient network errors (TLS EOF, connection reset, etc.)
+            // / 对瞬时网络错误重试(TLS EOF,连接重置等)
+            using var response = await SendWithRetryAsync(_httpClient, request);
 
             // 304 Not Modified: no new releases, keep cached ETag / 304未修改:无新release,保留缓存ETag
             if (response.StatusCode == System.Net.HttpStatusCode.NotModified)
@@ -147,6 +150,47 @@ public sealed class GitHubChangelogDataProvider : IChangelogDataProvider
         }
 
         return (newEntries, firstPageEtag, false);
+    }
+
+    // Retry HTTP send on transient errors (TLS EOF, connection reset, timeout)
+    // / 对瞬时错误重试HTTP发送(TLS EOF,连接重置,超时)
+    private static async Task<HttpResponseMessage> SendWithRetryAsync(
+        HttpClient client, HttpRequestMessage request, int maxRetries = 3)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                // Clone request on retry since the original may have been disposed
+                // / 重试时克隆请求因为原始请求可能已被释放
+                using var sendRequest = attempt == 0 ? request : CloneRequest(request);
+                return await client.SendAsync(sendRequest);
+            }
+            catch (HttpRequestException ex) when (attempt < maxRetries && IsTransient(ex))
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500 * (attempt + 1)));
+            }
+        }
+    }
+
+    // Check if an HTTP exception is transient (worth retrying)
+    // / 检查HTTP异常是否为瞬时的(值得重试)
+    private static bool IsTransient(HttpRequestException ex)
+    {
+        return ex.InnerException is System.IO.IOException
+            || ex.InnerException is System.Net.Sockets.SocketException
+            || ex.Message.Contains("EOF", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Contains("connection", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Clone an HttpRequestMessage (headers + content + method + URI)
+    // / 克隆HttpRequestMessage(头部+内容+方法+URI)
+    private static HttpRequestMessage CloneRequest(HttpRequestMessage original)
+    {
+        var clone = new HttpRequestMessage(original.Method, original.RequestUri);
+        foreach (var header in original.Headers)
+            clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        return clone;
     }
 
     // Build a ChangelogEntry from a GitHub release JSON element, applying section filter

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -11,10 +12,10 @@ namespace ShuRuk.Runtime.Views;
 public sealed partial class ChangelogPage : Page
 {
     // Animation constants / 动画常量
-    private const int SlideInAnimMs = 150;   // Slide-in duration (content/cards) / 滑入时长(内容/卡片)
-    private const int StateAnimMs = 300;     // State transition duration / 状态切换时长
-    private const double CardSlideDistance = 16;  // Card slide-up distance / 卡片上滑距离
-    private const double PanelSlideDistance = 20; // Panel slide-up distance / 面板上滑距离
+    private const int SlideInAnimMs = 150;
+    private const int StateAnimMs = 300;
+    private const double CardSlideDistance = 16;
+    private const double PanelSlideDistance = 20;
 
     // Last expanded entry for floating collapse button / 最近展开条目供浮动收起
     private ChangelogEntry? _lastExpandedEntry;
@@ -23,34 +24,53 @@ public sealed partial class ChangelogPage : Page
     // Floating collapse button state / 浮动收起按钮状态
     private bool _floatingCollapseVisible;
     private bool _isCollapsing;
-    // Active flight storyboard, stopped before next flight to break HoldEnd
-    // / 当前飞行动画Storyboard,下次飞行前停止以断开HoldEnd
     private Storyboard? _flightStoryboard;
-    // Active height animation storyboard for card collapse / 收起高度动画Storyboard
     private Storyboard? _heightStoryboard;
-    // Active fade-in storyboard for expand button / 展开按钮淡入动画Storyboard
     private Storyboard? _fadeInStoryboard;
-    // Active below-cards fly-out animations, stopped before next expand/collapse
-    // / 下方卡片飞出动画,下次展开/收起前停止
     private readonly List<(Storyboard sb, TranslateTransform tt)> _belowCardsAnims = [];
 
-    // Toggle expand/collapse; fade in content on expand (opacity only, no layout impact)
-    // / 切换展开折叠;展开时淡入内容(仅透明度,不触发布局)
+    // Toggle expand/collapse; handles both featured and history cards
+    // / 切换展开折叠;处理 featured 和 history 卡片
     private void ExpandButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button btn) return;
         var entry = btn.DataContext as ChangelogEntry ?? btn.Tag as ChangelogEntry;
         if (entry is null) return;
+
+        // History cards: simple collapse (Expander handles expand, no flight animation)
+        // / history 卡片:简单收起(Expander处理展开,无飞行动画)
+        if (entry.CardMode == CardMode.HistoryVersion && entry.IsExpanded)
+        {
+            int collapsedIdx = _displayItems.IndexOf(entry);
+            entry.IsExpanded = false;
+            EnsureCollapsedCardVisible(collapsedIdx);
+            return;
+        }
+
         PlayButtonPress(btn);
 
         if (!entry.IsExpanded)
         {
-            // EXPANDING: compute offset BEFORE toggle (button at collapsed position)
-            // / 展开:切换前计算偏移(按钮在收起态位置)
+            // EXPANDING / 展开
+            // For history cards: collapse ALL expanded history cards first (mutual exclusivity)
+            // / history 卡片:先收起所有已展开的 history 卡片(互斥)
+            if (entry.CardMode == CardMode.HistoryVersion)
+            {
+                foreach (var item in _displayItems)
+                {
+                    if (item.CardMode == CardMode.HistoryVersion && item.IsExpanded && !ReferenceEquals(item, entry))
+                        item.IsExpanded = false;
+                }
+            }
+
             _lastExpandedEntry = entry;
             _lastExpandedIndex = _displayItems.IndexOf(entry);
 
-            // Stop prior storyboards to break HoldEnd / 停止之前动画断开HoldEnd
+            if (entry.CardMode == CardMode.HistoryVersion)
+                _expandedHistoryEntry = entry;
+            _isExpandingHistory = true;
+
+            // Stop prior storyboards / 停止之前动画
             _flightStoryboard?.Stop();
             _flightStoryboard = null;
             _fadeInStoryboard?.Stop();
@@ -63,12 +83,8 @@ public sealed partial class ChangelogPage : Page
             FrameworkElement? fadeTarget = null;
             try
             {
-                // Make floating button participate in layout (invisible) for TransformToVisual
-                // / 使浮动按钮参与布局(不可见)以便TransformToVisual
                 CollapseFloatingBorder.Visibility = Visibility.Visible;
                 CollapseFloatingBorder.Opacity = 0;
-                // Force layout so first-time Visible yields correct ActualWidth/Height + TransformToVisual
-                // / 强制布局,首次Visible时ActualWidth/Height和TransformToVisual才准确
                 CollapseFloatingBorder.UpdateLayout();
                 if (_lastExpandedIndex >= 0 && _lastExpandedIndex < _displayItems.Count
                     && ChangelogRepeater.GetOrCreateElement(_lastExpandedIndex) is FrameworkElement root
@@ -77,8 +93,6 @@ public sealed partial class ChangelogPage : Page
                     fadeTarget = eb.Parent as FrameworkElement
                         ?? VisualTreeHelper.GetParent(eb) as FrameworkElement ?? eb;
                     fadeTarget.Opacity = 0;
-                    // Offset = expand button center - floating button fixed center
-                    // / 偏移=展开按钮中心-浮动按钮固定中心
                     var relPos = eb.TransformToVisual(CollapseFloatingBorder).TransformPoint(new Point(0, 0));
                     offsetX = relPos.X + eb.ActualWidth / 2 - CollapseFloatingBorder.ActualWidth / 2;
                     offsetY = relPos.Y + eb.ActualHeight / 2 - CollapseFloatingBorder.ActualHeight / 2;
@@ -86,25 +100,25 @@ public sealed partial class ChangelogPage : Page
             }
             catch { }
 
-            // Record card height BEFORE toggle for below-cards fly-out offset
-            // / 切换前记录卡片高度供下方卡片飞出偏移
             double expandCardHeightBefore = 0;
+            double cardTopBefore = double.NaN;
             if (_lastExpandedIndex >= 0 && _lastExpandedIndex < _displayItems.Count)
             {
                 try
                 {
                     if (ChangelogRepeater.GetOrCreateElement(_lastExpandedIndex) is FrameworkElement rootExp)
+                    {
                         expandCardHeightBefore = rootExp.ActualHeight;
+                        var tBefore = rootExp.TransformToVisual(ChangelogScrollViewer);
+                        cardTopBefore = tBefore.TransformPoint(new Point(0, 0)).Y;
+                    }
                 }
                 catch { }
             }
 
-            // Now toggle expand (card height changes) / 现在切换展开(卡片高度变化)
             entry.IsExpanded = true;
             _floatingCollapseVisible = true;
 
-            // Below cards fly-out: animate from -deltaY to 0 (pure render)
-            // / 下方卡片飞出:从-deltaY动画到0(纯渲染)
             if (expandCardHeightBefore > 0 && _lastExpandedIndex >= 0 && _lastExpandedIndex < _displayItems.Count)
             {
                 try
@@ -112,6 +126,19 @@ public sealed partial class ChangelogPage : Page
                     ChangelogRepeater.UpdateLayout();
                     if (ChangelogRepeater.GetOrCreateElement(_lastExpandedIndex) is FrameworkElement rootExp)
                     {
+                        // Restore card top position relative to viewport / 恢复卡片顶部相对视口位置
+                        if (!double.IsNaN(cardTopBefore))
+                        {
+                            var tAfter = rootExp.TransformToVisual(ChangelogScrollViewer);
+                            double cardTopAfter = tAfter.TransformPoint(new Point(0, 0)).Y;
+                            double scrollDelta = cardTopAfter - cardTopBefore;
+                            if (Math.Abs(scrollDelta) > 1)
+                            {
+                                double newOffset = ChangelogScrollViewer.VerticalOffset + scrollDelta;
+                                newOffset = Math.Clamp(newOffset, 0, ChangelogScrollViewer.ScrollableHeight);
+                                ChangelogScrollViewer.ChangeView(null, newOffset, null, true);
+                            }
+                        }
                         double deltaY = rootExp.ActualHeight - expandCardHeightBefore;
                         PlayBelowCardsFlyOut(_lastExpandedIndex, deltaY);
                     }
@@ -119,12 +146,33 @@ public sealed partial class ChangelogPage : Page
                 catch { }
             }
 
-            // Flight-in: floating button flies from expand button position to fixed bottom
-            // / 飞入:浮动按钮从展开按钮位置飞到固定底部
-            if (offsetX != 0 || offsetY != 0)
+            // Check if card's bottom collapse button is in viewport / 检查卡片底部收起按钮是否在视口内
+            bool bottomButtonInViewport = false;
+            try
+            {
+                if (_lastExpandedIndex >= 0 && _lastExpandedIndex < _displayItems.Count
+                    && ChangelogRepeater.GetOrCreateElement(_lastExpandedIndex) is FrameworkElement rootCheck
+                    && UiTreeHelper.FindDescendantByName(rootCheck, "BottomButtonBorder") is FrameworkElement bottomBorder
+                    && bottomBorder.Visibility == Visibility.Visible)
+                {
+                    var borderPos = bottomBorder.TransformToVisual(ChangelogScrollViewer)
+                        .TransformPoint(new Point(0, 0));
+                    double borderBottom = borderPos.Y + bottomBorder.ActualHeight;
+                    bottomButtonInViewport = borderBottom <= ChangelogScrollViewer.ViewportHeight && borderPos.Y >= 0;
+                }
+            }
+            catch { }
+
+            if (bottomButtonInViewport)
+            {
+                _floatingCollapseVisible = false;
+                CollapseFloatingBorder.Visibility = Visibility.Collapsed;
+                CollapseFloatingBorder.Opacity = 0;
+                if (fadeTarget is not null) PlayFadeIn(fadeTarget);
+            }
+            else if (offsetX != 0 || offsetY != 0)
             {
                 PlayFlightIn(offsetX, offsetY);
-                // Schedule expand button fade-in after flight completes / 飞行完成后调度展开按钮淡入
                 if (fadeTarget is not null)
                 {
                     var fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
@@ -134,11 +182,9 @@ public sealed partial class ChangelogPage : Page
             }
             else
             {
-                SetFloatingCollapseVisible(true);
+                SetFloatingCollapseVisible(true, animate: false);
             }
 
-            // Fade in expanded content (pure render, avoids LayoutCycle)
-            // / 淡入展开内容(纯渲染,避免布局循环)
             DispatcherQueue.TryEnqueue(() =>
             {
                 if (_lastExpandedIndex >= 0 && _lastExpandedIndex < _displayItems.Count
@@ -146,10 +192,17 @@ public sealed partial class ChangelogPage : Page
                     && UiTreeHelper.FindDescendant<ItemsRepeater>(root) is ItemsRepeater content)
                     PlayContentFadeIn(content);
             });
+
+            // Re-evaluate floating collapse visibility after expand animation settles
+            // / 展开动画稳定后重新评估浮动收起按钮可见性
+            var reevalTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            reevalTimer.Tick += (_, _) => { reevalTimer.Stop(); _isExpandingHistory = false; UpdateCollapseButton(); };
+            reevalTimer.Start();
         }
+
         else
         {
-            // COLAPSING via card button (not floating) / 通过卡片按钮收起(非浮动)
+            // COLLAPSING / 收起
             _isCollapsing = true;
             _flightStoryboard?.Stop();
             _flightStoryboard = null;
@@ -160,11 +213,11 @@ public sealed partial class ChangelogPage : Page
             StopBelowCardsAnimations();
 
             int collapseIdx = _displayItems.IndexOf(entry);
-            // Wrap collapse logic in action called after height animation (or immediately)
-            // / 收起逻辑包在action中,高度动画后调用(或立即)
             Action completeCardCollapse = () =>
             {
                 entry.IsExpanded = false;
+                if (entry.CardMode == CardMode.HistoryVersion)
+                    _expandedHistoryEntry = null;
                 _lastExpandedEntry = null;
                 _lastExpandedIndex = -1;
                 SetFloatingCollapseVisible(false);
@@ -174,10 +227,10 @@ public sealed partial class ChangelogPage : Page
                 tc.Start();
             };
 
-            // Try height animation: shrink card MaxHeight before collapse
-            // / 尝试高度动画:收起前动画缩小卡片MaxHeight
+            // Height animation only for featured cards (history cards have no height limit)
+            // / 仅 featured 卡片有高度动画(history 卡片无高度限制)
             bool cardHeightAnimStarted = false;
-            if (collapseIdx >= 0 && collapseIdx < _displayItems.Count)
+            if (entry.CardMode == CardMode.Featured && collapseIdx >= 0 && collapseIdx < _displayItems.Count)
             {
                 try
                 {
@@ -217,8 +270,7 @@ public sealed partial class ChangelogPage : Page
         }
     }
 
-    // Fade in content opacity (no EnableDependentAnimation, pure render)
-    // / 淡入内容透明度(无依赖动画,纯渲染)
+    // Fade in content opacity / 淡入内容透明度
     private static void PlayContentFadeIn(FrameworkElement target)
     {
         var anim = new DoubleAnimation
@@ -235,7 +287,6 @@ public sealed partial class ChangelogPage : Page
         sb.Begin();
     }
 
-    // Stop active below-cards fly-out animations and reset Y / 停止下方卡片飞出动画并重置Y
     private void StopBelowCardsAnimations()
     {
         foreach (var (sb, tt) in _belowCardsAnims)
@@ -246,8 +297,6 @@ public sealed partial class ChangelogPage : Page
         _belowCardsAnims.Clear();
     }
 
-    // Below cards fly-out: animate from -deltaY to 0 (pure render, no layout)
-    // / 下方卡片飞出:从-deltaY动画到0(纯渲染,不触发布局)
     private void PlayBelowCardsFlyOut(int expandedIndex, double deltaY)
     {
         StopBelowCardsAnimations();
@@ -273,8 +322,6 @@ public sealed partial class ChangelogPage : Page
         }
     }
 
-    // Button press scale feedback (fixed-size element, no layout cycle)
-    // / 按钮按下缩放反馈(固定尺寸,无布局循环)
     private static void PlayButtonPress(Button btn)
     {
         var st = btn.RenderTransform as ScaleTransform ?? new ScaleTransform();
@@ -304,61 +351,128 @@ public sealed partial class ChangelogPage : Page
         sb.Begin();
     }
 
-    // Show floating collapse button when expanded card bottom is off-screen
-    // / 展开卡片底部不可见时显示浮动收起按钮
+    // Show floating collapse button when card's bottom collapse button is off-screen
+    // / 卡片底部收起按钮不可见时显示浮动收起按钮
     private void UpdateCollapseButton()
     {
-        // Skip during collapse to let slide-out animation play / 收起过程中跳过以让滑出动画播放
         if (_isCollapsing) return;
-        // Show floating button only while expanded card bottom is off-screen
-        // / 仅展开卡片底部不可见时显示浮动收起按钮
+        if (_isExpandingHistory) return;
         if (_lastExpandedEntry is null || !_lastExpandedEntry.IsExpanded
             || _lastExpandedIndex < 0 || _lastExpandedIndex >= _displayItems.Count)
         {
             SetFloatingCollapseVisible(false);
             return;
         }
+        if (_lastExpandedEntry.BottomButtonVisibility == Visibility.Collapsed)
+        {
+            SetFloatingCollapseVisible(false);
+            return;
+        }
         var top = GetItemTop(_lastExpandedIndex);
-        if (top is null) { SetFloatingCollapseVisible(false); return; }
+        if (top is null) return;
         try
         {
             var el = ChangelogRepeater.GetOrCreateElement(_lastExpandedIndex);
             if (el is not FrameworkElement fe) { SetFloatingCollapseVisible(false); return; }
-            double bottom = top.Value + fe.ActualHeight;
-            SetFloatingCollapseVisible(bottom > ChangelogScrollViewer.ViewportHeight);
+            if (_lastExpandedEntry.CardMode == CardMode.HistoryVersion)
+            {
+                if (UiTreeHelper.FindDescendantByName(fe, "BottomButtonBorder") is FrameworkElement otherBottomBorder
+                    && otherBottomBorder.Visibility == Visibility.Visible)
+                {
+                    var otherBorderPos = otherBottomBorder.TransformToVisual(ChangelogScrollViewer)
+                        .TransformPoint(new Point(0, 0));
+                    double otherBorderBottom = otherBorderPos.Y + otherBottomBorder.ActualHeight;
+                    double vh = ChangelogScrollViewer.ViewportHeight;
+                    SetFloatingCollapseVisible(otherBorderBottom > vh, animate: false);
+                }
+                else
+                {
+                    double cardBottom = top.Value + fe.ActualHeight;
+                    double vh = ChangelogScrollViewer.ViewportHeight;
+                    SetFloatingCollapseVisible(cardBottom > vh, animate: false);
+                }
+                return;
+            }
+            // Find BottomButtonBorder by name for reliable position check
+            // / 通过名称查找BottomButtonBorder以可靠地检查位置
+            if (UiTreeHelper.FindDescendantByName(fe, "BottomButtonBorder") is FrameworkElement bottomBorder
+                && bottomBorder.Visibility == Visibility.Visible)
+            {
+                var borderPos = bottomBorder.TransformToVisual(ChangelogScrollViewer)
+                    .TransformPoint(new Point(0, 0));
+                double borderBottom = borderPos.Y + bottomBorder.ActualHeight;
+                SetFloatingCollapseVisible(borderBottom > ChangelogScrollViewer.ViewportHeight, animate: false);
+            }
+            else if (FindExpandButton(fe, _lastExpandedEntry) is Button expandBtn)
+            {
+                var btnPos = expandBtn.TransformToVisual(ChangelogScrollViewer)
+                    .TransformPoint(new Point(0, 0));
+                double btnBottom = btnPos.Y + expandBtn.ActualHeight;
+                SetFloatingCollapseVisible(btnBottom > ChangelogScrollViewer.ViewportHeight, animate: false);
+            }
+            else
+            {
+                // Fallback: estimate button bottom as cardBottom - 8 (button margin)
+                // / 回退:估算按钮底部为卡片底部-8(按钮边距)
+                double estimatedBtnBottom = top.Value + fe.ActualHeight - 8;
+                SetFloatingCollapseVisible(estimatedBtnBottom > ChangelogScrollViewer.ViewportHeight, animate: false);
+            }
         }
-        catch { SetFloatingCollapseVisible(false); }
+        catch { }
     }
 
-    private void SetFloatingCollapseVisible(bool visible)
+    private void SetFloatingCollapseVisible(bool visible, bool animate = true)
     {
-        if (visible == _floatingCollapseVisible) return;
+
+        if (visible == _floatingCollapseVisible)
+        {
+            // Ensure visual state matches even when skipping
+            // / 跳过时也确保视觉状态匹配
+            if (!visible && CollapseFloatingBorder.Visibility != Visibility.Collapsed)
+            {
+                CollapseFloatingBorder.Visibility = Visibility.Collapsed;
+                CollapseFloatingBorder.Opacity = 0;
+            }
+            // Field says visible but border is actually collapsed or transparent: force show
+            // / 字段表示可见但border实际折叠或透明:强制显示
+            if (visible && (CollapseFloatingBorder.Visibility != Visibility.Visible || CollapseFloatingBorder.Opacity < 1))
+            {
+                CollapseFloatingBorder.Visibility = Visibility.Visible;
+                CollapseFloatingBorder.Opacity = 1;
+                var ttForce = CollapseFloatingBorder.RenderTransform as TranslateTransform ?? new TranslateTransform();
+                CollapseFloatingBorder.RenderTransform = ttForce;
+                ttForce.X = 0; ttForce.Y = 0;
+            }
+            return;
+        }
         _floatingCollapseVisible = visible;
         var tt = CollapseFloatingBorder.RenderTransform as TranslateTransform ?? new TranslateTransform();
         CollapseFloatingBorder.RenderTransform = tt;
         if (visible)
         {
             CollapseFloatingBorder.Visibility = Visibility.Visible;
-            // Slide in from above (expand button direction) + fade / 从上方(展开按钮方向)滑入+淡入
-            PlaySlideFade(tt, CollapseFloatingBorder, fromY: -40, toY: 0, fromOp: 0, toOp: 1, () =>
+            if (animate)
             {
-                // Persist values after animation (HoldEnd may be lost on GC)
-                // / 动画后保持值(HoldEnd可能因GC失效)
+                PlaySlideFade(tt, CollapseFloatingBorder, fromY: -40, toY: 0, fromOp: 0, toOp: 1, () =>
+                {
+                    CollapseFloatingBorder.Opacity = 1;
+                    tt.Y = 0;
+                });
+            }
+            else
+            {
                 CollapseFloatingBorder.Opacity = 1;
-                tt.Y = 0;
-            });
+                tt.X = 0; tt.Y = 0;
+            }
         }
         else
         {
-            // Collapse: hide directly, animation plays on expand button
-            // / 收起:直接隐藏,动画在展开按钮上播放
             CollapseFloatingBorder.Visibility = Visibility.Collapsed;
             CollapseFloatingBorder.Opacity = 0;
             tt.Y = 0;
         }
     }
 
-    // Slide Y + opacity fade (pure render, no layout impact) / Y位移+透明度淡入淡出(纯渲染,不触发布局)
     private static void PlaySlideFade(TranslateTransform tt, FrameworkElement target,
         double fromY, double toY, double fromOp, double toOp, Action? onComplete)
     {
@@ -388,7 +502,6 @@ public sealed partial class ChangelogPage : Page
         sb.Begin();
     }
 
-    // Ensure next card top enters viewport after collapse / 收起后保证下一卡片顶部进入视口
     private void EnsureNextCardTopVisible(int collapsedIndex)
     {
         int nextIdx = collapsedIndex + 1;
@@ -401,10 +514,8 @@ public sealed partial class ChangelogPage : Page
                 double? top = GetItemTop(nextIdx);
                 if (top is null) return;
                 double viewportH = ChangelogScrollViewer.ViewportHeight;
-                // Scroll only when next card top is below viewport / 仅下一卡片顶部在视口下方时滚动
                 if (top.Value > viewportH - 40)
                 {
-                    // Align next card top to viewport center / 下一卡片顶部对齐视口中间
                     double targetOffset = ChangelogScrollViewer.VerticalOffset + top.Value - viewportH / 2;
                     targetOffset = Math.Clamp(targetOffset, 0, ChangelogScrollViewer.ScrollableHeight);
                     ChangelogScrollViewer.ChangeView(null, targetOffset, null, false);
@@ -414,12 +525,39 @@ public sealed partial class ChangelogPage : Page
         });
     }
 
-    // Play slide-up + fade-in with CubicEase on element / 上滑+淡入动画(CubicEase缓动)
-    // Set Opacity=1 explicitly before animation: navigation transition may leave Opacity=0
-    // / 动画前显式设Opacity=1:导航过渡可能使Opacity=0
-    // and if the storyboard is interrupted, the card stays invisible. / 若动画被中断,卡片会保持不可见。
-    // The Y slide animation (fromY -> 0) still plays for visual polish.
-    // / Y滑动动画(fromY->0)仍播放以增强视觉效果。
+    // Ensure the collapsed card itself is visible in viewport (not the next card)
+    // / 确保收起的卡片本身在视口内可见(非下一个卡片)
+    private void EnsureCollapsedCardVisible(int collapsedIdx)
+    {
+        if (collapsedIdx < 0 || collapsedIdx >= _displayItems.Count) return;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            try
+            {
+                ChangelogRepeater.UpdateLayout();
+                double? top = GetItemTop(collapsedIdx);
+                if (top is null) return;
+                double viewportH = ChangelogScrollViewer.ViewportHeight;
+                if (top.Value < 0)
+                {
+                    double targetOffset = ChangelogScrollViewer.VerticalOffset + top.Value - 8;
+                    targetOffset = Math.Clamp(targetOffset, 0, ChangelogScrollViewer.ScrollableHeight);
+                    ChangelogScrollViewer.ChangeView(null, targetOffset, null, false);
+                }
+                else if (top.Value > viewportH - 40)
+                {
+                    double targetOffset = ChangelogScrollViewer.VerticalOffset + top.Value - viewportH / 2;
+                    targetOffset = Math.Clamp(targetOffset, 0, ChangelogScrollViewer.ScrollableHeight);
+                    ChangelogScrollViewer.ChangeView(null, targetOffset, null, false);
+                }
+            }
+            catch { }
+        };
+        timer.Start();
+    }
+
     private static void PlaySlideInAnimation(FrameworkElement element, double fromY, int durationMs)
     {
         element.Opacity = 1;
@@ -437,22 +575,41 @@ public sealed partial class ChangelogPage : Page
         Storyboard.SetTarget(yAnim, tt);
         Storyboard.SetTargetProperty(yAnim, "Y");
         sb.Children.Add(yAnim);
-
         sb.Begin();
     }
 
-    // Content panel appear animation / 内容面板出现动画
     private void PlayAppearAnimation() => PlaySlideInAnimation(ContentPanel, PanelSlideDistance, SlideInAnimMs);
+
+    // Collapse all history cards (e.g. when navigating back to featured)
+    // / 收起所有 history 卡片(如导航回 featured 时)
+    private void CollapseAllOtherCards()
+    {
+        if (_expandedHistoryEntry is null) return;
+        _expandedHistoryEntry.IsExpanded = false;
+        _expandedHistoryEntry = null;
+        _lastExpandedEntry = null;
+        _lastExpandedIndex = -1;
+        SetFloatingCollapseVisible(false);
+    }
 
     private void CollapseFloatingButton_Click(object sender, RoutedEventArgs e)
     {
         if (_lastExpandedEntry is null) return;
         var entry = _lastExpandedEntry;
         var idx = _lastExpandedIndex;
+
+        // History cards: simple collapse (Expander handles animation, no flight)
+        // / history 卡片:简单收起(Expander处理动画,无飞行)
+        if (entry.CardMode == CardMode.HistoryVersion)
+        {
+            int collapsedIdx = _displayItems.IndexOf(entry);
+            entry.IsExpanded = false;
+            EnsureCollapsedCardVisible(collapsedIdx);
+            return;
+        }
+
         _isCollapsing = true;
 
-        // Stop prior flight + fade-in + height storyboards to break their HoldEnd
-        // / 停止之前飞行+淡入+高度动画Storyboard断开HoldEnd
         _flightStoryboard?.Stop();
         _flightStoryboard = null;
         _fadeInStoryboard?.Stop();
@@ -461,12 +618,9 @@ public sealed partial class ChangelogPage : Page
         _heightStoryboard = null;
         StopBelowCardsAnimations();
 
-        // Find expand button + compute flight offset BEFORE collapse / 收起前查找展开按钮+计算飞行偏移
         Button? expandBtn = null;
         FrameworkElement? fadeTarget = null;
         double offsetX = 0, offsetY = 0;
-        // Card height shrink amount: expand button moves up by this much after collapse
-        // / 卡片高度缩小量:收起后展开按钮上移此量
         double cardShrinkDelta = 0;
         if (idx >= 0 && idx < _displayItems.Count)
         {
@@ -482,8 +636,6 @@ public sealed partial class ChangelogPage : Page
                     var relPos = eb.TransformToVisual(CollapseFloatingBorder).TransformPoint(new Point(0, 0));
                     offsetX = relPos.X + eb.ActualWidth / 2 - CollapseFloatingBorder.ActualWidth / 2;
                     offsetY = relPos.Y + eb.ActualHeight / 2 - CollapseFloatingBorder.ActualHeight / 2;
-                    // Measure card content height to predict post-collapse expand button position
-                    // / 测量卡片内容高度预测收起后展开按钮位置
                     if (UiTreeHelper.FindDescendantByName(root, "CardContentGrid") is FrameworkElement cardContent)
                         cardShrinkDelta = Math.Max(0, cardContent.ActualHeight - ChangelogEntry.CollapsedMaxHeight);
                 }
@@ -491,15 +643,13 @@ public sealed partial class ChangelogPage : Page
             catch { }
         }
 
-        // Flight target = post-collapse expand button position (button moves up by cardShrinkDelta)
-        // / 飞行目标=收起后展开按钮位置(按钮上移cardShrinkDelta)
-        // Parallel with height anim: fly to visible target instead of off-screen current position
-        // / 与高度动画并行:飞向可见目标而非视口外当前位置
         double flightOffsetY = offsetY - cardShrinkDelta;
 
         Action completeCollapse = () =>
         {
             entry.IsExpanded = false;
+            if (entry.CardMode == CardMode.HistoryVersion)
+                _expandedHistoryEntry = null;
             _lastExpandedEntry = null;
             _lastExpandedIndex = -1;
             _floatingCollapseVisible = false;
@@ -510,8 +660,6 @@ public sealed partial class ChangelogPage : Page
             t.Start();
         };
 
-        // Track both animations; completeCollapse runs only after BOTH finish
-        // / 跟踪两个动画;completeCollapse仅在两者都完成后运行
         bool heightDone = false;
         bool flightDone = false;
         bool collapseExecuted = false;
@@ -524,12 +672,9 @@ public sealed partial class ChangelogPage : Page
             }
         };
 
-        // Start flight animation simultaneously with height animation / 飞行动画与高度动画同时启动
         if (expandBtn is not null)
         {
             PlayFlightFade(offsetX, flightOffsetY);
-            // Flight+fade total = 180+100 = 280ms; mark done + fade in expand button
-            // / 飞行+淡出总180+100=280ms;标记完成+淡入展开按钮
             var flightTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(280) };
             flightTimer.Tick += (_, _) =>
             {
@@ -546,11 +691,9 @@ public sealed partial class ChangelogPage : Page
             flightDone = true;
         }
 
-        // Height animation: shrink card MaxHeight / 高度动画:缩小卡片MaxHeight
-        // Collapse shrinks height, no markdown re-measure expansion -> avoids LayoutCycle
-        // / 收起缩小高度,无需markdown重新测量扩展->避免布局循环
+        // Height animation only for featured cards / 仅featured卡片有高度动画
         bool heightAnimStarted = false;
-        if (idx >= 0 && idx < _displayItems.Count)
+        if (entry.CardMode == CardMode.Featured && idx >= 0 && idx < _displayItems.Count)
         {
             try
             {
@@ -590,23 +733,16 @@ public sealed partial class ChangelogPage : Page
         }
     }
 
-    // Flight animation: floating button flies to target offset + fade out, then hide
-    // / 飞行动画:浮动按钮飞向目标偏移+淡出后隐藏
     private void PlayFlightFade(double offsetX, double offsetY)
     {
-        // Stop prior flight storyboard to break its HoldEnd / 停止之前飞行动画Storyboard断开HoldEnd
         _flightStoryboard?.Stop();
         var tt = CollapseFloatingBorder.RenderTransform as TranslateTransform ?? new TranslateTransform();
         CollapseFloatingBorder.RenderTransform = tt;
-        // Manually set start values to break prior HoldEnd and ensure visible
-        // / 手动设起始值断开之前HoldEnd并确保可见
         CollapseFloatingBorder.Visibility = Visibility.Visible;
         CollapseFloatingBorder.Opacity = 1;
         tt.X = 0; tt.Y = 0;
 
-        // Flight ease: EaseOut (fast start, decelerate to target) / 飞行曲线: EaseOut(快速出发,减速到位)
         var flightEase = new CircleEase { EasingMode = EasingMode.EaseOut };
-        // Fade ease: EaseIn (gradual disappear) / 淡出曲线: EaseIn(逐渐消失)
         var fadeEase = new CubicEase { EasingMode = EasingMode.EaseIn };
         var sb = new Storyboard();
         var dur = TimeSpan.FromMilliseconds(180);
@@ -618,8 +754,6 @@ public sealed partial class ChangelogPage : Page
         Storyboard.SetTarget(yAnim, tt);
         Storyboard.SetTargetProperty(yAnim, "Y");
         sb.Children.Add(yAnim);
-        // Fade starts AFTER flight completes (BeginTime = flight duration)
-        // / 淡出在飞行完成后开始(BeginTime=飞行时长)
         var fadeDur = TimeSpan.FromMilliseconds(100);
         var opAnim = new DoubleAnimation { To = 0, BeginTime = dur, Duration = fadeDur, EasingFunction = fadeEase };
         Storyboard.SetTarget(opAnim, CollapseFloatingBorder);
@@ -636,8 +770,6 @@ public sealed partial class ChangelogPage : Page
         sb.Begin();
     }
 
-    // Independent fade-in animation for expand button (separate from flight storyboard)
-    // / 展开按钮独立淡入动画(与飞行动画分离)
     private void PlayFadeIn(FrameworkElement target)
     {
         _fadeInStoryboard?.Stop();
@@ -659,16 +791,11 @@ public sealed partial class ChangelogPage : Page
         sb.Begin();
     }
 
-    // Flight-in animation: floating button flies FROM expand button position TO fixed bottom position
-    // / 飞入动画:浮动按钮从展开按钮位置飞到固定底部位置
-    // offsetX/Y = expand button center - floating button fixed center (initial TranslateTransform)
-    // / 偏移=展开按钮中心-浮动按钮固定中心(初始TranslateTransform)
     private void PlayFlightIn(double offsetX, double offsetY)
     {
         _flightStoryboard?.Stop();
         var tt = CollapseFloatingBorder.RenderTransform as TranslateTransform ?? new TranslateTransform();
         CollapseFloatingBorder.RenderTransform = tt;
-        // Start at expand button position (offset), invisible / 从展开按钮位置(偏移)开始,不可见
         CollapseFloatingBorder.Visibility = Visibility.Visible;
         CollapseFloatingBorder.Opacity = 0;
         tt.X = offsetX; tt.Y = offsetY;
@@ -677,7 +804,6 @@ public sealed partial class ChangelogPage : Page
         var fadeEase = new CubicEase { EasingMode = EasingMode.EaseOut };
         var sb = new Storyboard();
         var dur = TimeSpan.FromMilliseconds(180);
-        // Fly to fixed position (0, 0) / 飞到固定位置(0,0)
         var xAnim = new DoubleAnimation { To = 0, Duration = dur, EasingFunction = flightEase };
         Storyboard.SetTarget(xAnim, tt);
         Storyboard.SetTargetProperty(xAnim, "X");
@@ -686,8 +812,6 @@ public sealed partial class ChangelogPage : Page
         Storyboard.SetTarget(yAnim, tt);
         Storyboard.SetTargetProperty(yAnim, "Y");
         sb.Children.Add(yAnim);
-        // Fade in at flight START (visible during flight, not after)
-        // / 飞行开始时淡入(飞行中可见,不是飞行后)
         var fadeDur = TimeSpan.FromMilliseconds(100);
         var opAnim = new DoubleAnimation { To = 1, Duration = fadeDur, EasingFunction = fadeEase };
         Storyboard.SetTarget(opAnim, CollapseFloatingBorder);
@@ -703,16 +827,338 @@ public sealed partial class ChangelogPage : Page
         sb.Begin();
     }
 
-    // Find expand button in card by matching entry tag / 通过entry匹配查找卡片内展开按钮
+    // Find the visible expand/collapse button for an entry, skipping buttons inside collapsed containers
+    // / 查找条目的可见展开/收起按钮,跳过折叠容器内的按钮
     private static Button? FindExpandButton(DependencyObject root, ChangelogEntry entry)
     {
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
         {
             var child = VisualTreeHelper.GetChild(root, i);
-            if (child is Button b && ReferenceEquals(b.Tag, entry)) return b;
+            if (child is Button b && ReferenceEquals(b.Tag, entry) && b.Visibility == Visibility.Visible
+                && IsAncestorChainVisible(b))
+                return b;
             var found = FindExpandButton(child, entry);
             if (found is not null) return found;
         }
         return null;
+    }
+
+    // Check if all ancestors up to the visual tree root are Visible
+    // / 检查所有祖先元素是否可见(无 Collapsed 容器)
+    private static bool IsAncestorChainVisible(FrameworkElement element)
+    {
+        DependencyObject? node = VisualTreeHelper.GetParent(element);
+        while (node is not null)
+        {
+            if (node is FrameworkElement fe && fe.Visibility == Visibility.Collapsed)
+                return false;
+            node = VisualTreeHelper.GetParent(node);
+        }
+        return true;
+    }
+
+    // Handle IsExpanded change via PropertyChanged (fallback for when Expander
+    // Expanding/Collapsed events don't fire due to TwoWay binding)
+    // / 通过PropertyChanged处理IsExpanded变化(Expander的Expanding/Collapsed事件
+    // 在TwoWay绑定下可能不触发)
+    private void OnEntryPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not ChangelogEntry entry) return;
+        if (e.PropertyName != nameof(ChangelogEntry.IsExpanded)) return;
+
+
+        if (entry.CardMode != CardMode.HistoryVersion) return;
+
+        if (entry.IsExpanded)
+        {
+            // History card expanding via chevron: Expanding event may not fire
+            // with TwoWay binding, so handle it here
+            // / history 卡片通过 chevron 展开:TwoWay 绑定下 Expanding 事件可能不触发,
+            // 在此处理
+            _isExpandingHistory = true;
+
+            // Record card position BEFORE layout updates (mutual exclusivity
+            // collapse may shift this card's position upward)
+            // / 布局更新前记录卡片位置(互斥收起可能使此卡片位置上移)
+            double cardTopBefore = double.NaN;
+            int expandIdx = _displayItems.IndexOf(entry);
+            if (expandIdx >= 0 && expandIdx < _displayItems.Count)
+            {
+                try
+                {
+                    if (ChangelogRepeater.GetOrCreateElement(expandIdx) is FrameworkElement rootExp)
+                    {
+                        var tBefore = rootExp.TransformToVisual(ChangelogScrollViewer);
+                        cardTopBefore = tBefore.TransformPoint(new Point(0, 0)).Y;
+                    }
+                }
+                catch { }
+            }
+
+            // Mutual exclusivity: collapse ALL expanded history cards except this one
+            // / 互斥:收起所有已展开的 history 卡片(除当前卡片外)
+            foreach (var item in _displayItems)
+            {
+                if (item.CardMode == CardMode.HistoryVersion && item.IsExpanded && !ReferenceEquals(item, entry))
+                    item.IsExpanded = false;
+            }
+
+            _expandedHistoryEntry = entry;
+            _lastExpandedEntry = entry;
+            _lastExpandedIndex = expandIdx;
+
+            SetFloatingCollapseVisible(true, animate: false);
+
+            // Restore card top position: mutual exclusivity collapse may have
+            // shifted this card upward; adjust scroll offset to compensate.
+            // / 恢复卡片顶部位置:互斥收起可能使此卡片上移,调整滚动偏移补偿
+            RestoreExpandedCardPosition(cardTopBefore, expandIdx);
+
+            // Fade in version detail panel inside the card (transition from
+            // "History versions" label to version number/date/prerelease)
+            // / 淡入卡片内版本详情面板(从"历史版本"标签过渡到版本号/日期/预发布)
+            FadeInVersionDetailPanel(expandIdx);
+
+            // Update sticky overlays immediately after expand state change
+            // / 展开状态变化后立即更新sticky覆盖层
+            UpdateStickyVersionLayers();
+
+            // Re-evaluate after expansion animation completes
+            // / 展开动画完成后重新评估
+            var reevalTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            reevalTimer.Tick += (_, _) =>
+            {
+                reevalTimer.Stop();
+                _isExpandingHistory = false;
+                UpdateCollapseButton();
+                UpdateStickyVersionLayers();
+                var reevalTimer2 = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+                reevalTimer2.Tick += (_, _) => { reevalTimer2.Stop(); UpdateCollapseButton(); UpdateStickyVersionLayers(); };
+                reevalTimer2.Start();
+            };
+            reevalTimer.Start();
+        }
+        else
+        {
+            // History card collapsing via chevron: Collapsed event may not fire
+            // with TwoWay binding, so handle it here
+            // / history 卡片通过 chevron 收起:TwoWay 绑定下 Collapsed 事件可能不触发,
+            // 在此处理
+            if (_isExpandingHistory) return;
+
+            // Record card position before collapse for scroll position restoration
+            // / 收起前记录卡片位置用于滚动位置恢复
+            double cardTopBeforeCollapse = double.NaN;
+            int collapseIdx = _displayItems.IndexOf(entry);
+            if (collapseIdx >= 0 && collapseIdx < _displayItems.Count)
+            {
+                try
+                {
+                    if (ChangelogRepeater.GetOrCreateElement(collapseIdx) is FrameworkElement rootCol)
+                    {
+                        var tBefore = rootCol.TransformToVisual(ChangelogScrollViewer);
+                        cardTopBeforeCollapse = tBefore.TransformPoint(new Point(0, 0)).Y;
+                    }
+                }
+                catch { }
+            }
+
+            if (ReferenceEquals(_expandedHistoryEntry, entry))
+                _expandedHistoryEntry = null;
+            if (ReferenceEquals(_lastExpandedEntry, entry))
+            {
+                _lastExpandedEntry = null;
+                _lastExpandedIndex = -1;
+            }
+            SetFloatingCollapseVisible(false);
+
+            // Restore card top position after collapse: card height shrinks,
+            // adjust scroll offset to keep the card in view.
+            // / 收起后恢复卡片顶部位置:卡片高度缩小,调整滚动偏移保持卡片可见
+            RestoreExpandedCardPosition(cardTopBeforeCollapse, collapseIdx);
+
+            // Update sticky overlays after collapse state change
+            // / 收起状态变化后更新sticky覆盖层
+            UpdateStickyVersionLayers();
+        }
+    }
+
+    // Restore card top position after expand: prevents content above from
+    // shifting when mutual exclusivity collapses another expanded card.
+    // / 展开后恢复卡片顶部位置:防止互斥收起上方卡片时当前位置偏移
+    private void RestoreExpandedCardPosition(double cardTopBefore, int expandIdx)
+    {
+        if (double.IsNaN(cardTopBefore) || expandIdx < 0 || expandIdx >= _displayItems.Count) return;
+        // Defer UpdateLayout to next frame to avoid LayoutCycleException
+        // / 将UpdateLayout延迟到下一帧避免LayoutCycleException
+        double savedTopBefore = cardTopBefore;
+        int savedIdx = expandIdx;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            try
+            {
+                ChangelogRepeater.UpdateLayout();
+                if (ChangelogRepeater.GetOrCreateElement(savedIdx) is FrameworkElement rootExp)
+                {
+                    var tAfter = rootExp.TransformToVisual(ChangelogScrollViewer);
+                    double cardTopAfter = tAfter.TransformPoint(new Point(0, 0)).Y;
+                    double scrollDelta = cardTopAfter - savedTopBefore;
+                    if (Math.Abs(scrollDelta) > 1)
+                    {
+                        double newOffset = ChangelogScrollViewer.VerticalOffset + scrollDelta;
+                        newOffset = Math.Clamp(newOffset, 0, ChangelogScrollViewer.ScrollableHeight);
+                        ChangelogScrollViewer.ChangeView(null, newOffset, null, false);
+                    }
+                }
+            }
+            catch { }
+        });
+    }
+
+    // Fade in the version detail panel inside a card after expand
+    // / 展开后淡入卡片内版本详情面板
+    private void FadeInVersionDetailPanel(int cardIdx)
+    {
+        if (cardIdx < 0 || cardIdx >= _displayItems.Count) return;
+        try
+        {
+            if (ChangelogRepeater.GetOrCreateElement(cardIdx) is FrameworkElement root)
+            {
+                var panel = FindDescendantByName(root, "VersionDetailPanel");
+                if (panel is not null)
+                {
+                    panel.Opacity = 0;
+                    var fadeAnim = new DoubleAnimation
+                    {
+                        From = 0,
+                        To = 1,
+                        Duration = TimeSpan.FromMilliseconds(StateAnimMs),
+                        EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                    };
+                    Storyboard.SetTarget(fadeAnim, panel);
+                    Storyboard.SetTargetProperty(fadeAnim, "Opacity");
+                    var sb = new Storyboard();
+                    sb.Children.Add(fadeAnim);
+                    sb.Begin();
+                }
+            }
+        }
+        catch { }
+    }
+
+    // Find a descendant element by name in the visual tree
+    // / 在可视树中按名称查找后代元素
+    private static FrameworkElement? FindDescendantByName(DependencyObject root, string name)
+    {
+        if (root is FrameworkElement fe && fe.Name == name) return fe;
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            var result = FindDescendantByName(child, name);
+            if (result is not null) return result;
+        }
+        return null;
+    }
+
+    // Expander expanding: handle mutual exclusivity for history cards
+    // / Expander 展开:处理 history 卡片互斥
+    private void HistoryExpander_Expanding(Expander sender, ExpanderExpandingEventArgs args)
+    {
+        var entry = sender.DataContext as ChangelogEntry;
+        if (entry is null) return;
+
+        // Set flag BEFORE mutual exclusivity: collapsing history cards triggers
+        // HistoryExpander_Collapsed which must not hide the floating button
+        // / 互斥操作前设置标志:收起其他 history 卡片会触发 HistoryExpander_Collapsed,
+        // 不能让它隐藏浮动按钮
+        _isExpandingHistory = true;
+
+        // Mutual exclusivity: collapse ALL expanded history cards except this one
+        // / 互斥:收起所有已展开的 history 卡片(除当前卡片外)
+        foreach (var item in _displayItems)
+        {
+            if (item.CardMode == CardMode.HistoryVersion && item.IsExpanded && !ReferenceEquals(item, entry))
+                item.IsExpanded = false;
+        }
+
+        _expandedHistoryEntry = entry;
+        _lastExpandedEntry = entry;
+        _lastExpandedIndex = _displayItems.IndexOf(entry);
+
+        // Record card position before layout changes / 布局变化前记录卡片位置
+        double cardTopBefore = double.NaN;
+        if (_lastExpandedIndex >= 0 && _lastExpandedIndex < _displayItems.Count)
+        {
+            try
+            {
+                if (ChangelogRepeater.GetOrCreateElement(_lastExpandedIndex) is FrameworkElement rootExp)
+                {
+                    var tBefore = rootExp.TransformToVisual(ChangelogScrollViewer);
+                    cardTopBefore = tBefore.TransformPoint(new Point(0, 0)).Y;
+                }
+            }
+            catch { }
+        }
+
+
+        SetFloatingCollapseVisible(true, animate: false);
+
+        // Restore card top position after mutual exclusivity collapse
+        // / 互斥收起后恢复卡片顶部位置
+        RestoreExpandedCardPosition(cardTopBefore, _lastExpandedIndex);
+
+        // Fade in version detail panel inside the card
+        // / 淡入卡片内版本详情面板
+        FadeInVersionDetailPanel(_lastExpandedIndex);
+
+        // Update sticky overlays immediately after expand state change
+        // / 展开状态变化后立即更新sticky覆盖层
+        UpdateStickyVersionLayers();
+
+        // Re-evaluate after expansion animation completes (card height may still be changing)
+        // / 展开动画完成后重新评估(卡片高度可能仍在变化)
+        var reevalTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        reevalTimer.Tick += (_, _) =>
+        {
+            reevalTimer.Stop();
+            _isExpandingHistory = false;
+            UpdateCollapseButton();
+            UpdateStickyVersionLayers();
+            // Secondary re-evaluation: markdown content renders asynchronously and
+            // may not be complete at 500ms, causing height misjudgment.
+            // Re-check after additional delay when BottomButtonBorder should be ready.
+            // / 二次评估:markdown内容异步渲染,500ms时可能未完成导致高度误判,
+            // 额外延迟后BottomButtonBorder应已就绪,再次检查
+            var reevalTimer2 = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            reevalTimer2.Tick += (_, _) => { reevalTimer2.Stop(); UpdateCollapseButton(); UpdateStickyVersionLayers(); };
+            reevalTimer2.Start();
+        };
+        reevalTimer.Start();
+    }
+
+    // Expander collapsed: clear state for history cards
+    // / Expander 收起:清除 history 卡片状态
+    private void HistoryExpander_Collapsed(Expander sender, ExpanderCollapsedEventArgs args)
+    {
+        var entry = sender.DataContext as ChangelogEntry;
+
+        if (entry is null) return;
+
+        // Skip during mutual exclusivity collapse: another card is expanding
+        // and will manage the floating button. This prevents Collapsed from
+        // overriding SetFloatingCollapseVisible(true) in HistoryExpander_Expanding.
+        // / 互斥收起时跳过:另一个卡片正在展开,会管理浮动按钮
+        // 防止Collapsed覆盖HistoryExpander_Expanding中的SetFloatingCollapseVisible(true)
+        if (_isExpandingHistory) return;
+
+        if (ReferenceEquals(_expandedHistoryEntry, entry))
+            _expandedHistoryEntry = null;
+        if (ReferenceEquals(_lastExpandedEntry, entry))
+        {
+            _lastExpandedEntry = null;
+            _lastExpandedIndex = -1;
+        }
+        SetFloatingCollapseVisible(false);
     }
 }

@@ -107,6 +107,9 @@
   <data name="RuntimeChangelogCacheMessage" xml:space="preserve">
     <value>网络请求失败，正在显示本地缓存的更新日志</value>
   </data>
+  <data name="RuntimeChangelogHistoryVersions" xml:space="preserve">
+    <value>历史版本</value>
+  </data>
 
   <!-- MonitorPage -->
   <data name="RuntimeMonitorHostProcess" xml:space="preserve">

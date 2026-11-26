@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using ShuRuk.Runtime.Services.Markdown;
 
 namespace ShuRuk.Runtime.Views;
@@ -61,7 +62,31 @@ public sealed partial class ChangelogPage : Page
     private void MarkdownTextBlock_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (sender is CommunityToolkit.WinUI.Controls.MarkdownTextBlock mtb)
+        {
             MarkdownStyler.OnSizeChanged(mtb, IsDark, DispatcherQueue);
+            // Re-trigger overflow measurement: markdown async render may grow content
+            // beyond MaxHeight without triggering repeater SizeChanged (clamped by parent)
+            // / 重新触发溢出测量:markdown异步渲染可能使内容增长超出MaxHeight
+            // 但repeater的SizeChanged不触发(被父级钳制)
+            ReevaluateOverflowFromMarkdown(mtb);
+        }
+    }
+
+    // Walk up visual tree to find CardContentGrid + FeaturedContentRepeater for overflow re-measure
+    // / 向上遍历可视树查找CardContentGrid和FeaturedContentRepeater以重新测量溢出
+    private void ReevaluateOverflowFromMarkdown(DependencyObject element)
+    {
+        Grid? cardGrid = null;
+        ItemsRepeater? contentRepeater = null;
+        DependencyObject? node = element;
+        while (node is not null)
+        {
+            if (node is Grid g && g.Name == "CardContentGrid") cardGrid ??= g;
+            if (node is ItemsRepeater r && r.Name == "FeaturedContentRepeater") contentRepeater ??= r;
+            node = VisualTreeHelper.GetParent(node);
+        }
+        if (cardGrid is not null && contentRepeater is not null)
+            ScheduleOverflowMeasureFromGrid(cardGrid, contentRepeater);
     }
 
     // Find ProgressRing sibling in same Grid / 在同一Grid中查找ProgressRing
