@@ -267,4 +267,6 @@ jobs:
       - name: Build verification
         shell: pwsh
         run: |
-          dotnet build ShuRuk.slnx -c Release
+          # Disable MSIX signing for build verification (no cert in CI env)
+          # / 禁用MSIX签名用于构建验证(CI环境无证书)
+          dotnet build ShuRuk.slnx -c Release -p:AppxPackageSigningEnabled=False
